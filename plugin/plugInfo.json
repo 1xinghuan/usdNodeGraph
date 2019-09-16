@@ -1,0 +1,16 @@
+{
+    "Plugins": [
+        {
+            "Type": "python",
+            "Name": "usdViewNodeGraph",
+            "Info": {
+                "Types": {
+                    "usdViewNodeGraph.NodeGraphPluginContainer": {
+                        "bases": ["pxr.Usdviewq.plugin.PluginContainer"],
+                        "displayName": ["Usdview Node Graph Plugin"]
+                    }
+                }
+            }
+        }
+    ]
+}
