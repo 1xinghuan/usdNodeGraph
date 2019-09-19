@@ -1,7 +1,7 @@
 import sys
-from usdNodePraph.module.sqt import *
-from usdNodePraph.ui.nodeGraph import UsdNodeGraph
-from usdNodePraph.ui.app import MainApplication
+from usdNodeGraph.module.sqt import *
+from usdNodeGraph.ui.nodeGraph import UsdNodeGraph
+from usdNodeGraph.ui.app import MainApplication
 
 if __name__ == '__main__':
     usdFile = ''

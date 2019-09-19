@@ -4,8 +4,8 @@
 
 
 import os
-from usdNodePraph.module.sqt import *
-from usdNodePraph.utils.res import resource
+from usdNodeGraph.module.sqt import *
+from usdNodeGraph.utils.res import resource
 
 TAG_W = 20
 TAG_H = 20

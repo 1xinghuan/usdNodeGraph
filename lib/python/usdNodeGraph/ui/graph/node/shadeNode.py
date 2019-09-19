@@ -3,10 +3,10 @@
 
 
 from pxr import Usd, Sdf, Kind, UsdGeom
-from usdNodePraph.module.sqt import *
+from usdNodeGraph.module.sqt import *
 from .node import NodeItem, registerNode, setNodeDefault, _BaseNodeItem
 from .node import PixmapTag
-from usdNodePraph.ui.parameter.parameter import Parameter, StringParameter
+from usdNodeGraph.ui.parameter.parameter import Parameter, StringParameter
 from .port import InputPort, OutputPort
 
 

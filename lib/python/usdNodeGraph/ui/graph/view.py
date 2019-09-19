@@ -6,7 +6,7 @@
 import sys
 import re
 import json
-from usdNodePraph.module.sqt import *
+from usdNodeGraph.module.sqt import *
 from node import (NodeItem, LayerNodeItem, ReferenceNodeItem, PayloadNodeItem)
 from pipe import Pipe
 from .node.port import Port

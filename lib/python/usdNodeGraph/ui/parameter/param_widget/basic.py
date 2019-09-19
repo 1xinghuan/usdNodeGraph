@@ -1,4 +1,4 @@
-from usdNodePraph.module.sqt import *
+from usdNodeGraph.module.sqt import *
 from ..parameter import Parameter, Vec3fParameter
 
 
@@ -8,7 +8,7 @@ class ParameterObject(object):
 
     @classmethod
     def createParameterWidget(cls, parameter):
-        from usdNodePraph.ui.parameter.register import ParameterRegister
+        from usdNodeGraph.ui.parameter.register import ParameterRegister
 
         typeName = parameter.parameterTypeString
         parameterWidgetClass = ParameterRegister.getParameterWidget(typeName)
@@ -111,7 +111,7 @@ class ArrayParameterWidget(QWidget, ParameterObject):
         self.updateUI()
 
     def updateUI(self):
-        from usdNodePraph.ui.utils.layout import clearLayout
+        from usdNodeGraph.ui.utils.layout import clearLayout
 
         self.setToolTip(self._parameter.name())
 

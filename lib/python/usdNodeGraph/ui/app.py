@@ -1,7 +1,7 @@
 
 import os
-from usdNodePraph.module.sqt import QApplication, QPalette, QColor, Qt
-from usdNodePraph.utils.res import resource
+from usdNodeGraph.module.sqt import QApplication, QPalette, QColor, Qt
+from usdNodeGraph.utils.res import resource
 
 
 TEXT_COLOR = QColor(220, 220, 220)

@@ -5,9 +5,10 @@ from pxr.Usdviewq.qt import QtWidgets, QtCore
 
 
 def openNodeGraph(usdviewApi):
-    from usdNodePraph.ui.nodeGraph import UsdNodeGraph
+    from usdNodeGraph.ui.nodeGraph import UsdNodeGraph
 
     UsdNodeGraph.registerActionShortCut('open_file', None)
+    # UsdNodeGraph.registerActionShortCut('reload_layer', None)
 
     mainWindow = usdviewApi.qMainWindow
 
@@ -24,7 +25,7 @@ def openNodeGraph(usdviewApi):
 
         mainWindow.nodeGraph = nodeGraph
         mainWindow.nodeGraphDock = nodeGraphDock
-        mainWindow.addDockwidget(QtCore.Qt.RightDockWidgetArea, mainWindow.nodeGraphDock)
+        mainWindow.addDockWidget(QtCore.Qt.RightDockWidgetArea, mainWindow.nodeGraphDock)
 
     mainWindow.nodeGraph.show()
     mainWindow.nodeGraph.setStage(usdviewApi.stage)
@@ -39,7 +40,7 @@ class NodeGraphPluginContainer(PluginContainer):
         )
 
     def configureView(self, plugRegistry, plugUIBuilder):
-        nodeGraphMenu = plugRegistry.findOrCreateMenu('NodeGraph')
+        nodeGraphMenu = plugUIBuilder.findOrCreateMenu('NodeGraph')
         nodeGraphMenu.addItem(self.openItem)
 
 

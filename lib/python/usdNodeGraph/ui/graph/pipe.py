@@ -3,7 +3,7 @@
 # 8/29/2018
 
 
-from usdNodePraph.module.sqt import *
+from usdNodeGraph.module.sqt import *
 import math
 
 

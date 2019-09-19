@@ -5,11 +5,11 @@
 import os
 import sys
 from pxr import Usd
-from usdNodePraph.module.sqt import *
-from usdNodePraph.ui.graph.view import GraphicsSceneWidget
-from usdNodePraph.ui.graph.node import NodeItem
-from usdNodePraph.ui.graph.const import Const
-from usdNodePraph.ui.parameter.param_panel import ParameterPanel
+from usdNodeGraph.module.sqt import *
+from usdNodeGraph.ui.graph.view import GraphicsSceneWidget
+from usdNodeGraph.ui.graph.node import NodeItem
+from usdNodeGraph.ui.graph.const import Const
+from usdNodeGraph.ui.parameter.param_panel import ParameterPanel
 
 
 class DockWidget(QDockWidget):

@@ -1,5 +1,5 @@
 from .basic import ParameterObject
-from usdNodePraph.module.sqt import *
+from usdNodeGraph.module.sqt import *
 from ..parameter import Parameter, StringParameter, FilePathParameter, TextParameter
 
 

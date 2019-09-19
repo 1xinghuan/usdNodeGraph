@@ -1,4 +1,4 @@
-from usdNodePraph.module.sqt import *
+from usdNodeGraph.module.sqt import *
 from .basic import ParameterObject, ArrayParameterWidget
 from ..parameter import *
 from .string import *

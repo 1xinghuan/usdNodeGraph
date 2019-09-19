@@ -1,6 +1,6 @@
-from usdNodePraph.module.sqt import *
+from usdNodeGraph.module.sqt import *
 from ..param_widget import *
-from usdNodePraph.utils.res import resource
+from usdNodeGraph.utils.res import resource
 
 
 class NodeParameterWidget(QWidget):

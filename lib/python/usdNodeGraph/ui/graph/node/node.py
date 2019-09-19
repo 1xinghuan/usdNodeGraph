@@ -3,11 +3,11 @@
 # 8/29/2018
 
 
-from usdNodePraph.module.sqt import *
+from usdNodeGraph.module.sqt import *
 from .port import InputPort, OutputPort, Port
 from .tag import PixmapTag
 from ..const import *
-from usdNodePraph.ui.parameter.parameter import (
+from usdNodeGraph.ui.parameter.parameter import (
     Parameter, TextParameter, FloatParameter, StringParameter, BoolParameter)
 import time
 import re
@@ -67,7 +67,7 @@ class Node(object):
         pass
 
     def addParameter(self, parameterName, parameterType, defaultValue=None):
-        from usdNodePraph.ui.parameter.register import ParameterRegister
+        from usdNodeGraph.ui.parameter.register import ParameterRegister
 
         if self.hasParameter(parameterName):
             print('Parameter Exist! {}'.format(parameterName))

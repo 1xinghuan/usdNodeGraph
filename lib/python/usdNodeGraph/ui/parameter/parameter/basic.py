@@ -2,7 +2,7 @@
 # __author__ = 'XingHuan'
 
 
-from usdNodePraph.module.sqt import *
+from usdNodeGraph.module.sqt import *
 
 
 class Parameter(QObject):

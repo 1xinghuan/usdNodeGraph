@@ -5,7 +5,7 @@
 
 import os
 import sys
-from usdNodePraph.module.sqt import *
+from usdNodeGraph.module.sqt import *
 
 RES_FOLDER = '/'.join(__file__.replace('\\', '/').split('/')[:-3]) + '/resource'
 

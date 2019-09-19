@@ -8,6 +8,7 @@ class _StringParameter(Parameter):
 
 class StringParameter(_StringParameter):
     parameterTypeString = 'string'
+    valueTypeName = Sdf.ValueTypeNames.String
 
 
 class TokenParameter(_StringParameter):
@@ -25,6 +26,7 @@ class TextParameter(_StringParameter):
 
 class AssetParameter(_StringParameter):
     parameterTypeString = 'asset'
+    valueTypeName = Sdf.ValueTypeNames.Asset
 
 
 class ChooseParameter(_StringParameter):
@@ -137,7 +139,7 @@ class _ArrayParameter(Parameter):
 
     @classmethod
     def getChildParamClass(cls):
-        from usdNodePraph.ui.parameter.register import ParameterRegister
+        from usdNodeGraph.ui.parameter.register import ParameterRegister
 
         paramClass = ParameterRegister.getParameter(cls.getChildParamType())
         return paramClass
