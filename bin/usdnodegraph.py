@@ -1,5 +1,4 @@
 import sys
-from usdNodeGraph.module.sqt import *
 from usdNodeGraph.ui.nodeGraph import UsdNodeGraph
 from usdNodeGraph.ui.app import MainApplication
 
