@@ -2,7 +2,7 @@
 # __author__ = 'XingHuan'
 
 
-from pxr import Usd, Sdf, Kind, UsdGeom
+from pxr import Usd, Sdf, Kind, UsdGeom, UsdShade
 from usdNodeGraph.module.sqt import *
 from .node import NodeItem, registerNode, setNodeDefault
 from .node import PixmapTag
@@ -48,7 +48,7 @@ class _PrimNodeItem(UsdNodeItem):
         self.addParameter('typeName', 'string', defaultValue='')
         self.addParameter('kind', 'string', defaultValue='')
 
-    def _get_current_prim_path(self, prim):
+    def _getCurrentPrimPath(self, prim):
         primPath = prim.GetPath().pathString
         if primPath == '/':
             primPath = ''
@@ -128,7 +128,7 @@ class PrimDefineNodeItem(_PrimNodeItem):
         super(PrimDefineNodeItem, self).__init__(*args, **kwargs)
 
     def _execute(self, stage, prim):
-        primPath = self._get_current_prim_path(prim)
+        primPath = self._getCurrentPrimPath(prim)
         typeName = self.parameter('typeName').getValue()
         kindStr = self.parameter('kind').getValue()
 
@@ -152,7 +152,7 @@ class PrimOverrideNodeItem(_PrimNodeItem):
         super(PrimOverrideNodeItem, self).__init__(*args, **kwargs)
 
     def _execute(self, stage, prim):
-        primPath = self._get_current_prim_path(prim)
+        primPath = self._getCurrentPrimPath(prim)
         typeName = self.parameter('typeName').getValue()
         kindStr = self.parameter('kind').getValue()
 
@@ -208,7 +208,7 @@ class PayloadNodeItem(_RefNodeItem):
 
         if payload is not None:
             self.parameter('assetPath').setValue(payload.assetPath)
-            self.parameter('primPath').setValue(payload.primPath)
+            self.parameter('primPath').setValue(payload.primPath.pathString)
 
     def _initParameters(self):
         super(PayloadNodeItem, self)._initParameters()
@@ -245,6 +245,10 @@ class AttributeSetNodeItem(UsdNodeItem):
 
         param = self.addParameter(attributeName, attributeType)
         if param is not None:
+            if attribute.HasInfo('connectionPaths'):
+                connectionPathList = attribute.connectionPathList.GetAddedOrExplicitItems()
+                connect = connectionPathList[0]
+                param.setConnect(connect.pathString)
             if attribute.HasInfo('timeSamples'):
                 param.setTimeSamples(attribute.GetInfo('timeSamples'))
             else:
@@ -265,12 +269,53 @@ class AttributeSetNodeItem(UsdNodeItem):
             else:
                 attribute = prim.GetAttribute(attrName)
 
-            if param.hasKey():
+            if param.hasConnect():
+                attribute.SetConnections([param.getConnect()])
+            elif param.hasKey():
                 for time, value in param.getTimeSamples().items():
                     attribute.Set(value, time)
             else:
                 if param.getValue() is not None:
                     attribute.Set(param.getValue())
+        return stage, prim
+
+
+class RelationshipSetNodeItem(UsdNodeItem):
+    nodeType = 'RelationshipSet'
+    fillNormalColor = QColor(70, 60, 50)
+    borderNormalColor = QColor(250, 250, 250, 200)
+
+    def __init__(self, prim=None, *args, **kwargs):
+        super(RelationshipSetNodeItem, self).__init__(*args, **kwargs)
+
+        if prim is not None:
+            for key, relationship in prim.relationships.items():
+                self._addRelationshipParameter(relationship)
+
+    def _addRelationshipParameter(self, relationship):
+        relationshipName = relationship.name
+        targetPathList = [i.pathString for i in relationship.targetPathList.GetAddedOrExplicitItems()]
+
+        param = self.addParameter(relationshipName, 'string[]')
+        if param is not None:
+            param.setValue(targetPathList)
+
+    def _initParameters(self):
+        super(RelationshipSetNodeItem, self)._initParameters()
+        pass
+
+    def _execute(self, stage, prim):
+        params = [param for param in self._parameters.values() if not param.isBuiltIn()]
+        for param in params:
+            # print(param.name(), param.getValue(), param.hasKey())
+            relationshipName = param.name()
+            if not prim.HasRelationship(relationshipName):
+                relationship = prim.CreateRelationship(relationshipName)
+                relationship.SetCustom(False)
+            else:
+                relationship = prim.GetRelationship(relationshipName)
+
+            relationship.SetTargets(param.getValue())
         return stage, prim
 
 
@@ -297,6 +342,16 @@ class VariantSetNodeItem(_VariantNodeItem):
         self.addParameter('variantSetName', 'string', defaultValue='')
         self.addParameter('variantList', 'string[]', defaultValue=[])
 
+    def _execute(self, stage, prim):
+        variantSetName = self.parameter('variantSetName').getValue()
+        variantList = self.parameter('variantList').getValue()
+
+        variantSet = prim.GetVariantSets().AddVariantSet(variantSetName)
+        for variant in variantList:
+            variantSet.AddVariant(variant)
+
+        return stage, prim
+
 
 class VariantSelectNodeItem(_VariantNodeItem):
     nodeType = 'VariantSelect'
@@ -312,7 +367,7 @@ class VariantSelectNodeItem(_VariantNodeItem):
         self.parameter('variantSelected').setValue(variantSelected)
 
         if self._prim is not None:
-            stagePrim = self._getStagePrim()
+            stagePrim = self._getUsdPrim()
             variantSet = stagePrim.GetVariantSet(variantSetName)
             # variantNameList = [v.name for v in self._prim.variantSets.get(variantSetName).variantList]
             variantNameList = variantSet.GetVariantNames()
@@ -323,7 +378,7 @@ class VariantSelectNodeItem(_VariantNodeItem):
         self.addParameter('variantSetName', 'string', defaultValue='')
         self.addParameter('variantSelected', 'choose', defaultValue='')
 
-    def _getStagePrim(self):
+    def _getUsdPrim(self):
         primPath = self._prim.path
         stagePrim = self._stage.GetPrimAtPath(primPath)
         return stagePrim
@@ -334,9 +389,18 @@ class VariantSelectNodeItem(_VariantNodeItem):
             if self._prim is not None:
                 variantSetName = self.parameter('variantSetName').getValue()
 
-                stagePrim = self._getStagePrim()
+                stagePrim = self._getUsdPrim()
                 variantSet = stagePrim.GetVariantSet(variantSetName)
                 variantSet.SetVariantSelection(value)
+    
+    def _execute(self, stage, prim):
+        variantSetName = self.parameter('variantSetName').getValue()
+        variantSelected = self.parameter('variantSelected').getValue()
+
+        variantSet = prim.GetVariantSet(variantSetName)
+        variantSet.SetVariantSelection(variantSelected)
+
+        return stage, prim
 
 
 class VariantSwitchNodeItem(_VariantNodeItem):
@@ -355,13 +419,85 @@ class VariantSwitchNodeItem(_VariantNodeItem):
         self.addParameter('variantSetName', 'string', defaultValue='')
         self.addParameter('variantSelected', 'string', defaultValue='')
 
+    def _execute(self, stage, prim):
+        variantSetName = self.parameter('variantSetName').getValue()
+        variantSelected = self.parameter('variantSelected').getValue()
+
+        variantSet = prim.GetVariantSet(variantSetName)
+        variantSet.SetVariantSelection(variantSelected)
+
+        return stage, prim
+
+    def getVariantSet(self, prim):
+        variantSetName = self.parameter('variantSetName').getValue()
+        variantSet = prim.GetVariantSet(variantSetName)
+        return variantSet
 
 
+# class MaterialNodeItem(UsdNodeItem):
+#     nodeType = 'Material'
+#     fillNormalColor = QColor(50, 60, 70)
+#     borderNormalColor = QColor(250, 250, 250, 200)
+#
+#     def __init__(self, prim=None, *args, **kwargs):
+#         super(MaterialNodeItem, self).__init__(*args, **kwargs)
+#
+#         if prim is not None:
+#             self.parameter('primName').setValue(prim.name)
+#
+#     def _initParameters(self):
+#         super(MaterialNodeItem, self)._initParameters()
+#         self.addParameter('primName', 'string', defaultValue='')
+#
+#     def _execute(self, stage, prim):
+#         newPrim = stage.GetPrimAtPath('/')
+#         rootLayer = stage.GetRootLayer()
+#
+#         defaultPrim = self.parameter('defaultPrim').getValue()
+#         upAxis = self.parameter('upAxis').getValue()
+#
+#         if defaultPrim != '':
+#             rootLayer.defaultPrim = defaultPrim
+#         if upAxis != '':
+#             UsdGeom.SetStageUpAxis(stage, getattr(UsdGeom.Tokens, upAxis.lower()))
+#
+#         return stage, newPrim
+
+
+# todo: TransformNodeItem
 class TransformNodeItem(_PrimNodeItem):
     nodeType = 'Transform'
 
     def __init__(self, *args, **kwargs):
         super(TransformNodeItem, self).__init__(*args, **kwargs)
+
+
+class MaterialAssignNodeItem(UsdNodeItem):
+    nodeType = 'MaterialAssign'
+    fillNormalColor = QColor(70, 60, 50)
+    borderNormalColor = QColor(250, 250, 250, 200)
+
+    def __init__(self, material=None, *args, **kwargs):
+        super(MaterialAssignNodeItem, self).__init__(*args, **kwargs)
+
+        if material is not None:
+            self.parameter('material').setValue(material)
+
+    def _initParameters(self):
+        super(MaterialAssignNodeItem, self)._initParameters()
+        self.addParameter('material', 'string', defaultValue='')
+
+    def _execute(self, stage, prim):
+        materialPath = self.parameter('material').getValue()
+
+        # material prim may not exist
+        # materialPrim = stage.GetPrimAtPath(materialPath)
+        # material = UsdShade.Material(materialPrim)
+        #
+        # mesh = UsdGeom.Mesh(prim)
+        # UsdShade.MaterialBindingAPI(mesh).Bind(material)
+
+        return stage, prim
 
 
 
@@ -372,13 +508,16 @@ registerNode(PrimDefineNodeItem)
 registerNode(PrimOverrideNodeItem)
 registerNode(ReferenceNodeItem)
 registerNode(PayloadNodeItem)
+
 registerNode(AttributeSetNodeItem)
+registerNode(RelationshipSetNodeItem)
 
 registerNode(VariantSetNodeItem)
 registerNode(VariantSelectNodeItem)
 registerNode(VariantSwitchNodeItem)
 
 registerNode(TransformNodeItem)
+registerNode(MaterialAssignNodeItem)
 
 
 setNodeDefault(LayerNodeItem.nodeType, 'label', '[python os.path.basename("[value layerPath]")]')

@@ -1,6 +1,5 @@
 from .basic import ParameterObject
 from usdNodeGraph.module.sqt import *
-from ..parameter import Parameter, StringParameter, FilePathParameter, TextParameter
 
 
 class StringWidget(QWidget):
@@ -16,10 +15,14 @@ class StringWidget(QWidget):
         self._lineEdit = QLineEdit()
         self.masterLayout.addWidget(self._lineEdit)
 
-        self._lineEdit.returnPressed.connect(self._editTextChanged)
+        # self._lineEdit.returnPressed.connect(self._editTextChanged)
+        self._lineEdit.editingFinished.connect(self._editTextChanged)
 
     def _editTextChanged(self):
         self.valueChanged.emit()
+
+    def _setMasterWidgetEnable(self, enable):
+        self._lineEdit.setVisible(enable)
 
     def setPyValue(self, value):
         self._lineEdit.setText(str(value))
@@ -50,12 +53,16 @@ class ChooseWidget(QWidget):
         self.setLayout(self.masterLayout)
 
         self._comboBox = QComboBox()
+        self._comboBox.setEditable(True)
         self.masterLayout.addWidget(self._comboBox)
 
         self._comboBox.currentIndexChanged.connect(self._editIndexChanged)
 
     def _editIndexChanged(self):
         self.valueChanged.emit()
+
+    def _setMasterWidgetEnable(self, enable):
+        self._comboBox.setVisible(enable)
 
     def setPyValue(self, value):
         index = self._comboBox.findText(value)

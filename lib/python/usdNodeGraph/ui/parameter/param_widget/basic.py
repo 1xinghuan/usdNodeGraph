@@ -27,6 +27,9 @@ class ParameterObject(object):
 
         self._parameter = None
 
+        self.masterLayout = None
+        self._connectEdit = None
+
     def _breakSignal(self):
         self._parameter.parameterValueChanged.disconnect(self._parameterValueChanged)
 
@@ -55,14 +58,37 @@ class ParameterObject(object):
     def getParameter(self):
         return self._parameter
 
+    def _setMasterWidgetEnable(self, enable):
+        pass
+
     def updateUI(self):
         self.setToolTip(self._parameter.name())
+
+        if self._parameter.hasConnect():
+            self._setMasterWidgetEnable(False)
+            if self._connectEdit is None:
+                self._connectEdit = QLineEdit()
+                self._connectEdit.setStyleSheet('background: rgb(60, 60, 70)')
+                self.masterLayout.addWidget(self._connectEdit)
+
+                self._connectEdit.setText(self._parameter.getConnect())
+                self._connectEdit.editingFinished.connect(self._connectEditChanged)
+        else:
+            self._setMasterWidgetEnable(True)
 
         # todo: timeSamples?
         value = self._parameter.getValue()
         value = self._parameter.convertValueToPy(value)
 
         self.setPyValue(value)
+
+    def _connectEditChanged(self):
+        self._breakSignal()
+
+        connect = str(self._connectEdit.text())
+        self._parameter.setConnect(connect)
+
+        self._reConnectSignal()
 
 
 class ArrayParameterWidget(QWidget, ParameterObject):
@@ -92,6 +118,10 @@ class ArrayParameterWidget(QWidget, ParameterObject):
         self.expanded = 0
 
         self.expandButton.clicked.connect(self._expandClicked)
+
+    def _setMasterWidgetEnable(self, enable):
+        self.expandButton.setVisible(enable)
+        self.scrollArea.setVisible(enable)
 
     def _getEditWidgetClass(self):
         return None
@@ -192,6 +222,10 @@ class VecWidget(QWidget):
 
     def _editTextChanged(self):
         self.valueChanged.emit()
+
+    def _setMasterWidgetEnable(self, enable):
+        for i in self.lineEdits:
+            i.setVisible(enable)
 
     def setPyValue(self, value):
         if not isinstance(value, list):

@@ -97,13 +97,14 @@ class NodeParameterWidget(QWidget):
         tab.setLayout(layout)
 
         for parameter in parameters:
-            parameterLabel = parameter.name()
-            if len(parameterLabel) > 15:
-                parameterLabel = '{}...{}'.format(parameterLabel[:6], parameterLabel[-6:])
-            parameterWidget = ParameterObject.createParameterWidget(parameter)
+            if parameter.isVisible():
+                parameterLabel = parameter.getLabel()
+                # if len(parameterLabel) > 15:
+                #     parameterLabel = '{}...{}'.format(parameterLabel[:6], parameterLabel[-6:])
+                parameterWidget = ParameterObject.createParameterWidget(parameter)
 
-            self._paramWidgets.append(parameterWidget)
-            layout.addRow(parameterLabel, parameterWidget)
+                self._paramWidgets.append(parameterWidget)
+                layout.addRow(parameterLabel, parameterWidget)
 
         self.parameterTabWidget.addTab(tab, label)
 
@@ -112,8 +113,8 @@ class NodeParameterWidget(QWidget):
         nodeParameters = [param for param in parameters if not param.isBuiltIn()]
         builtInParameters = [param for param in parameters if param.isBuiltIn() and param.name() != 'name']
 
-        nodeParameters.sort(lambda p1, p2: cmp(p1.name(), p2.name()))
-        builtInParameters.sort(lambda p1, p2: cmp(p1.name(), p2.name()))
+        nodeParameters.sort(lambda p1, p2: cmp(p1.getOrder(), p2.getOrder()))
+        builtInParameters.sort(lambda p1, p2: cmp(p1.getOrder(), p2.getOrder()))
 
         self._buildTab(self._node.nodeType, nodeParameters)
         self._buildTab('Node', builtInParameters)
@@ -168,9 +169,7 @@ class ParameterPanel(QWidget):
         self.masterLayout.addWidget(self.widgetsArea)
 
     def sizeHint(self):
-        w = self.parent().width() * 0.3
-        h = self.parent().height()
-        return QSize(w, h)
+        return QSize(200, 200)
 
     def _numChanged(self):
         self._removeExtraWidgets()

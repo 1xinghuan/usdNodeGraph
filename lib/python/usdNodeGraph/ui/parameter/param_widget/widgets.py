@@ -22,6 +22,9 @@ class BoolWidget(QWidget):
     def _checkedChanged(self):
         self.valueChanged.emit()
 
+    def _setMasterWidgetEnable(self, enable):
+        self.checkBox.setVisible(enable)
+
     def setPyValue(self, value):
         self.checkBox.setChecked(value)
 

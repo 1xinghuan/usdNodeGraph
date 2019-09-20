@@ -10,7 +10,7 @@ import math
 class Pipe(QGraphicsPathItem):
     """A connection between two versions"""
 
-    def __init__(self, **kwargs):
+    def __init__(self, orientation=0, **kwargs):
         super(Pipe, self).__init__(**kwargs)
 
         self.setFlag(QGraphicsItem.ItemIsSelectable, False)
@@ -21,10 +21,12 @@ class Pipe(QGraphicsPathItem):
         self.line_color = self.normal_color
         self.thickness = 1.5
         self.point_at_length = 7
+        self.orientation = orientation
 
         self.source = None
         self.target = None
         self.isFloat = False
+        self.foundPort = None
 
         self.curv1 = 0.5
         self.curv3 = 0.5
@@ -32,7 +34,7 @@ class Pipe(QGraphicsPathItem):
         self.curv2 = 0.0
         self.curv4 = 1.0
 
-    def set_line_color(self, highlight=False, color=None):
+    def setLineColor(self, highlight=False, color=None):
         if color is not None:
             self.line_color = color
             return
@@ -41,7 +43,9 @@ class Pipe(QGraphicsPathItem):
         else:
             self.line_color = self.normal_color
 
-    def update_path(self, sourcePos=None, targetPos=None):
+    def updatePath(self, sourcePos=None, targetPos=None):
+        orientation = self.orientation
+
         if self.source:
             sourcePos = self.source.mapToScene(self.source.boundingRect().center())
         if self.target:
@@ -53,17 +57,28 @@ class Pipe(QGraphicsPathItem):
         dx = targetPos.x() - sourcePos.x()
         dy = targetPos.y() - sourcePos.y()
 
-        orientation = 0
-        if (dy < 0 and orientation == 0) or (dy >= 0 and orientation == 2):
-            self.curv1 = 0.2
-            self.curv3 = 0.8
-            self.curv2 = -0.5
-            self.curv4 = 1.5
-        else:
-            self.curv1 = 0.0
-            self.curv3 = 1.0
-            self.curv2 = 0.5
-            self.curv4 = 0.5
+        if orientation in [1, 3]:
+            if (dx < 0 and orientation == 1) or (dx >= 0 and orientation == 3):
+                self.curv1 = -0.5
+                self.curv3 = 1.5
+                self.curv2 = 0.2
+                self.curv4 = 0.8
+            else:
+                self.curv1 = 0.5
+                self.curv3 = 0.5
+                self.curv2 = 0.0
+                self.curv4 = 1.0
+        elif orientation in [0, 2]:
+            if (dy < 0 and orientation == 0) or (dy >= 0 and orientation == 2):
+                self.curv1 = 0.2
+                self.curv3 = 0.8
+                self.curv2 = -0.5
+                self.curv4 = 1.5
+            else:
+                self.curv1 = 0.0
+                self.curv3 = 1.0
+                self.curv2 = 0.5
+                self.curv4 = 0.5
 
         ctrl1 = QPointF(
             sourcePos.x() + dx * self.curv1,
@@ -75,7 +90,7 @@ class Pipe(QGraphicsPathItem):
         path.cubicTo(ctrl1, ctrl2, targetPos)
         self.setPath(path)
 
-    def break_connection(self):
+    def breakConnection(self):
         if self.source is not None:
             self.source.removePipe(self)
         if self.target is not None:
@@ -120,34 +135,50 @@ class Pipe(QGraphicsPathItem):
         currentPos = event.pos()
         aroundPort, port = self.get_distance(currentPos)
         if aroundPort:
-            self.set_line_color(True)
+            self.setLineColor(True)
             self.update()
 
     def hoverLeaveEvent(self, event):
-        self.set_line_color(False)
+        self.setLineColor(False)
         self.update()
 
     def mousePressEvent(self, event):
-        currentPos = event.pos()
-        self.startPos = currentPos
-        aroundPort, port = self.get_distance(currentPos)
-        if aroundPort:
-            port.removePipe(self)
-            if port == self.source:
-                self.source = None
-            if port == self.target:
-                self.target = None
-            self.isFloat = True
+        if event.button() == Qt.LeftButton:
+            currentPos = event.pos()
+            self.startPos = currentPos
+            aroundPort, port = self.get_distance(currentPos)
+            if aroundPort:
+                port.removePipe(self)
+                if port == self.source:
+                    self.source = None
+                if port == self.target:
+                    self.target = None
+                self.isFloat = True
+        else:
+            super(Pipe, self).mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
+        super(Pipe, self).mouseMoveEvent(event)
+
+        from usdNodeGraph.ui.graph.node.port import Port
         currentPos = event.pos()
         if self.isFloat:
             if self.source is not None:
-                self.update_path(targetPos=currentPos)
+                self.updatePath(targetPos=currentPos)
             elif self.target is not None:
-                self.update_path(sourcePos=currentPos)
+                self.updatePath(sourcePos=currentPos)
+
+            findPort = self.scene().itemAt(currentPos, QTransform())
+            if findPort is not None and isinstance(findPort, Port):
+                self.foundPort = findPort
+                self.foundPort.setHighlight(True)
+            else:
+                if self.foundPort is not None:
+                    self.foundPort.setHighlight(False)
+                    self.foundPort = None
 
     def mouseReleaseEvent(self, event):
+        super(Pipe, self).mouseReleaseEvent(event)
         if self.isFloat:
             from .node.port import Port, InputPort, OutputPort
 
@@ -159,9 +190,12 @@ class Pipe(QGraphicsPathItem):
                 elif (isinstance(findPort, OutputPort) and self.target is not None):
                     self.target.connectTo(findPort)
 
-            self.break_connection()
+            self.breakConnection()
             self.scene().removeItem(self)
 
             self.isFloat = False
+            if self.foundPort is not None:
+                self.foundPort.setHighlight(False)
+                self.foundPort = None
 
 

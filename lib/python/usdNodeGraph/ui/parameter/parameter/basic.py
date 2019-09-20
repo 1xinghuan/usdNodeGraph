@@ -24,21 +24,29 @@ class Parameter(QObject):
             value=None,
             parent=None,
             timeSamples=None,
-            builtIn=False
+            builtIn=False,
+            visible=True
     ):
         super(Parameter, self).__init__()
 
         self._name = name
+        self._label = name
+        self._order = None
         self._node = parent
         self._value = value
         self._defaultValue = value
         self._timeSamples = timeSamples
         self._builtIn = builtIn
+        self._visible = visible
+        self._connect = None
 
         self.parameterValueChanged.connect(self._node._paramterValueChanged)
 
     def hasKey(self):
         return self._timeSamples is not None
+
+    def hasConnect(self):
+        return self._connect is not None
 
     def getDefaultValue(self):
         return self._defaultValue
@@ -51,6 +59,9 @@ class Parameter(QObject):
 
     def isBuiltIn(self):
         return self._builtIn
+
+    def isVisible(self):
+        return self._visible
 
     def getValue(self, time=None):
         if self._node.hasProperty(self._name):
@@ -81,5 +92,30 @@ class Parameter(QObject):
             return
         self._timeSamples.update({time, value})
         self.parameterValueChanged.emit(self, value)
+
+    def setConnect(self, connect):
+        self._connect = connect
+        self.parameterValueChanged.emit(self, None)
+
+    def breakConnect(self):
+        self._connect = None
+        self.parameterValueChanged.emit(self, None)
+
+    def getConnect(self):
+        return self._connect
+
+    def setLabel(self, label):
+        self._label = label
+
+    def getLabel(self):
+        return self._label
+
+    def setOrder(self, order):
+        self._order = order
+
+    def getOrder(self):
+        if self._order is not None:
+            return self._order
+        return self.getLabel()
 
 

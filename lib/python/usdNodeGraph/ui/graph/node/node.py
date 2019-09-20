@@ -32,8 +32,8 @@ class Node(object):
             # 'id': StringParameter(name='id', value=str(hex(id(self))), parent=self, builtIn=True),
             'name': Parameter(name='name', value='', parent=self, builtIn=True),
             'label': TextParameter(name='label', value='', parent=self, builtIn=True),
-            'x': FloatParameter(name='x', value=0, parent=self, builtIn=True),
-            'y': FloatParameter(name='y', value=0, parent=self, builtIn=True),
+            'x': FloatParameter(name='x', value=None, parent=self, builtIn=True, visible=False),
+            'y': FloatParameter(name='y', value=None, parent=self, builtIn=True, visible=False),
             'disable': BoolParameter(name='disable', value=0, parent=self, builtIn=True),
         }
 
@@ -99,6 +99,7 @@ class Node(object):
         for paramName, param in self._parameters.items():
             if paramName != 'name':
                 builtIn = param.isBuiltIn()
+                visible = param.isVisible()
                 timeSamplesDict = None
                 value = None
 
@@ -113,6 +114,8 @@ class Node(object):
                 paramDict = {'parameterType': param.parameterTypeString}
                 if builtIn:
                     paramDict.update({'builtIn': builtIn})
+                if not visible:
+                    paramDict.update({'visible': False})
                 if timeSamplesDict is not None:
                     paramDict.update({'timeSamples': timeSamplesDict})
                 paramDict.update({'value': value})
@@ -280,7 +283,7 @@ class _BaseNodeItem(QGraphicsItem, Node):
     def updatePipe(self):
         for port in self.ports:
             for pipe in port.pipes:
-                pipe.update_path()
+                pipe.updatePath()
 
     def setContextMenu(self):
         self._context_menus = []
@@ -367,17 +370,27 @@ class _BaseNodeItem(QGraphicsItem, Node):
 
 
 class NodeItem(_BaseNodeItem):
+    def __init__(self, *args, **kwargs):
+        self.inputPorts = []
+        self.outputPorts = []
+
+        super(NodeItem, self).__init__(*args, **kwargs)
+
     def _initUI(self):
         super(NodeItem, self)._initUI()
-
-        self.inputPort = InputPort(name='input')
-        self.outputPort = OutputPort(name='output')
-        self.addPort(self.inputPort)
-        self.addPort(self.outputPort)
 
         self.labelItem = QGraphicsTextItem(self)
         self.labelItem.setFont(self.labelFont)
         # self.labelItem.setBrush(DEFAULT_LABEL_COLOR)
+
+        self.inputPort = InputPort(name='input')
+        self.outputPort = OutputPort(name='output')
+        self.inputPorts.append(self.inputPort)
+        self.outputPorts.append(self.outputPort)
+        self.addPort(self.inputPort)
+        self.addPort(self.outputPort)
+
+        self.updatePortsPos()
 
         self.disableItem = QGraphicsLineItem(self)
         self.disablePen = QPen(QColor(20, 20, 20))
@@ -422,17 +435,51 @@ class NodeItem(_BaseNodeItem):
 
         self._updateNameText(name)
         self._updateLabelText(label)
+        self._updateDisableItem()
 
+    def _updateDisableItem(self):
         disable = self.parameter('disable').getValue()
         self.disableItem.setVisible(disable)
 
+    def getInputPorts(self):
+        return self.inputPorts
+
+    def getOutputPorts(self):
+        return self.outputPorts
+
     def addPort(self, port):
         super(NodeItem, self).addPort(port)
+        # self.updatePortsPos()
+
+    def _setPortPos(self, port):
         bbox = self.boundingRect()
         if isinstance(port, InputPort):
             port.setPos((bbox.width() - port.w) / 2.0, bbox.top() - port.w / 2.0)
         elif isinstance(port, OutputPort):
             port.setPos((bbox.width() - port.w) / 2.0, bbox.bottom() - port.w / 2.0)
+
+    def updatePortsPos(self):
+        for port in self.inputPorts:
+            self._setPortPos(port)
+        for port in self.outputPorts:
+            self._setPortPos(port)
+
+    def _getUpPrimNode(self):
+        sourceNodes = self.getSources()
+        if len(sourceNodes) == 1:
+            sourceNode = sourceNodes[0]
+            if sourceNode.hasParameter('primName'):
+                return sourceNode
+            else:
+                return sourceNode._getUpPrimNode()
+
+    def _getUpPrimPath(self, path):
+        upPrimNode = self._getUpPrimNode()
+        if upPrimNode is None:
+            return path
+        upPrimPath = upPrimNode._getUpPrimPath(path)
+        primName = upPrimNode.parameter('primName').getValue()
+        return '{}/{}'.format(upPrimPath, primName)
 
 
 def registerNode(nodeClass):

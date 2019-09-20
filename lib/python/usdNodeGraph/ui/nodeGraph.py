@@ -175,7 +175,7 @@ class UsdNodeGraph(QMainWindow):
         newScene.enterLayerRequired.connect(self._enterLayerRequired)
 
         self.nodeGraphTab.setCurrentWidget(newScene)
-        self._switchScene()
+        # self._switchScene()
 
         return newScene
 

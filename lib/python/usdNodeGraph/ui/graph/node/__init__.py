@@ -4,5 +4,6 @@
 
 from .node import NodeItem
 from .usdNode import *
+from .shadeNode import *
 from .tag import PixmapTag
 

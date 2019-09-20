@@ -11,15 +11,17 @@ PORT_SIZE = 10
 
 
 class Port(QGraphicsItem):
-    def __init__(self, **kwargs):
-        self.name = kwargs.get("name", "input")
-        kwargs.pop("name")
+    orientation = 0
+    x = 0
+    y = 0
+    w = PORT_SIZE
+    h = PORT_SIZE
+
+    def __init__(self, name='input', label=None, **kwargs):
         super(Port, self).__init__(**kwargs)
 
-        self.x = 0
-        self.y = 0
-        self.w = PORT_SIZE
-        self.h = PORT_SIZE
+        self.name = name
+        self.label = label if label is not None else name
 
         self.findingPort = False
         self.foundPort = None
@@ -36,7 +38,7 @@ class Port(QGraphicsItem):
 
         self.nameLabel = QGraphicsSimpleTextItem(self)
         self.nameLabel.setBrush(QColor(220, 220, 220))
-        self.nameLabel.setText(self.name)
+        self.nameLabel.setText(self.label)
         self.nameRect = self.nameLabel.boundingRect()
         self.nameTransform = QTransform()
         self._setNameTransform()
@@ -65,7 +67,7 @@ class Port(QGraphicsItem):
         if port is self:
             return
 
-        pipe = Pipe()
+        pipe = Pipe(orientation=self.orientation)
         if isinstance(self, InputPort):
             pipe.source = port
             pipe.target = self
@@ -76,7 +78,7 @@ class Port(QGraphicsItem):
         self.addPipe(pipe)
         port.addPipe(pipe)
 
-        pipe.update_path()
+        pipe.updatePath()
 
     def addPipe(self, pipe):
         self.pipes.append(pipe)
@@ -90,10 +92,10 @@ class Port(QGraphicsItem):
 
     def boundingRect(self):
         rect = QRectF(
-            0,
-            0,
-            PORT_SIZE,
-            PORT_SIZE
+            self.x,
+            self.y,
+            self.w,
+            self.h
         )
         return rect
 
@@ -131,17 +133,18 @@ class Port(QGraphicsItem):
             self.findingPort = True
             # self.startPos = self.scenePos()
             self.startPos = self.mapToScene(self.boundingRect().center())
-            self.floatPipe = Pipe()
+            self.floatPipe = Pipe(orientation=self.orientation)
             self.scene().addItem(self.floatPipe)
 
     def mouseMoveEvent(self, event):
         if self.findingPort:
             pos = event.pos()
+            pos = pos - QPointF(self.w / 2.0, self.h / 2.0)
             scenePos = self.startPos + pos
             if isinstance(self, InputPort):
-                self.floatPipe.update_path(scenePos, self.startPos)
+                self.floatPipe.updatePath(scenePos, self.startPos)
             elif isinstance(self, OutputPort):
-                self.floatPipe.update_path(self.startPos, scenePos)
+                self.floatPipe.updatePath(self.startPos, scenePos)
 
             findPort = self.scene().itemAt(scenePos, QTransform())
             if findPort is not None and isinstance(findPort, Port) and not isinstance(findPort, self.__class__):
@@ -155,6 +158,7 @@ class Port(QGraphicsItem):
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton and self.findingPort:
             pos = event.pos()
+            pos = pos - QPointF(self.w / 2.0, self.h / 2.0)
             scenePos = self.startPos + pos
             findPort = self.scene().itemAt(scenePos, QTransform())
             if findPort is not None and isinstance(findPort, Port) and not isinstance(findPort, self.__class__):
@@ -171,7 +175,6 @@ class Port(QGraphicsItem):
 class InputPort(Port):
     def __init__(self, *args, **kwargs):
         super(InputPort, self).__init__(*args, **kwargs)
-        self.displayName = kwargs.get("displayName", self.name)
         self.fillColor = kwargs.get("fillColor", QColor(40, 60, 100))
         self.setToolTip(self.name)
 
@@ -188,7 +191,6 @@ class InputPort(Port):
 class OutputPort(Port):
     def __init__(self, *args, **kwargs):
         super(OutputPort, self).__init__(*args, **kwargs)
-        self.displayName = kwargs.get("displayName", self.name)
         self.fillColor = kwargs.get("fillColor", QColor(50, 100, 80))
         self.setToolTip(self.name)
 
@@ -201,5 +203,18 @@ class OutputPort(Port):
     def getConnections(self):
         return [pipe.target for pipe in self.pipes if pipe.source == self]
 
+
+class ShaderInputPort(InputPort):
+    orientation = 1
+
+    def _setNameTransform(self):
+        self.nameTransform.translate(15, -(self.nameRect.height() / 2.0 - PORT_SIZE / 2.0))
+
+
+class ShaderOutputPort(OutputPort):
+    orientation = 1
+
+    def _setNameTransform(self):
+        self.nameTransform.translate(-self.nameRect.width() - 5, -(self.nameRect.height() / 2.0 - PORT_SIZE / 2.0))
 
 
