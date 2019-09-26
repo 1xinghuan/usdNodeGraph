@@ -292,6 +292,23 @@ class BasicLineEdit(QLineEdit, BasicWidget):
             self.setStyleSheet('background: transparent')
             self.setReadOnly(False)
 
+    def getRealValue(self):
+        text = str(self.text())
+        validator = self.validator()
+        if validator is None:
+            value = text
+        elif isinstance(validator, QIntValidator):
+            try:  # may be ''
+                value = int(text)
+            except:
+                value = 0
+        else:
+            try:  # may be ''
+                value = float(text)
+            except:
+                value = 0
+        return value
+
 
 class IntLineEdit(BasicLineEdit):
     def __init__(self):
@@ -345,7 +362,7 @@ class VecWidget(QWidget):
                 time = self._getCurrentTime()
             else:
                 time = self.parameterWidget._getCurrentTime()
-            lineEdit.setKey(float(lineEdit.text()), time)
+            lineEdit.setKey(lineEdit.getRealValue(), time)
 
     def _setMasterWidgetEnable(self, enable):
         for i in self.lineEdits:
@@ -361,20 +378,7 @@ class VecWidget(QWidget):
     def getPyValue(self):
         value = []
         for edit in self.lineEdits:
-            text = str(edit.text())
-            validator = edit.validator()
-            if validator is None:
-                num = text
-            elif isinstance(validator, QIntValidator):
-                try:  # may be ''
-                    num = int(text)
-                except:
-                    num = 0
-            else:
-                try:  # may be ''
-                    num = float(text)
-                except:
-                    num = 0
+            num = edit.getRealValue()
             value.append(num)
 
         if len(value) == 1:

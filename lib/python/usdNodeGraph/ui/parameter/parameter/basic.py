@@ -31,7 +31,7 @@ class Parameter(QObject):
         pyTimeSamples = {}
         for key, value in timeSamples.items():
             pyTimeSamples[key] = cls.convertValueToPy(value)
-        return timeSamples
+        return pyTimeSamples
 
     def __init__(
             self,
