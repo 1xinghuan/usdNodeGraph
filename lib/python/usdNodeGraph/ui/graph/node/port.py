@@ -54,6 +54,7 @@ class Port(QGraphicsEllipseItem):
 
         self.setCursor(Qt.PointingHandCursor)
         self.setAcceptDrops(True)
+        self.setZValue(10)
 
         self.setRect(self.boundingRect())
         self._updateUI()
