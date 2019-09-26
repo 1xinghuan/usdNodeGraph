@@ -7,6 +7,10 @@ from usdNodeGraph.module.sqt import *
 import math
 
 
+PIPE_NORMAL_COLOR = QColor(130, 130, 130)
+PIPE_HIGHTLIGHT_COLOR = QColor(250, 250, 100)
+
+
 class Pipe(QGraphicsPathItem):
     """A connection between two versions"""
 
@@ -16,11 +20,9 @@ class Pipe(QGraphicsPathItem):
         self.setFlag(QGraphicsItem.ItemIsSelectable, False)
         self.setAcceptHoverEvents(True)
 
-        self.normal_color = QColor(130, 130, 130)
-        self.highlight_color = QColor(250, 250, 100)
-        self.line_color = self.normal_color
+        self.lineColor = PIPE_NORMAL_COLOR
         self.thickness = 1.5
-        self.point_at_length = 7
+        self.pointAtLength = 7
         self.orientation = orientation
 
         self.source = None
@@ -36,12 +38,12 @@ class Pipe(QGraphicsPathItem):
 
     def setLineColor(self, highlight=False, color=None):
         if color is not None:
-            self.line_color = color
+            self.lineColor = color
             return
         if highlight:
-            self.line_color = self.highlight_color
+            self.lineColor = PIPE_HIGHTLIGHT_COLOR
         else:
-            self.line_color = self.normal_color
+            self.lineColor = PIPE_NORMAL_COLOR
 
     def updatePath(self, sourcePos=None, targetPos=None):
         orientation = self.orientation
@@ -99,12 +101,12 @@ class Pipe(QGraphicsPathItem):
     def paint(self, painter, option, widget):
         zoom = self.scene().views()[0].currentZoom
         thickness = self.thickness / math.sqrt(zoom)
-        point_at_length = self.point_at_length / math.sqrt(zoom)
+        pointAtLength = self.pointAtLength / math.sqrt(zoom)
 
         if self.isSelected():
-            pen = QPen(self.highlight_color, thickness)
+            pen = QPen(PIPE_HIGHTLIGHT_COLOR, thickness)
         else:
-            pen = QPen(self.line_color, thickness)
+            pen = QPen(self.lineColor, thickness)
         self.setPen(pen)
         self.setZValue(-1)
         super(Pipe, self).paint(painter, option, widget)
@@ -115,11 +117,11 @@ class Pipe(QGraphicsPathItem):
         painter.setPen(pen)
         painter.translate(center_pos)
         painter.rotate(180 - (center_angle + 30))
-        painter.drawLine(QPointF(0, 0), QPointF(point_at_length, 0))
+        painter.drawLine(QPointF(0, 0), QPointF(pointAtLength, 0))
         painter.rotate(60)
-        painter.drawLine(QPointF(0, 0), QPointF(point_at_length, 0))
+        painter.drawLine(QPointF(0, 0), QPointF(pointAtLength, 0))
 
-    def get_distance(self, currentPos):
+    def _getDistance(self, currentPos):
         sourcePos = self.path().pointAtPercent(0)
         targetPos = self.path().pointAtPercent(1)
         dis1 = math.hypot(sourcePos.x() - currentPos.x(), sourcePos.y() - currentPos.y())
@@ -133,7 +135,7 @@ class Pipe(QGraphicsPathItem):
 
     def hoverEnterEvent(self, event):
         currentPos = event.pos()
-        aroundPort, port = self.get_distance(currentPos)
+        aroundPort, port = self._getDistance(currentPos)
         if aroundPort:
             self.setLineColor(True)
             self.update()
@@ -146,7 +148,7 @@ class Pipe(QGraphicsPathItem):
         if event.button() == Qt.LeftButton:
             currentPos = event.pos()
             self.startPos = currentPos
-            aroundPort, port = self.get_distance(currentPos)
+            aroundPort, port = self._getDistance(currentPos)
             if aroundPort:
                 port.removePipe(self)
                 if port == self.source:

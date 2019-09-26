@@ -1,6 +1,7 @@
 from usdNodeGraph.module.sqt import *
 from ..param_widget import *
 from usdNodeGraph.utils.res import resource
+from usdNodeGraph.ui.utils.layout import FormLayout
 
 
 class NodeParameterWidget(QWidget):
@@ -10,7 +11,8 @@ class NodeParameterWidget(QWidget):
         super(NodeParameterWidget, self).__init__()
 
         self._node = None
-        self._paramWidgets = []
+        self._tabs = {}
+        self._paramWidgets = {}
         self._expanded = True
 
         self._initUI()
@@ -35,7 +37,7 @@ class NodeParameterWidget(QWidget):
 
         self.expandButton = QPushButton()
         self.expandButton.setIcon(resource.get_qicon('btn', 'arrow1_down.png'))
-        self.nodeNameEdit = QLineEdit()
+        self.nodeNameEdit = StringParameterWidget()
         self.nodeTypeLabel = QLabel()
         self.closeButton = QPushButton()
         self.closeButton.setIcon(resource.get_qicon('btn', 'close.png'))
@@ -84,27 +86,36 @@ class NodeParameterWidget(QWidget):
 
     def setNode(self, node):
         self._node = node
+        self._node.nodeObject.parameterAdded.connect(self._nodeParameterAdded)
+        self._node.nodeObject.parameterRemoved.connect(self._nodeParameterRemoved)
+
+        self.nodeNameEdit.setParameter(node.parameter('name'))
+
         self._buildUI()
         self.updateUI()
 
     def getNode(self):
         return self._node
 
+    def createParameterWidget(self, parameter, layout):
+        if parameter.isVisible():
+            parameterLabel = parameter.getLabel()
+            # if len(parameterLabel) > 15:
+            #     parameterLabel = '{}...{}'.format(parameterLabel[:6], parameterLabel[-6:])
+            parameterWidget = ParameterObject.createParameterWidget(parameter)
+
+            self._paramWidgets.update({parameter.name(): parameterWidget})
+            layout.addRow(parameterLabel, parameterWidget)
+
     def _buildTab(self, label, parameters=[]):
-        layout = QFormLayout()
+        layout = FormLayout()
         layout.setLabelAlignment(Qt.AlignRight)
         tab = QWidget()
         tab.setLayout(layout)
+        self._tabs.update({label: tab})
 
         for parameter in parameters:
-            if parameter.isVisible():
-                parameterLabel = parameter.getLabel()
-                # if len(parameterLabel) > 15:
-                #     parameterLabel = '{}...{}'.format(parameterLabel[:6], parameterLabel[-6:])
-                parameterWidget = ParameterObject.createParameterWidget(parameter)
-
-                self._paramWidgets.append(parameterWidget)
-                layout.addRow(parameterLabel, parameterWidget)
+            self.createParameterWidget(parameter, layout)
 
         self.parameterTabWidget.addTab(tab, label)
 
@@ -121,11 +132,23 @@ class NodeParameterWidget(QWidget):
 
     def updateUI(self):
         self.nodeTypeLabel.setText(self._node.nodeType)
-        self.nodeNameEdit.setText(self._node.name())
+        self.nodeNameEdit.setPyValue(self._node.name())
 
-        for paramWidget in self._paramWidgets:
+        for paramWidget in self._paramWidgets.values():
             if paramWidget is not None:
                 paramWidget.updateUI()
+
+    def _nodeParameterAdded(self, parameter):
+        tab = self._tabs[self._node.nodeType]
+        layout = tab.layout()
+        self.createParameterWidget(parameter, layout)
+
+    def _nodeParameterRemoved(self, parameterName):
+        if parameterName in self._paramWidgets:
+            parameterWidget = self._paramWidgets[parameterName]
+            self._paramWidgets.pop(parameterName)
+            layout = parameterWidget.parentLayout
+            layout.removeRowWidget(parameterWidget)
 
 
 class ParameterPanel(QWidget):

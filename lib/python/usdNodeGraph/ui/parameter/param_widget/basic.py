@@ -1,5 +1,7 @@
 from usdNodeGraph.module.sqt import *
 from ..parameter import Parameter, Vec3fParameter
+from usdNodeGraph.ui.utils.state import GraphState
+from usdNodeGraph.ui.utils.layout import clearLayout
 
 
 class ParameterObject(object):
@@ -30,6 +32,13 @@ class ParameterObject(object):
         self.masterLayout = None
         self._connectEdit = None
 
+    def _getStage(self):
+        stage = self._parameter.node().getStage()
+        return stage
+
+    def _getCurrentTime(self):
+        return GraphState.getCurrentTime(self._getStage())
+
     def _breakSignal(self):
         self._parameter.parameterValueChanged.disconnect(self._parameterValueChanged)
 
@@ -45,7 +54,7 @@ class ParameterObject(object):
 
         self._breakSignal()
 
-        self._parameter.setValueAt(value)
+        self._parameter.setValueAt(value, self._getCurrentTime())
 
         self._reConnectSignal()
 
@@ -65,22 +74,28 @@ class ParameterObject(object):
         self.setToolTip(self._parameter.name())
 
         if self._parameter.hasConnect():
-            self._setMasterWidgetEnable(False)
             if self._connectEdit is None:
                 self._connectEdit = QLineEdit()
                 self._connectEdit.setStyleSheet('background: rgb(60, 60, 70)')
+                self._connectEdit.setReadOnly(True)
                 self.masterLayout.addWidget(self._connectEdit)
 
-                self._connectEdit.setText(self._parameter.getConnect())
-                self._connectEdit.editingFinished.connect(self._connectEditChanged)
+                # self._connectEdit.editingFinished.connect(self._connectEditChanged)
+
+            self._connectEdit.setText(self._parameter.getConnect())
+
+        self._setMasterWidgetEnable(not self._parameter.hasConnect())
+        if self._connectEdit is not None:
+            self._connectEdit.setVisible(self._parameter.hasConnect())
+
+        timeSamples = self._parameter.getTimeSamples()
+        if timeSamples is not None:
+            timeSamples = self._parameter.convertTimeSamplesToPy(timeSamples)
+            self.setPyTimeSamples(timeSamples)
         else:
-            self._setMasterWidgetEnable(True)
-
-        # todo: timeSamples?
-        value = self._parameter.getValue()
-        value = self._parameter.convertValueToPy(value)
-
-        self.setPyValue(value)
+            value = self._parameter.getValue()
+            value = self._parameter.convertValueToPy(value)
+            self.setPyValue(value)
 
     def _connectEditChanged(self):
         self._breakSignal()
@@ -136,35 +151,51 @@ class ArrayParameterWidget(QWidget, ParameterObject):
             self.areaLayout = QFormLayout()
             self.areaWidget.setLayout(self.areaLayout)
             self.scrollArea.setWidget(self.areaWidget)
+        if not self.expanded:
+            clearLayout(self.areaLayout)
         self.scrollArea.setVisible(self.expanded)
         self.expandButton.setFixedHeight(7 if self.expanded else 20)
         self.updateUI()
 
-    def updateUI(self):
-        from usdNodeGraph.ui.utils.layout import clearLayout
+    def addEditWidget(self, index, pyValue=None, pyTimeSamples=None):
+        editWidgetClass = self._getEditWidgetClass()
+        editWidget = editWidgetClass()
+        editWidget.parameterWidget = self
 
+        if pyTimeSamples is None:
+            editWidget.setPyValue(pyValue)
+        else:
+            editWidget.setPyTimeSamples(pyTimeSamples)
+
+        editWidget.valueChanged.connect(self._editValueChanged)
+
+        self.editWidgets.append(editWidget)
+        self.areaLayout.addRow(str(index), editWidget)
+
+    def updateUI(self):
         self.setToolTip(self._parameter.name())
 
         if self.areaLayout is not None and self.scrollArea.isVisible():
             clearLayout(self.areaLayout)
             self.editWidgets = []
 
-            # todo: timeSamples?
-            value = self._parameter.getValue()
-            value = self._parameter.convertValueToPy(value)
+            timeSamples = self._parameter.getTimeSamples()
+            if timeSamples is not None:
+                timeSamples = self._parameter.convertTimeSamplesToPy(timeSamples)
 
-            for index, v in enumerate(value):
-                editWidgetClass = self._getEditWidgetClass()
-                paramClass = self._getChildParamterClass()
-                editWidget = editWidgetClass()
+                valueNum = len(timeSamples.values()[0])
 
-                pyValue = paramClass.convertValueToPy(v)
-                editWidget.setPyValue(pyValue)
+                for index in range(valueNum):
+                    indexPyTimeSamples = {}
+                    for t, v in timeSamples.items():
+                        indexPyTimeSamples[t] = v[index]
+                    self.addEditWidget(index, pyTimeSamples=indexPyTimeSamples)
+            else:
+                value = self._parameter.getValue()
+                value = self._parameter.convertValueToPy(value)
 
-                editWidget.valueChanged.connect(self._editValueChanged)
-
-                self.editWidgets.append(editWidget)
-                self.areaLayout.addRow(str(index), editWidget)
+                for index, v in enumerate(value):
+                    self.addEditWidget(index, pyValue=v)
 
     def _editValueChanged(self):
         value = [edit.getPyValue() for edit in self.editWidgets]
@@ -172,17 +203,97 @@ class ArrayParameterWidget(QWidget, ParameterObject):
 
         self._breakSignal()
 
-        self._parameter.setValueAt(value)
+        self._parameter.setValueAt(value, self._getCurrentTime())
 
         self._reConnectSignal()
 
 
-class LineEdit(QLineEdit):
+class BasicWidget(object):
     def __init__(self):
-        super(LineEdit, self).__init__()
+        super(BasicWidget, self).__init__()
+
+        self._isNumber = True
+        self._hasKey = False
+        self._keys = {}
+
+    def hasKeys(self):
+        return self._hasKey
+
+    def setKey(self, value, time):
+        if not isinstance(value, (int, float)):
+            self._isNumber = False
+        self._hasKey = True
+        self._keys[time] = value
+        self.updateUI(time)
+
+    def removeKey(self, time):
+        self._keys.pop(time)
+
+    def removeKeys(self):
+        self._hasKey = False
+        self._keys = {}
+
+    def getKeys(self):
+        return self._keys
+
+    def getIntervalValue(self, time):
+        keys = self._keys.keys()
+        keys.sort()
+        if time <= keys[0]:
+            return self._keys[keys[0]]
+        elif time >= keys[-1]:
+            return self._keys[keys[-1]]
+        else:
+            beforeKey = None
+            afterKey = None
+            for k in keys:
+                if k < time:
+                    beforeKey = k
+                else:
+                    pass
+                if k > time:
+                    afterKey = k
+                else:
+                    pass
+            beforeValue = self._keys.get(beforeKey)
+            afterValue = self._keys.get(afterKey)
+            if self._isNumber:
+                value = beforeValue + (afterValue - beforeValue) * ((time - beforeKey) / (afterKey - beforeKey))
+            else:
+                value = beforeValue
+            return value
+
+    def getValueAt(self, time):
+        if time in self._keys:
+            value = self._keys.get(time)
+        else:
+            value = self.getIntervalValue(time)
+        return value
 
 
-class IntLineEdit(LineEdit):
+class BasicLineEdit(QLineEdit, BasicWidget):
+    def __init__(self):
+        super(BasicLineEdit, self).__init__()
+        BasicWidget.__init__(self)
+
+    def setText(self, string):
+        super(BasicLineEdit, self).setText(string)
+        self.setCursorPosition(0)
+
+    def updateUI(self, time=0):
+        if self._hasKey:
+            value = self.getValueAt(time)
+            self.setText(str(value))
+            if time in self._keys:
+                self.setStyleSheet('background: rgb(50, 50, 100)')
+            else:
+                self.setStyleSheet('background: rgb(60, 60, 70)')
+        else:
+            self.setStyleSheet('background: transparent')
+            self.setReadOnly(False)
+
+
+class IntLineEdit(BasicLineEdit):
     def __init__(self):
         super(IntLineEdit, self).__init__()
 
@@ -190,7 +301,7 @@ class IntLineEdit(LineEdit):
         self.setValidator(validator)
 
 
-class FloatLineEdit(LineEdit):
+class FloatLineEdit(BasicLineEdit):
     def __init__(self):
         super(FloatLineEdit, self).__init__()
 
@@ -201,7 +312,7 @@ class FloatLineEdit(LineEdit):
 class VecWidget(QWidget):
     valueChanged = Signal()
     _valueSize = 1
-    _lineEdit = LineEdit
+    _lineEdit = BasicLineEdit
 
     def __init__(self):
         super(VecWidget, self).__init__()
@@ -220,8 +331,21 @@ class VecWidget(QWidget):
             self.masterLayout.addWidget(lineEdit)
             self.lineEdits.append(lineEdit)
 
+        GraphState.getState().currentTimeChanged.connect(self.updateCurrentUI)
+
     def _editTextChanged(self):
         self.valueChanged.emit()
+        lineEdit = self.sender()
+        if lineEdit.hasKeys():
+            if hasattr(self, '_getStage'):
+                stage = self._getStage()
+            else:
+                stage = self.parameterWidget._getStage()
+            if hasattr(self, '_getCurrentTime'):
+                time = self._getCurrentTime()
+            else:
+                time = self.parameterWidget._getCurrentTime()
+            lineEdit.setKey(float(lineEdit.text()), time)
 
     def _setMasterWidgetEnable(self, enable):
         for i in self.lineEdits:
@@ -235,8 +359,48 @@ class VecWidget(QWidget):
             lineEdit.setText(str(v))
 
     def getPyValue(self):
-        value = [float(edit.text()) for edit in self.lineEdits]
+        value = []
+        for edit in self.lineEdits:
+            text = str(edit.text())
+            validator = edit.validator()
+            if validator is None:
+                num = text
+            elif isinstance(validator, QIntValidator):
+                try:  # may be ''
+                    num = int(text)
+                except:
+                    num = 0
+            else:
+                try:  # may be ''
+                    num = float(text)
+                except:
+                    num = 0
+            value.append(num)
+
         if len(value) == 1:
             value = value[0]
         return value
+
+    def setPyTimeSamples(self, timeSamples):
+        for time, values in timeSamples.items():
+            if self._valueSize == 1:
+                self.lineEdits[0].setKey(values, time)
+            else:
+                for index, lineEdit in enumerate(self.lineEdits):
+                    lineEdit.setKey(values[index], time)
+
+        if hasattr(self, '_getCurrentTime'):
+            time = self._getCurrentTime()
+        else:
+            time = self.parameterWidget._getCurrentTime()
+        self.updateCurrentUI(time)
+
+    # def getPyTimeSamples(self):
+    #     timeSamples = {}
+    #
+    #     return timeSamples
+
+    def updateCurrentUI(self, time=0):
+        for lineEdit in self.lineEdits:
+            lineEdit.updateUI(time=time)
 

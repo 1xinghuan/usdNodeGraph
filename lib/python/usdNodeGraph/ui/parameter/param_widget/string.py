@@ -1,37 +1,8 @@
-from .basic import ParameterObject
+from .basic import ParameterObject, VecWidget
 from usdNodeGraph.module.sqt import *
 
 
-class StringWidget(QWidget):
-    valueChanged = Signal()
-
-    def __init__(self):
-        super(StringWidget, self).__init__()
-
-        self.masterLayout = QHBoxLayout()
-        self.masterLayout.setContentsMargins(0, 0, 0, 0)
-        self.setLayout(self.masterLayout)
-
-        self._lineEdit = QLineEdit()
-        self.masterLayout.addWidget(self._lineEdit)
-
-        # self._lineEdit.returnPressed.connect(self._editTextChanged)
-        self._lineEdit.editingFinished.connect(self._editTextChanged)
-
-    def _editTextChanged(self):
-        self.valueChanged.emit()
-
-    def _setMasterWidgetEnable(self, enable):
-        self._lineEdit.setVisible(enable)
-
-    def setPyValue(self, value):
-        self._lineEdit.setText(str(value))
-
-    def getPyValue(self):
-        return str(self._lineEdit.text())
-
-
-class StringParameterWidget(StringWidget, ParameterObject):
+class StringParameterWidget(VecWidget, ParameterObject):
     def __init__(self):
         ParameterObject.__init__(self)
         super(StringParameterWidget, self).__init__()
@@ -65,6 +36,8 @@ class ChooseWidget(QWidget):
         self._comboBox.setVisible(enable)
 
     def setPyValue(self, value):
+        self._comboBox.currentIndexChanged.disconnect(self._editIndexChanged)
+
         index = self._comboBox.findText(value)
         if index != -1:
             self._comboBox.setCurrentIndex(index)
@@ -72,6 +45,8 @@ class ChooseWidget(QWidget):
             # not exist
             self._comboBox.addItem(value)
             self._comboBox.setCurrentIndex(self._comboBox.count() - 1)
+
+        self._comboBox.currentIndexChanged.connect(self._editIndexChanged)
 
     def getPyValue(self):
         return str(self._comboBox.currentText())

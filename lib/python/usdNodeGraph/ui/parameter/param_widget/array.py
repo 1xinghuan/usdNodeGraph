@@ -50,6 +50,6 @@ class TokenArrayParameterWidget(ArrayParameterWidget):
         return TokenParameter
 
     def _getEditWidgetClass(self):
-        return StringWidget
+        return VecWidget
 
 

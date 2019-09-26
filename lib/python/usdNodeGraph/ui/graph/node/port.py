@@ -8,49 +8,74 @@ from ..pipe import Pipe
 from ..const import Const
 
 PORT_SIZE = 10
+PORT_LABEL_COLOR = QColor(200, 200, 200)
 
 
-class Port(QGraphicsItem):
+class PortObject(QObject):
+    connectChanged = Signal(object)
+
+    def __init__(self, item=None, *args, **kwargs):
+        super(PortObject, self).__init__(*args, **kwargs)
+
+        self._item = item
+
+    def _connectChanged(self):
+        self.connectChanged.emit(self._item)
+
+
+class Port(QGraphicsEllipseItem):
     orientation = 0
     x = 0
     y = 0
     w = PORT_SIZE
     h = PORT_SIZE
 
+    fillColor = QColor(230, 230, 0)
+    borderNormalColor = QColor(200, 200, 250)
+    borderHighlightColor = QColor(255, 255, 0)
+
     def __init__(self, name='input', label=None, **kwargs):
         super(Port, self).__init__(**kwargs)
 
+        self.portObj = PortObject(self)
         self.name = name
         self.label = label if label is not None else name
+        self.pipes = []
 
         self.findingPort = False
         self.foundPort = None
 
-        self.labelColor = QColor(10, 10, 10)
-
-        self.fillColor = QColor(230, 230, 0)
-        self.borderNormalColor = QColor(200, 200, 250)
-        self.borderHighlightColor = QColor(255, 255, 0)
         self.borderNormalWidth = 1
         self.borderHighlightWidth = 3
         self.borderColor = self.borderNormalColor
         self.borderWidth = self.borderNormalWidth
 
-        self.nameLabel = QGraphicsSimpleTextItem(self)
-        self.nameLabel.setBrush(QColor(220, 220, 220))
-        self.nameLabel.setText(self.label)
-        self.nameRect = self.nameLabel.boundingRect()
-        self.nameTransform = QTransform()
-        self._setNameTransform()
-        self.nameLabel.setTransform(self.nameTransform)
-
-        self.pipes = []
+        self.nameItem = None
 
         self.setCursor(Qt.PointingHandCursor)
         self.setAcceptDrops(True)
 
+        self.setRect(self.boundingRect())
+        self._updateUI()
+
+    def _updateUI(self):
+        pen = QPen(self.borderColor)
+        pen.setWidth(self.borderWidth)
+        self.setPen(pen)
+        self.setBrush(QBrush(self.fillColor))
+
     def setLabelVisible(self, visible):
-        self.nameLabel.setVisible(visible)
+        if not visible and self.nameItem is None:
+            return
+        if visible and self.nameItem is None:
+            self.nameItem = QGraphicsSimpleTextItem(self)
+            self.nameItem.setBrush(PORT_LABEL_COLOR)
+            self.nameItem.setText(self.label)
+            self.nameRect = self.nameItem.boundingRect()
+            self.nameTransform = QTransform()
+            self._setNameTransform()
+            self.nameItem.setTransform(self.nameTransform)
+        self.nameItem.setVisible(visible)
 
     def _setNameTransform(self):
         pass
@@ -58,7 +83,7 @@ class Port(QGraphicsItem):
     def node(self):
         return self.parentItem()
 
-    def connectTo(self, port):
+    def connectTo(self, port, emitSignal=True):
         """
         inputPort -> outputPort
         :param port:
@@ -66,6 +91,10 @@ class Port(QGraphicsItem):
         """
         if port is self:
             return
+
+        for pipe in self.pipes:
+            if (pipe.source == self and pipe.target == port) or (pipe.source == port and pipe.target == self):
+                return
 
         pipe = Pipe(orientation=self.orientation)
         if isinstance(self, InputPort):
@@ -75,20 +104,22 @@ class Port(QGraphicsItem):
             pipe.source = self
             pipe.target = port
 
-        self.addPipe(pipe)
-        port.addPipe(pipe)
+        self.addPipe(pipe, emitSignal=emitSignal)
+        port.addPipe(pipe, emitSignal=emitSignal)
+
+        self.scene().addItem(pipe)
 
         pipe.updatePath()
 
-    def addPipe(self, pipe):
+    def addPipe(self, pipe, emitSignal=True):
         self.pipes.append(pipe)
-        scene = self.scene()
-        if pipe not in scene.items():
-            scene.addItem(pipe)
+        if emitSignal:
+            self.portObj._connectChanged()
 
     def removePipe(self, pipe):
         if pipe in self.pipes:
             self.pipes.remove(pipe)
+            self.portObj._connectChanged()
 
     def boundingRect(self):
         rect = QRectF(
@@ -106,22 +137,14 @@ class Port(QGraphicsItem):
         else:
             self.borderColor = self.borderNormalColor
             self.borderWidth = self.borderNormalWidth
-        # self.setLabelVisible(toggle)
-        self.update()
-
-    def paint(self, painter, option, widget):
-        bbox = self.boundingRect()
-        pen = QPen(self.borderColor)
-        pen.setWidth(self.borderWidth)
-        painter.setPen(pen)
-        painter.setBrush(QBrush(self.fillColor))
-        painter.drawEllipse(bbox)
+        self._updateUI()
 
     def destroy(self):
-        pipes_to_delete = self.pipes[::]  # Avoid shrinking during deletion.
-        for pipe in pipes_to_delete:
-            pipe.destroy()
-        node = self.parentItem()
+        pipesToDelete = self.pipes[::]  # Avoid shrinking during deletion.
+        for pipe in pipesToDelete:
+            self.removePipe(pipe)
+            self.scene().removeItem(pipe)
+        node = self.node()
         if node:
             node.removePort(self)
 
@@ -173,9 +196,10 @@ class Port(QGraphicsItem):
 
 
 class InputPort(Port):
+    fillColor = QColor(40, 60, 100)
+
     def __init__(self, *args, **kwargs):
         super(InputPort, self).__init__(*args, **kwargs)
-        self.fillColor = kwargs.get("fillColor", QColor(40, 60, 100))
         self.setToolTip(self.name)
 
     def _setNameTransform(self):
@@ -185,13 +209,14 @@ class InputPort(Port):
         )
 
     def getConnections(self):
-        return [pipe.source for pipe in self.pipes if pipe.target == self]
+        return [pipe.source for pipe in self.pipes if pipe.target == self and pipe.source is not None]
 
 
 class OutputPort(Port):
+    fillColor = QColor(50, 100, 80)
+
     def __init__(self, *args, **kwargs):
         super(OutputPort, self).__init__(*args, **kwargs)
-        self.fillColor = kwargs.get("fillColor", QColor(50, 100, 80))
         self.setToolTip(self.name)
 
     def _setNameTransform(self):

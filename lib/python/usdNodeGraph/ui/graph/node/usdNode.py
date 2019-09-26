@@ -4,19 +4,28 @@
 
 from pxr import Usd, Sdf, Kind, UsdGeom, UsdShade
 from usdNodeGraph.module.sqt import *
-from .node import NodeItem, registerNode, setNodeDefault
-from .node import PixmapTag
+from .node import Node, registerNode, setNodeDefault
+from .nodeItem import NodeItem
+from .tag import PixmapTag
 from usdNodeGraph.ui.parameter.parameter import Parameter, StringParameter
 
 
 class UsdNodeItem(NodeItem):
-    nodeType = 'Usd'
+    def execute(self, stage, prim):
+        return self.nodeObject.execute(stage, prim)
 
-    def __init__(self, stage=None, layer=None, *args, **kwargs):
-        super(UsdNodeItem, self).__init__(*args, **kwargs)
+
+class UsdNode(Node):
+    nodeType = 'Usd'
+    nodeItem = UsdNodeItem
+
+    def __init__(self, stage=None, layer=None, name='', *args, **kwargs):
+        super(UsdNode, self).__init__(*args, **kwargs)
 
         self._stage = stage
         self._layer = layer
+
+        self.parameter('name').setValue(name, emitSignal=False)
 
     def getStage(self):
         return self._stage
@@ -31,11 +40,11 @@ class UsdNodeItem(NodeItem):
         return stage, prim
 
 
-class _PrimNodeItem(UsdNodeItem):
+class _PrimNode(UsdNode):
     nodeType = 'Prim'
 
     def __init__(self, prim=None, *args, **kwargs):
-        super(_PrimNodeItem, self).__init__(*args, **kwargs)
+        super(_PrimNode, self).__init__(*args, **kwargs)
 
         if prim is not None:
             self.parameter('primName').setValue(prim.name)
@@ -43,7 +52,7 @@ class _PrimNodeItem(UsdNodeItem):
             self.parameter('kind').setValue(prim.kind)
 
     def _initParameters(self):
-        super(_PrimNodeItem, self)._initParameters()
+        super(_PrimNode, self)._initParameters()
         self.addParameter('primName', 'string', defaultValue='')
         self.addParameter('typeName', 'string', defaultValue='')
         self.addParameter('kind', 'string', defaultValue='')
@@ -57,60 +66,78 @@ class _PrimNodeItem(UsdNodeItem):
         return primPath
 
 
-class LayerNodeItem(UsdNodeItem):
+class LayerNode(UsdNode):
     nodeType = 'Layer'
     fillNormalColor = QColor(50, 60, 70, 150)
     borderNormalColor = QColor(250, 250, 250, 150)
 
     def __init__(self, layerPath='', layerOffset=None, *args, **kwargs):
-        super(LayerNodeItem, self).__init__(*args, **kwargs)
+        super(LayerNode, self).__init__(*args, **kwargs)
 
         self.parameter('layerPath').setValue(layerPath)
-        # todo:
-        # self.parameter('layerOffset').setValue(layerOffset)
+        # self.parameter('layerOffset').setValue(layerOffset.offset)
+        # self.parameter('layerScale').setValue(layerOffset.scale)
 
     def _initParameters(self):
-        super(LayerNodeItem, self)._initParameters()
+        super(LayerNode, self)._initParameters()
         self.addParameter('layerPath', 'string', defaultValue='')
-        self.addParameter('layerOffset', 'string', defaultValue='')
+        # self.addParameter('layerOffset', 'float', defaultValue=0.0)
+        # self.addParameter('layerScale', 'float', defaultValue=1.0)
 
     def _execute(self, stage, prim):
         layerPath = self.parameter('layerPath').getValue()
-        # todo:
         # layerOffset = self.parameter('layerOffset').getValue()
+        # layerScale = self.parameter('layerScale').getValue()
+        #
+        # layerOffset = Sdf.LayerOffset(offset=layerOffset, scale=layerScale)
 
         stage.GetRootLayer().subLayerPaths.append(layerPath)
 
         return stage, prim
 
 
-class RootNodeItem(UsdNodeItem):
+class RootNode(UsdNode):
     nodeType = 'Root'
     fillNormalColor = QColor(50, 60, 70)
     borderNormalColor = QColor(250, 250, 250, 200)
 
     def __init__(self, *args, **kwargs):
-        super(RootNodeItem, self).__init__(*args, **kwargs)
+        super(RootNode, self).__init__(*args, **kwargs)
 
+        if self._layer is not None:
+            self.parameter('defaultPrim').setValue(self._layer.defaultPrim)
+            if self._layer.HasStartTimeCode():
+                self.parameter('startTimeCode').setValue(self._layer.startTimeCode)
+            if self._layer.HasEndTimeCode():
+                self.parameter('endTimeCode').setValue(self._layer.endTimeCode)
+
+        # how to get layer's upAxis, not stage?
         if self._stage is not None:
-            rootLayer = self._stage.GetRootLayer()
             upAxis = UsdGeom.GetStageUpAxis(self._stage)
-
-            self.parameter('defaultPrim').setValue(rootLayer.defaultPrim)
             self.parameter('upAxis').setValue(upAxis)
 
     def _initParameters(self):
-        super(RootNodeItem, self)._initParameters()
-        self.addParameter('defaultPrim', 'string', defaultValue='')
-        self.addParameter('upAxis', 'string', defaultValue='')
+        super(RootNode, self)._initParameters()
+        self.addParameter('defaultPrim', 'string', defaultValue='', order=3)
+        self.addParameter('upAxis', 'choose', defaultValue='', order=2)
+        self.addParameter('startTimeCode', 'float', defaultValue=None, label='Start', order=0)
+        self.addParameter('endTimeCode', 'float', defaultValue=None, label='End', order=1)
+
+        self.parameter('upAxis').addItems(['X', 'Y', 'Z'])
 
     def _execute(self, stage, prim):
         newPrim = stage.GetPrimAtPath('/')
         rootLayer = stage.GetRootLayer()
 
+        startTimeCode = self.parameter('startTimeCode').getValue()
+        endTimeCode = self.parameter('endTimeCode').getValue()
         defaultPrim = self.parameter('defaultPrim').getValue()
         upAxis = self.parameter('upAxis').getValue()
 
+        if startTimeCode is not None and startTimeCode != '':
+            rootLayer.startTimeCode = startTimeCode
+        if endTimeCode is not None and endTimeCode != '':
+            rootLayer.endTimeCode = endTimeCode
         if defaultPrim != '':
             rootLayer.defaultPrim = defaultPrim
         if upAxis != '':
@@ -119,13 +146,13 @@ class RootNodeItem(UsdNodeItem):
         return stage, newPrim
 
 
-class PrimDefineNodeItem(_PrimNodeItem):
+class PrimDefineNode(_PrimNode):
     nodeType = 'PrimDefine'
     fillNormalColor = QColor(50, 60, 70)
     borderNormalColor = QColor(200, 250, 200, 200)
 
     def __init__(self, *args, **kwargs):
-        super(PrimDefineNodeItem, self).__init__(*args, **kwargs)
+        super(PrimDefineNode, self).__init__(*args, **kwargs)
 
     def _execute(self, stage, prim):
         primPath = self._getCurrentPrimPath(prim)
@@ -143,13 +170,13 @@ class PrimDefineNodeItem(_PrimNodeItem):
         return stage, newPrim
 
 
-class PrimOverrideNodeItem(_PrimNodeItem):
+class PrimOverrideNode(_PrimNode):
     nodeType = 'PrimOverride'
     fillNormalColor = QColor(50, 60, 70)
     borderNormalColor = QColor(200, 200, 250, 200)
 
     def __init__(self, *args, **kwargs):
-        super(PrimOverrideNodeItem, self).__init__(*args, **kwargs)
+        super(PrimOverrideNode, self).__init__(*args, **kwargs)
 
     def _execute(self, stage, prim):
         primPath = self._getCurrentPrimPath(prim)
@@ -167,70 +194,84 @@ class PrimOverrideNodeItem(_PrimNodeItem):
         return stage, newPrim
 
 
-class _RefNodeItem(UsdNodeItem):
+class _RefNode(UsdNode):
     nodeType = '_Ref'
     fillNormalColor = QColor(50, 60, 70)
     borderNormalColor = QColor(200, 150, 150, 200)
 
+    def _initParameters(self):
+        super(_RefNode, self)._initParameters()
+        self.addParameter('assetPath', 'string', defaultValue='')
+        self.addParameter('layerOffset', 'float', defaultValue=0.0)
+        self.addParameter('layerScale', 'float', defaultValue=1.0)
 
-class ReferenceNodeItem(_RefNodeItem):
+    def _getLayerOffset(self):
+        layerOffset = self.parameter('layerOffset').getValue()
+        layerScale = self.parameter('layerScale').getValue()
+
+        layerOffset = Sdf.LayerOffset(offset=layerOffset, scale=layerScale)
+
+        return layerOffset
+
+
+class ReferenceNode(_RefNode):
     nodeType = 'Reference'
 
     def __init__(self, reference=None, *args, **kwargs):
-        super(ReferenceNodeItem, self).__init__(*args, **kwargs)
+        super(ReferenceNode, self).__init__(*args, **kwargs)
 
-        self.addTag(PixmapTag('Reference.png'), position=0.25)
+        self.item.addTag(PixmapTag('Reference.png'), position=0.25)
 
         if reference is not None:
             self.parameter('assetPath').setValue(reference.assetPath)
-
-    def _initParameters(self):
-        super(ReferenceNodeItem, self)._initParameters()
-        self.addParameter('assetPath', 'string', defaultValue='')
+            self.parameter('layerOffset').setValue(reference.layerOffset.offset)
+            self.parameter('layerScale').setValue(reference.layerOffset.scale)
 
     def _execute(self, stage, prim):
         assetPath = self.parameter('assetPath').getValue()
 
         prim.GetReferences().SetReferences([
-            Sdf.Reference(assetPath)
+            Sdf.Reference(assetPath, layerOffset=self._getLayerOffset())
         ])
 
         return stage, prim
 
 
-class PayloadNodeItem(_RefNodeItem):
+class PayloadNode(_RefNode):
     nodeType = 'Payload'
 
     def __init__(self, payload=None, *args, **kwargs):
-        super(PayloadNodeItem, self).__init__(*args, **kwargs)
+        super(PayloadNode, self).__init__(*args, **kwargs)
 
-        self.addTag(PixmapTag('Payload.png'), position=0.25)
+        self.item.addTag(PixmapTag('Payload.png'), position=0.25)
 
         if payload is not None:
             self.parameter('assetPath').setValue(payload.assetPath)
             self.parameter('primPath').setValue(payload.primPath.pathString)
+            self.parameter('layerOffset').setValue(payload.layerOffset.offset)
+            self.parameter('layerScale').setValue(payload.layerOffset.scale)
 
     def _initParameters(self):
-        super(PayloadNodeItem, self)._initParameters()
-        self.addParameter('assetPath', 'string', defaultValue='')
+        super(PayloadNode, self)._initParameters()
         self.addParameter('primPath', 'string', defaultValue='')
 
     def _execute(self, stage, prim):
         assetPath = self.parameter('assetPath').getValue()
         primPath = self.parameter('primPath').getValue()
 
-        prim.SetPayload(assetPath, primPath)
+        payload = Sdf.Payload(assetPath, primPath, self._getLayerOffset())
+        prim.SetPayload(payload)
 
         return stage, prim
 
 
-class AttributeSetNodeItem(UsdNodeItem):
+class AttributeSetNode(UsdNode):
     nodeType = 'AttributeSet'
     fillNormalColor = QColor(50, 70, 60)
     borderNormalColor = QColor(250, 250, 250, 200)
 
     def __init__(self, prim=None, *args, **kwargs):
-        super(AttributeSetNodeItem, self).__init__(*args, **kwargs)
+        super(AttributeSetNode, self).__init__(*args, **kwargs)
 
         if prim is not None:
             for name, attribute in prim.attributes.items():
@@ -243,7 +284,7 @@ class AttributeSetNodeItem(UsdNodeItem):
         # print attributeName,
         # print attribute.valueType
 
-        param = self.addParameter(attributeName, attributeType)
+        param = self.addParameter(attributeName, attributeType, custom=True)
         if param is not None:
             if attribute.HasInfo('connectionPaths'):
                 connectionPathList = attribute.connectionPathList.GetAddedOrExplicitItems()
@@ -255,7 +296,7 @@ class AttributeSetNodeItem(UsdNodeItem):
                 param.setValue(attribute.default)
 
     def _initParameters(self):
-        super(AttributeSetNodeItem, self)._initParameters()
+        super(AttributeSetNode, self)._initParameters()
         pass
 
     def _execute(self, stage, prim):
@@ -280,28 +321,29 @@ class AttributeSetNodeItem(UsdNodeItem):
         return stage, prim
 
 
-class RelationshipSetNodeItem(UsdNodeItem):
+class RelationshipSetNode(UsdNode):
     nodeType = 'RelationshipSet'
     fillNormalColor = QColor(70, 60, 50)
     borderNormalColor = QColor(250, 250, 250, 200)
 
     def __init__(self, prim=None, *args, **kwargs):
-        super(RelationshipSetNodeItem, self).__init__(*args, **kwargs)
+        super(RelationshipSetNode, self).__init__(*args, **kwargs)
 
         if prim is not None:
             for key, relationship in prim.relationships.items():
-                self._addRelationshipParameter(relationship)
+                if key not in ['material:binding']:
+                    self._addRelationshipParameter(relationship)
 
     def _addRelationshipParameter(self, relationship):
         relationshipName = relationship.name
         targetPathList = [i.pathString for i in relationship.targetPathList.GetAddedOrExplicitItems()]
 
-        param = self.addParameter(relationshipName, 'string[]')
+        param = self.addParameter(relationshipName, 'string[]', custom=True)
         if param is not None:
             param.setValue(targetPathList)
 
     def _initParameters(self):
-        super(RelationshipSetNodeItem, self)._initParameters()
+        super(RelationshipSetNode, self)._initParameters()
         pass
 
     def _execute(self, stage, prim):
@@ -319,26 +361,26 @@ class RelationshipSetNodeItem(UsdNodeItem):
         return stage, prim
 
 
-class _VariantNodeItem(UsdNodeItem):
+class _VariantNode(UsdNode):
     nodeType = '_Variant'
     fillNormalColor = QColor(50, 60, 70)
     borderNormalColor = QColor(200, 200, 150)
 
 
-class VariantSetNodeItem(_VariantNodeItem):
+class VariantSetNode(_VariantNode):
     nodeType = 'VariantSet'
 
     def __init__(self, variantSet=None, *args, **kwargs):
-        super(VariantSetNodeItem, self).__init__(*args, **kwargs)
+        super(VariantSetNode, self).__init__(*args, **kwargs)
 
-        self.addTag(PixmapTag('VariantSet.png'), position=0.25)
+        self.item.addTag(PixmapTag('VariantSet.png'), position=0.25)
 
         if variantSet is not None:
             self.parameter('variantSetName').setValue(variantSet.name)
             self.parameter('variantList').setValue([v.name for v in variantSet.variantList])
 
     def _initParameters(self):
-        super(VariantSetNodeItem, self)._initParameters()
+        super(VariantSetNode, self)._initParameters()
         self.addParameter('variantSetName', 'string', defaultValue='')
         self.addParameter('variantList', 'string[]', defaultValue=[])
 
@@ -353,15 +395,15 @@ class VariantSetNodeItem(_VariantNodeItem):
         return stage, prim
 
 
-class VariantSelectNodeItem(_VariantNodeItem):
+class VariantSelectNode(_VariantNode):
     nodeType = 'VariantSelect'
 
     def __init__(self, variantSetName='', variantSelected='', prim=None, *args, **kwargs):
-        super(VariantSelectNodeItem, self).__init__(*args, **kwargs)
+        super(VariantSelectNode, self).__init__(*args, **kwargs)
 
         self._prim = prim
 
-        self.addTag(PixmapTag('VariantSelect.png'), position=0.25)
+        self.item.addTag(PixmapTag('VariantSelect.png'), position=0.25)
 
         self.parameter('variantSetName').setValue(variantSetName)
         self.parameter('variantSelected').setValue(variantSelected)
@@ -374,7 +416,7 @@ class VariantSelectNodeItem(_VariantNodeItem):
             self.parameter('variantSelected').addItems(variantNameList)
 
     def _initParameters(self):
-        super(VariantSelectNodeItem, self)._initParameters()
+        super(VariantSelectNode, self)._initParameters()
         self.addParameter('variantSetName', 'string', defaultValue='')
         self.addParameter('variantSelected', 'choose', defaultValue='')
 
@@ -384,7 +426,7 @@ class VariantSelectNodeItem(_VariantNodeItem):
         return stagePrim
 
     def _paramterValueChanged(self, parameter, value):
-        super(VariantSelectNodeItem, self)._paramterValueChanged(parameter, value)
+        super(VariantSelectNode, self)._paramterValueChanged(parameter, value)
         if parameter.name() == 'variantSelected':
             if self._prim is not None:
                 variantSetName = self.parameter('variantSetName').getValue()
@@ -403,19 +445,19 @@ class VariantSelectNodeItem(_VariantNodeItem):
         return stage, prim
 
 
-class VariantSwitchNodeItem(_VariantNodeItem):
+class VariantSwitchNode(_VariantNode):
     nodeType = 'VariantSwitch'
 
     def __init__(self, variantSetName='', variantSelected='', *args, **kwargs):
-        super(VariantSwitchNodeItem, self).__init__(*args, **kwargs)
+        super(VariantSwitchNode, self).__init__(*args, **kwargs)
 
-        self.addTag(PixmapTag('VariantSwitch.png'), position=0.25)
+        self.item.addTag(PixmapTag('VariantSwitch.png'), position=0.25)
 
         self.parameter('variantSetName').setValue(variantSetName)
         self.parameter('variantSelected').setValue(variantSelected)
 
     def _initParameters(self):
-        super(VariantSwitchNodeItem, self)._initParameters()
+        super(VariantSwitchNode, self)._initParameters()
         self.addParameter('variantSetName', 'string', defaultValue='')
         self.addParameter('variantSelected', 'string', defaultValue='')
 
@@ -434,57 +476,27 @@ class VariantSwitchNodeItem(_VariantNodeItem):
         return variantSet
 
 
-# class MaterialNodeItem(UsdNodeItem):
-#     nodeType = 'Material'
-#     fillNormalColor = QColor(50, 60, 70)
-#     borderNormalColor = QColor(250, 250, 250, 200)
-#
-#     def __init__(self, prim=None, *args, **kwargs):
-#         super(MaterialNodeItem, self).__init__(*args, **kwargs)
-#
-#         if prim is not None:
-#             self.parameter('primName').setValue(prim.name)
-#
-#     def _initParameters(self):
-#         super(MaterialNodeItem, self)._initParameters()
-#         self.addParameter('primName', 'string', defaultValue='')
-#
-#     def _execute(self, stage, prim):
-#         newPrim = stage.GetPrimAtPath('/')
-#         rootLayer = stage.GetRootLayer()
-#
-#         defaultPrim = self.parameter('defaultPrim').getValue()
-#         upAxis = self.parameter('upAxis').getValue()
-#
-#         if defaultPrim != '':
-#             rootLayer.defaultPrim = defaultPrim
-#         if upAxis != '':
-#             UsdGeom.SetStageUpAxis(stage, getattr(UsdGeom.Tokens, upAxis.lower()))
-#
-#         return stage, newPrim
-
-
-# todo: TransformNodeItem
-class TransformNodeItem(_PrimNodeItem):
+# todo: TransformNode
+class TransformNode(_PrimNode):
     nodeType = 'Transform'
 
     def __init__(self, *args, **kwargs):
-        super(TransformNodeItem, self).__init__(*args, **kwargs)
+        super(TransformNode, self).__init__(*args, **kwargs)
 
 
-class MaterialAssignNodeItem(UsdNodeItem):
+class MaterialAssignNode(UsdNode):
     nodeType = 'MaterialAssign'
-    fillNormalColor = QColor(70, 60, 50)
+    fillNormalColor = QColor(50, 60, 80)
     borderNormalColor = QColor(250, 250, 250, 200)
 
     def __init__(self, material=None, *args, **kwargs):
-        super(MaterialAssignNodeItem, self).__init__(*args, **kwargs)
+        super(MaterialAssignNode, self).__init__(*args, **kwargs)
 
         if material is not None:
             self.parameter('material').setValue(material)
 
     def _initParameters(self):
-        super(MaterialAssignNodeItem, self)._initParameters()
+        super(MaterialAssignNode, self)._initParameters()
         self.addParameter('material', 'string', defaultValue='')
 
     def _execute(self, stage, prim):
@@ -497,39 +509,50 @@ class MaterialAssignNodeItem(UsdNodeItem):
         # mesh = UsdGeom.Mesh(prim)
         # UsdShade.MaterialBindingAPI(mesh).Bind(material)
 
+        relationshipName = 'material:binding'
+
+        if not prim.HasRelationship(relationshipName):
+            relationship = prim.CreateRelationship(relationshipName)
+            relationship.SetCustom(False)
+        else:
+            relationship = prim.GetRelationship(relationshipName)
+
+        relationship.SetTargets([materialPath])
+
         return stage, prim
 
 
 
 
-registerNode(LayerNodeItem)
-registerNode(RootNodeItem)
-registerNode(PrimDefineNodeItem)
-registerNode(PrimOverrideNodeItem)
-registerNode(ReferenceNodeItem)
-registerNode(PayloadNodeItem)
+registerNode(LayerNode)
+registerNode(RootNode)
+registerNode(PrimDefineNode)
+registerNode(PrimOverrideNode)
+registerNode(ReferenceNode)
+registerNode(PayloadNode)
 
-registerNode(AttributeSetNodeItem)
-registerNode(RelationshipSetNodeItem)
+registerNode(AttributeSetNode)
+registerNode(RelationshipSetNode)
 
-registerNode(VariantSetNodeItem)
-registerNode(VariantSelectNodeItem)
-registerNode(VariantSwitchNodeItem)
+registerNode(VariantSetNode)
+registerNode(VariantSelectNode)
+registerNode(VariantSwitchNode)
 
-registerNode(TransformNodeItem)
-registerNode(MaterialAssignNodeItem)
+registerNode(TransformNode)
+registerNode(MaterialAssignNode)
 
 
-setNodeDefault(LayerNodeItem.nodeType, 'label', '[python os.path.basename("[value layerPath]")]')
-setNodeDefault(RootNodeItem.nodeType, 'label', '/')
-setNodeDefault(PrimDefineNodeItem.nodeType, 'label', '/[value primName]')
-setNodeDefault(PrimOverrideNodeItem.nodeType, 'label', '/[value primName]')
-setNodeDefault(ReferenceNodeItem.nodeType, 'label', '[python os.path.basename("[value assetPath]")]')
-setNodeDefault(PayloadNodeItem.nodeType, 'label', '[python os.path.basename("[value assetPath]")]')
+setNodeDefault(LayerNode.nodeType, 'label', '[python os.path.basename("[value layerPath]")]')
+setNodeDefault(RootNode.nodeType, 'label', '/')
+setNodeDefault(PrimDefineNode.nodeType, 'label', '/[value primName]')
+setNodeDefault(PrimOverrideNode.nodeType, 'label', '/[value primName]')
+setNodeDefault(ReferenceNode.nodeType, 'label', '[python os.path.basename("[value assetPath]")]')
+setNodeDefault(PayloadNode.nodeType, 'label', '[python os.path.basename("[value assetPath]")]')
 
-setNodeDefault(VariantSetNodeItem.nodeType, 'label', '{[value variantSetName]:[value variantList]}')
-setNodeDefault(VariantSelectNodeItem.nodeType, 'label', '{[value variantSetName]=[value variantSelected]}')
-setNodeDefault(VariantSwitchNodeItem.nodeType, 'label', '{[value variantSetName]?=[value variantSelected]}')
+setNodeDefault(MaterialAssignNode.nodeType, 'label', '[python os.path.basename("[value material]")]')
 
+setNodeDefault(VariantSetNode.nodeType, 'label', '{[value variantSetName]:[value variantList]}')
+setNodeDefault(VariantSelectNode.nodeType, 'label', '{[value variantSetName]=[value variantSelected]}')
+setNodeDefault(VariantSwitchNode.nodeType, 'label', '{[value variantSetName]?=[value variantSelected]}')
 
 

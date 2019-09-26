@@ -2,6 +2,7 @@
 # __author__ = 'XingHuan'
 
 
+import copy
 from usdNodeGraph.module.sqt import *
 
 
@@ -18,6 +19,20 @@ class Parameter(QObject):
     def convertValueToPy(cls, usdValue):
         return usdValue
 
+    @classmethod
+    def convertTimeSamplesFromPy(cls, timeSamples):
+        timeSamples = copy.deepcopy(timeSamples)
+        for key, value in timeSamples.items():
+            timeSamples[key] = cls.convertValueFromPy(value)
+        return timeSamples
+
+    @classmethod
+    def convertTimeSamplesToPy(cls, timeSamples):
+        pyTimeSamples = {}
+        for key, value in timeSamples.items():
+            pyTimeSamples[key] = cls.convertValueToPy(value)
+        return timeSamples
+
     def __init__(
             self,
             name='',
@@ -25,13 +40,17 @@ class Parameter(QObject):
             parent=None,
             timeSamples=None,
             builtIn=False,
-            visible=True
+            visible=True,
+            label=None,
+            order=None,
+            custom=False,
+            **kwargs
     ):
         super(Parameter, self).__init__()
 
         self._name = name
-        self._label = name
-        self._order = None
+        self._label = name if label is None else label
+        self._order = order
         self._node = parent
         self._value = value
         self._defaultValue = value
@@ -39,6 +58,7 @@ class Parameter(QObject):
         self._builtIn = builtIn
         self._visible = visible
         self._connect = None
+        self._isCustom = custom
 
         self.parameterValueChanged.connect(self._node._paramterValueChanged)
 
@@ -78,28 +98,34 @@ class Parameter(QObject):
     def getTimeSamples(self):
         return self._timeSamples
 
-    def setTimeSamples(self, timeSamples):
+    def setTimeSamples(self, timeSamples, emitSignal=False):
         self._timeSamples = timeSamples
-        # self.parameterValueChanged.emit(self, value)
+        if emitSignal:
+            self.parameterValueChanged.emit(self, value)
 
-    def setValue(self, value):
+    def setValue(self, value, emitSignal=True):
         self._value = value
-        self.parameterValueChanged.emit(self, value)
+        if emitSignal:
+            self.parameterValueChanged.emit(self, value)
     
     def setValueAt(self, value, time=None):
         if self._timeSamples is None:
             self.setValue(value)
             return
-        self._timeSamples.update({time, value})
+        self._timeSamples.update({time: value})
         self.parameterValueChanged.emit(self, value)
 
-    def setConnect(self, connect):
+    def setConnect(self, connect, emitSignal=True):
         self._connect = connect
-        self.parameterValueChanged.emit(self, None)
+        if emitSignal:
+            self.parameterValueChanged.emit(self, None)
 
     def breakConnect(self):
         self._connect = None
         self.parameterValueChanged.emit(self, None)
+
+    def isCustom(self):
+        return self._isCustom
 
     def getConnect(self):
         return self._connect

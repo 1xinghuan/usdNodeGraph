@@ -28,6 +28,16 @@ class AssetParameter(_StringParameter):
     parameterTypeString = 'asset'
     valueTypeName = Sdf.ValueTypeNames.Asset
 
+    @classmethod
+    def convertValueToPy(cls, usdValue):
+        if usdValue is not None:
+            return usdValue.path
+
+    @classmethod
+    def convertValueFromPy(cls, pyValue):
+        if pyValue is not None:
+            return Sdf.AssetPath(pyValue)
+
 
 class ChooseParameter(_StringParameter):
     parameterTypeString = 'choose'
@@ -77,7 +87,8 @@ class _VecParamter(Parameter):
 
     @classmethod
     def convertValueFromPy(cls, pyValue):
-        return cls._usdValueClass(*pyValue)
+        if pyValue is not None:
+            return cls._usdValueClass(*pyValue)
 
 
 class Vec2fParameter(_VecParamter):
