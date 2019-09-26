@@ -17,12 +17,13 @@ class TimeSlider(QSlider):
 
         self.setOrientation(Qt.Horizontal)
 
-        self.setFixedHeight(50)
         self._isHhover = False
         self._isMoving = False
         self.hoverValue = 1
 
         self.setMouseTracking(True)
+
+        self.setMinimumHeight(50)
 
     def paintEvent(self, QPaintEvent):
         super(TimeSlider, self).paintEvent(QPaintEvent)
@@ -119,8 +120,6 @@ class TimeSliderWidget(QWidget):
         self.masterLayout.addWidget(self.frameInEdit)
         self.masterLayout.addWidget(self.timeSlider)
         self.masterLayout.addWidget(self.frameOutEdit)
-
-        self.setMaximumHeight(50)
 
     def _frameInEditChanged(self):
         timeIn = float(self.frameInEdit.text())

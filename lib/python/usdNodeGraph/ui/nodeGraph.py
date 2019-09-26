@@ -20,15 +20,8 @@ class DockWidget(QDockWidget):
     def __init__(self, title='', objName='', *args, **kwargs):
         super(DockWidget, self).__init__(*args, **kwargs)
 
-        self.visible = False
-
         self.setObjectName(objName)
         self.setWindowTitle(title)
-
-        self.visibilityChanged.connect(self._visibilityChanged)
-
-    def _visibilityChanged(self, v):
-        self.visible = v
 
     def keyPressEvent(self, event):
         super(DockWidget, self).keyPressEvent(event)
@@ -68,12 +61,14 @@ class UsdNodeGraph(QMainWindow):
         self._maxDock = None
 
         self._initUI()
+        self._createSignal()
 
+    def _createSignal(self):
         self.nodeGraphTab.tabCloseRequested.connect(self._tabCloseRequest)
         self.nodeGraphTab.currentChanged.connect(self._tabChanged)
 
-        self.nodeGraphDock.maximizedRequired.connect(self._dockMaxRequired)
-        self.parameterPanelDock.maximizedRequired.connect(self._dockMaxRequired)
+        for dock in self._docks:
+            dock.maximizedRequired.connect(self._dockMaxRequired)
 
     def _setMenus(self):
         self.fileMenu = QMenu('File', self)
@@ -130,7 +125,8 @@ class UsdNodeGraph(QMainWindow):
 
         self.addDockWidget(Qt.LeftDockWidgetArea, self.nodeGraphDock)
         self.addDockWidget(Qt.RightDockWidgetArea, self.parameterPanelDock)
-        self.addDockWidget(Qt.BottomDockWidgetArea, self.timeSliderDock)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.timeSliderDock)
+
         self._docks.append(self.nodeGraphDock)
         self._docks.append(self.parameterPanelDock)
         self._docks.append(self.timeSliderDock)
@@ -138,14 +134,12 @@ class UsdNodeGraph(QMainWindow):
     def _dockMaxRequired(self):
         dockWidget = self.sender()
         if dockWidget == self._maxDock:
-            for w in self._docks:
-                w.setVisible(True)
+            # for w in self._docks:
+            #     w.setVisible(True)
             self._maxDock = None
 
-            # self.restoreGeometry(self._geometry)
             self.restoreState(self._state)
         else:
-            # self._geometry = self.saveGeometry()
             self._state = self.saveState()
 
             for w in self._docks:
