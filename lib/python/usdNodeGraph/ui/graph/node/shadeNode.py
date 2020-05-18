@@ -6,7 +6,7 @@ import logging
 from pxr import Usd, Sdf, Kind, UsdGeom
 from usdNodeGraph.module.sqt import *
 from .nodeItem import NodeItem
-from .node import registerNode, setNodeDefault
+from .node import registerNode, setParamDefault
 from usdNodeGraph.ui.parameter.parameter import Parameter, StringParameter
 from .usdNode import UsdNode, UsdNodeItem
 from .port import InputPort, OutputPort, ShaderInputPort, ShaderOutputPort
@@ -325,9 +325,14 @@ class ShaderNode(_UsdShadeNode):
                 port.destroy()
 
     def _addParameterFromProperty(self, paramName, property):
-        connectable = property.IsConnectable()
-        paramType = str(property.GetTypeAsSdfType()[0])
-        defaultValue = property.GetDefaultValue()
+        if property is None:  # default out output
+            connectable = True
+            paramType = 'string'
+            defaultValue = None
+        else:
+            connectable = property.IsConnectable()
+            paramType = str(property.GetTypeAsSdfType()[0])
+            defaultValue = property.GetDefaultValue()
 
         param = self.addParameter(
             paramName, paramType,
@@ -353,6 +358,8 @@ class ShaderNode(_UsdShadeNode):
         inputNames.sort()
         outputNames = shaderNode.GetOutputNames()
         outputNames.sort()
+        if len(outputNames) == 0:
+            outputNames.append('out')
 
         for inputName in inputNames:
             input = shaderNode.GetInput(inputName)
@@ -380,6 +387,6 @@ registerNode(MaterialNode)
 registerNode(ShaderNode)
 
 
-setNodeDefault(MaterialNode.nodeType, 'label', '/[value primName]')
-setNodeDefault(ShaderNode.nodeType, 'label', '/[value primName]')
+setParamDefault(MaterialNode.nodeType, 'label', '/[value primName]')
+setParamDefault(ShaderNode.nodeType, 'label', '/[value primName]')
 

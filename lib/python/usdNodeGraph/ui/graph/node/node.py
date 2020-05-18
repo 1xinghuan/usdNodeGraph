@@ -147,7 +147,7 @@ def registerNode(nodeObjectClass):
     nodeObjectClass.parameterDefaultDict = {}
 
 
-def setNodeDefault(nodeType, paramName, value):
+def setParamDefault(nodeType, paramName, value):
     nodeClass = Node._nodeTypes.get(nodeType)
     if nodeClass is not None:
         nodeClass.setParameterDefault(paramName, value)

@@ -1,5 +1,6 @@
 from pxr import Sdr
 
+
 class SdrRegistry(object):
     _reg = None
 

@@ -12,6 +12,7 @@ from usdNodeGraph.ui.graph.const import Const
 from usdNodeGraph.ui.parameter.param_panel import ParameterPanel
 from usdNodeGraph.ui.utils.state import GraphState
 from usdNodeGraph.ui.timeSlider import TimeSliderWidget
+from usdNodeGraph.utils.settings import User_Setting, read_setting, write_setting
 
 
 class DockWidget(QDockWidget):
@@ -76,6 +77,8 @@ class UsdNodeGraph(QMainWindow):
         self._addAction('open_file', 'Open', self.fileMenu, shortCut='Ctrl+O', triggerFunc=self._openActionTriggered)
         self._addAction('reload_stage', 'Reload Stage', self.fileMenu, shortCut='Alt+Shift+R', triggerFunc=self._reloadStageActionTriggered)
         self._addAction('reload_layer', 'Reload Layer', self.fileMenu, shortCut='Alt+R', triggerFunc=self._reloadLayerActionTriggered)
+
+        self._addAction('show_edit_text', 'Show Edit Text', self.fileMenu, shortCut=None, triggerFunc=self._showEditTextActionTriggered)
         self._addAction('apply_changes', 'Apply', self.fileMenu, shortCut='Ctrl+Shift+A', triggerFunc=self._applyActionTriggered)
         self._addAction('export_file', 'Export', self.fileMenu, shortCut='Ctrl+E', triggerFunc=self._exportActionTriggered)
 
@@ -84,7 +87,7 @@ class UsdNodeGraph(QMainWindow):
         self._addAction('create_node', 'Create New', self.editMenu, shortCut='Tab', triggerFunc=self._createNodeActionTriggered)
         self._addAction('select_all_node', 'Select All', self.editMenu, shortCut='Ctrl+A', triggerFunc=self._selectAllActionTriggered)
         self._addAction('copy_node', 'Copy', self.editMenu, shortCut='Ctrl+C', triggerFunc=self._copyActionTriggered)
-        # self._addAction('cut_node', 'Cut', self.editMenu, shortCut='Ctrl+X', triggerFunc=self._cutActionTriggered)
+        self._addAction('cut_node', 'Cut', self.editMenu, shortCut='Ctrl+X', triggerFunc=self._cutActionTriggered)
         self._addAction('paste_node', 'Paste', self.editMenu, shortCut='Ctrl+V', triggerFunc=self._pasteActionTriggered)
         self._addAction('frame_selection', 'Frame Selection', self.editMenu, triggerFunc=self._frameSelectionActionTriggered)
         self._addAction('disable_selection', 'Disable Selection', self.editMenu, shortCut='D', triggerFunc=self._disableSelectionActionTriggered)
@@ -113,6 +116,7 @@ class UsdNodeGraph(QMainWindow):
         self.nodeGraphTab = NodeGraphTab(parent=self)
         self.parameterPanel = ParameterPanel(parent=self)
         self.timeSlider = TimeSliderWidget()
+        self.editTextEdit = QTextEdit()
 
         self._addNewScene()
 
@@ -122,6 +126,8 @@ class UsdNodeGraph(QMainWindow):
         self.parameterPanelDock.setWidget(self.parameterPanel)
         self.timeSliderDock = DockWidget(title='Time Slider', objName='timeSliderDock')
         self.timeSliderDock.setWidget(self.timeSlider)
+        self.textEditDock = DockWidget(title='Edit Text', objName='textEditDock')
+        self.textEditDock.setWidget(self.editTextEdit)
 
         self.addDockWidget(Qt.LeftDockWidgetArea, self.nodeGraphDock)
         self.addDockWidget(Qt.RightDockWidgetArea, self.parameterPanelDock)
@@ -130,6 +136,9 @@ class UsdNodeGraph(QMainWindow):
         self._docks.append(self.nodeGraphDock)
         self._docks.append(self.parameterPanelDock)
         self._docks.append(self.timeSliderDock)
+        self._docks.append(self.textEditDock)
+
+        self._getUiPref()
 
     def _dockMaxRequired(self):
         dockWidget = self.sender()
@@ -241,6 +250,10 @@ class UsdNodeGraph(QMainWindow):
     def _reloadLayerActionTriggered(self):
         self.currentScene.scene.reloadLayer()
 
+    def _showEditTextActionTriggered(self):
+        self.textEditDock.setVisible(True)
+        self.editTextEdit.setText(self.currentScene.exportToString())
+
     def _exportActionTriggered(self):
         self.currentScene.exportToFile()
 
@@ -263,7 +276,8 @@ class UsdNodeGraph(QMainWindow):
         nodes = self.currentScene.scene.pasteNodesFromString(nodesString)
 
     def _cutActionTriggered(self):
-        pass
+        self._copyActionTriggered()
+        self._deleteSelectionActionTriggered()
 
     def _enterActionTriggered(self):
         self.currentScene.scene.enterSelection()
@@ -294,5 +308,23 @@ class UsdNodeGraph(QMainWindow):
 
     def addStage(self, stage, layer=None):
         self._addStage(stage, layer)
+
+    def closeEvent(self, event):
+        super(UsdNodeGraph, self).closeEvent(event)
+        write_setting(User_Setting, 'nodegraph_geo', value=self.saveGeometry())
+        write_setting(User_Setting, 'nodegraph_state', value=self.saveState())
+
+    def _getUiPref(self):
+        geo = read_setting(
+            User_Setting,
+            'nodegraph_geo',
+            to_type='bytearray')
+        state = read_setting(
+            User_Setting,
+            'nodegraph_state',
+            to_type='bytearray')
+
+        self.restoreGeometry(geo)
+        self.restoreState(state)
 
 

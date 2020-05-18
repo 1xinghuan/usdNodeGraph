@@ -4,7 +4,7 @@
 
 from pxr import Usd, Sdf, Kind, UsdGeom, UsdShade
 from usdNodeGraph.module.sqt import *
-from .node import Node, registerNode, setNodeDefault
+from .node import Node, registerNode, setParamDefault
 from .nodeItem import NodeItem
 from .tag import PixmapTag
 from usdNodeGraph.ui.parameter.parameter import Parameter, StringParameter
@@ -522,8 +522,6 @@ class MaterialAssignNode(UsdNode):
         return stage, prim
 
 
-
-
 registerNode(LayerNode)
 registerNode(RootNode)
 registerNode(PrimDefineNode)
@@ -542,17 +540,17 @@ registerNode(TransformNode)
 registerNode(MaterialAssignNode)
 
 
-setNodeDefault(LayerNode.nodeType, 'label', '[python os.path.basename("[value layerPath]")]')
-setNodeDefault(RootNode.nodeType, 'label', '/')
-setNodeDefault(PrimDefineNode.nodeType, 'label', '/[value primName]')
-setNodeDefault(PrimOverrideNode.nodeType, 'label', '/[value primName]')
-setNodeDefault(ReferenceNode.nodeType, 'label', '[python os.path.basename("[value assetPath]")]')
-setNodeDefault(PayloadNode.nodeType, 'label', '[python os.path.basename("[value assetPath]")]')
+setParamDefault(LayerNode.nodeType, 'label', '[python os.path.basename("[value layerPath]")]')
+setParamDefault(RootNode.nodeType, 'label', '/')
+setParamDefault(PrimDefineNode.nodeType, 'label', '/[value primName]')
+setParamDefault(PrimOverrideNode.nodeType, 'label', '/[value primName]')
+setParamDefault(ReferenceNode.nodeType, 'label', '[python os.path.basename("[value assetPath]")]')
+setParamDefault(PayloadNode.nodeType, 'label', '[python os.path.basename("[value assetPath]")]')
 
-setNodeDefault(MaterialAssignNode.nodeType, 'label', '[python os.path.basename("[value material]")]')
+setParamDefault(MaterialAssignNode.nodeType, 'label', '[python os.path.basename("[value material]")]')
 
-setNodeDefault(VariantSetNode.nodeType, 'label', '{[value variantSetName]:[value variantList]}')
-setNodeDefault(VariantSelectNode.nodeType, 'label', '{[value variantSetName]=[value variantSelected]}')
-setNodeDefault(VariantSwitchNode.nodeType, 'label', '{[value variantSetName]?=[value variantSelected]}')
+setParamDefault(VariantSetNode.nodeType, 'label', '{[value variantSetName]:[value variantList]}')
+setParamDefault(VariantSelectNode.nodeType, 'label', '{[value variantSetName]=[value variantSelected]}')
+setParamDefault(VariantSwitchNode.nodeType, 'label', '{[value variantSetName]?=[value variantSelected]}')
 
 

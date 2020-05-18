@@ -363,6 +363,9 @@ class GraphicsSceneWidget(QWidget):
         self.layer = layer
         self.scene.setStage(self.stage, self.layer, reset=reset)
 
+    def exportToString(self):
+        return self.scene.exportToString()
+
     def exportToFile(self):
         self.scene.exportToFile()
 
@@ -871,6 +874,10 @@ class GraphicsScene(QGraphicsScene):
         for node in _newNodes:
             node.setSelected(True)
         return _newNodes
+
+    def exportToString(self):
+        stage = self._executeAllToStage()
+        return stage.GetRootLayer().ExportToString()
 
     def exportToFile(self):
         stage = self._executeAllToStage()

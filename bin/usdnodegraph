@@ -4,6 +4,7 @@ import sys
 from usdNodeGraph.ui.nodeGraph import UsdNodeGraph
 from usdNodeGraph.ui.app import MainApplication
 
+
 if __name__ == '__main__':
     usdFile = ''
     if len(sys.argv) > 1:

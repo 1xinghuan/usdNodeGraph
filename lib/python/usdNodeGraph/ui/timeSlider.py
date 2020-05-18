@@ -108,7 +108,7 @@ class TimeSliderWidget(QWidget):
 
     def _initUI(self):
         self.masterLayout = QHBoxLayout()
-        self.masterLayout.setContentsMargins(0, 0, 0, 0)
+        self.masterLayout.setContentsMargins(10, 0, 10, 0)
         self.setLayout(self.masterLayout)
 
         self.frameInEdit = LineEdit()
@@ -120,6 +120,8 @@ class TimeSliderWidget(QWidget):
         self.masterLayout.addWidget(self.frameInEdit)
         self.masterLayout.addWidget(self.timeSlider)
         self.masterLayout.addWidget(self.frameOutEdit)
+
+        self.setMaximumHeight(70)
 
     def _frameInEditChanged(self):
         timeIn = float(self.frameInEdit.text())
