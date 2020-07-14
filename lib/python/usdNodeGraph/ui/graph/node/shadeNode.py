@@ -110,7 +110,7 @@ class _UsdShadeNodeItem(UsdNodeItem):
             elif len(connections) == 1:
                 connectPort = connections[0]
                 connectNode = connectPort.node()
-                nodePrimPath = connectNode.getCurrentPrimPath()
+                nodePrimPath = connectNode.getCurrentNodeItemPrimPath()
                 connectPath = '{}.{}'.format(nodePrimPath, connectPort.name)
                 parameter.setConnect(connectPath)
             else:
@@ -124,7 +124,7 @@ class _UsdShadeNodeItem(UsdNodeItem):
     #     if parameterName.startswith(OUTPUT_ATTRIBUTE_PREFIX):
     #         self.addShaderOutputPort(parameterName, label=label)
 
-    def getCurrentPrimPath(self, prim=None):
+    def getCurrentNodeItemPrimPath(self, prim=None):
         if prim is None:
             upPrimPath = self._getUpPrimPath('')
             upPrimPath = upPrimPath.rstrip('/')
@@ -223,10 +223,10 @@ class _UsdShadeNode(UsdNode):
                     return
                 outputPort = connectNode.getPort(connectParamName)
                 if outputPort is not None:
-                    inputPort.connectTo(outputPort, emitSignal=emitSignal)
+                    inputPort.connectTo(outputPort, emitSignal=emitSignal, connection=True)
 
     def _execute(self, stage, prim):
-        primPath = self.item.getCurrentPrimPath(prim)
+        primPath = self.item.getCurrentNodeItemPrimPath(prim)
 
         prim = stage.OverridePrim(primPath)
         prim.SetSpecifier(Sdf.SpecifierDef)

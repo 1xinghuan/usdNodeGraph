@@ -13,6 +13,8 @@ PIPE_HIGHTLIGHT_COLOR = QColor(250, 250, 100)
 
 class Pipe(QGraphicsPathItem):
     """A connection between two versions"""
+    normalColor = PIPE_NORMAL_COLOR
+    lineStyle = None
 
     def __init__(self, orientation=0, **kwargs):
         super(Pipe, self).__init__(**kwargs)
@@ -20,7 +22,7 @@ class Pipe(QGraphicsPathItem):
         self.setFlag(QGraphicsItem.ItemIsSelectable, False)
         self.setAcceptHoverEvents(True)
 
-        self.lineColor = PIPE_NORMAL_COLOR
+        self.lineColor = self.normalColor
         self.thickness = 1.5
         self.pointAtLength = 7
         self.orientation = orientation
@@ -43,7 +45,7 @@ class Pipe(QGraphicsPathItem):
         if highlight:
             self.lineColor = PIPE_HIGHTLIGHT_COLOR
         else:
-            self.lineColor = PIPE_NORMAL_COLOR
+            self.lineColor = self.normalColor
 
     def updatePath(self, sourcePos=None, targetPos=None):
         orientation = self.orientation
@@ -52,6 +54,8 @@ class Pipe(QGraphicsPathItem):
             sourcePos = self.source.mapToScene(self.source.boundingRect().center())
         if self.target:
             targetPos = self.target.mapToScene(self.target.boundingRect().center())
+        if sourcePos is None or targetPos is None:
+            return
 
         path = QPainterPath()
         path.moveTo(sourcePos)
@@ -95,8 +99,15 @@ class Pipe(QGraphicsPathItem):
     def breakConnection(self):
         if self.source is not None:
             self.source.removePipe(self)
+            self.source = None
         if self.target is not None:
             self.target.removePipe(self)
+            self.target = None
+
+        if self.scene() is not None:
+            self.scene().removeItem(self)
+
+        del self
 
     def paint(self, painter, option, widget):
         zoom = self.scene().views()[0].currentZoom
@@ -107,6 +118,8 @@ class Pipe(QGraphicsPathItem):
             pen = QPen(PIPE_HIGHTLIGHT_COLOR, thickness)
         else:
             pen = QPen(self.lineColor, thickness)
+        if self.lineStyle is not None:
+            pen.setStyle(self.lineStyle)
         self.setPen(pen)
         self.setZValue(-1)
         super(Pipe, self).paint(painter, option, widget)
@@ -186,18 +199,23 @@ class Pipe(QGraphicsPathItem):
 
             scenePos = event.pos()
             findPort = self.scene().itemAt(scenePos, QTransform())
+
+            self.breakConnection()
+
             if findPort is not None and isinstance(findPort, Port):
                 if (isinstance(findPort, InputPort) and self.source is not None):
                     self.source.connectTo(findPort)
                 elif (isinstance(findPort, OutputPort) and self.target is not None):
                     self.target.connectTo(findPort)
 
-            self.breakConnection()
-            self.scene().removeItem(self)
-
             self.isFloat = False
             if self.foundPort is not None:
                 self.foundPort.setHighlight(False)
                 self.foundPort = None
+
+
+class ConnectionPipe(Pipe):
+    lineStyle = Qt.DashLine
+    normalColor = QColor(100, 130, 100)
 
 

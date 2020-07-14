@@ -4,7 +4,7 @@
 
 
 from usdNodeGraph.module.sqt import *
-from ..pipe import Pipe
+from ..pipe import Pipe, ConnectionPipe
 from ..const import Const
 
 PORT_SIZE = 10
@@ -33,6 +33,8 @@ class Port(QGraphicsEllipseItem):
     fillColor = QColor(230, 230, 0)
     borderNormalColor = QColor(200, 200, 250)
     borderHighlightColor = QColor(255, 255, 0)
+
+    maxConnections = None
 
     def __init__(self, name='input', label=None, **kwargs):
         super(Port, self).__init__(**kwargs)
@@ -84,7 +86,7 @@ class Port(QGraphicsEllipseItem):
     def node(self):
         return self.parentItem()
 
-    def connectTo(self, port, emitSignal=True):
+    def connectTo(self, port, emitSignal=True, connection=False):
         """
         inputPort -> outputPort
         :param port:
@@ -95,9 +97,16 @@ class Port(QGraphicsEllipseItem):
 
         for pipe in self.pipes:
             if (pipe.source == self and pipe.target == port) or (pipe.source == port and pipe.target == self):
+                pipe.updatePath()
                 return
 
-        pipe = Pipe(orientation=self.orientation)
+        self._checkConnectionNumber()
+        port._checkConnectionNumber()
+
+        if connection:
+            pipe = ConnectionPipe(orientation=self.orientation)
+        else:
+            pipe = Pipe(orientation=self.orientation)
         if isinstance(self, InputPort):
             pipe.source = port
             pipe.target = self
@@ -121,6 +130,14 @@ class Port(QGraphicsEllipseItem):
         if pipe in self.pipes:
             self.pipes.remove(pipe)
             self.portObj._connectChanged()
+
+    def _checkConnectionNumber(self):
+        if self.maxConnections is None:
+            return
+        if len(self.pipes) == self.maxConnections:
+            pipe = self.pipes[0]
+            self.removePipe(pipe)
+            pipe.breakConnection()
 
     def boundingRect(self):
         rect = QRectF(
@@ -232,6 +249,7 @@ class OutputPort(Port):
 
 class ShaderInputPort(InputPort):
     orientation = 1
+    maxConnections = 1
 
     def _setNameTransform(self):
         self.nameTransform.translate(15, -(self.nameRect.height() / 2.0 - PORT_SIZE / 2.0))

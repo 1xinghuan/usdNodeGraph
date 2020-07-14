@@ -57,7 +57,7 @@ class _PrimNode(UsdNode):
         self.addParameter('typeName', 'string', defaultValue='')
         self.addParameter('kind', 'string', defaultValue='')
 
-    def _getCurrentPrimPath(self, prim):
+    def _getCurrentExecutePrimPath(self, prim):
         primPath = prim.GetPath().pathString
         if primPath == '/':
             primPath = ''
@@ -155,7 +155,7 @@ class PrimDefineNode(_PrimNode):
         super(PrimDefineNode, self).__init__(*args, **kwargs)
 
     def _execute(self, stage, prim):
-        primPath = self._getCurrentPrimPath(prim)
+        primPath = self._getCurrentExecutePrimPath(prim)
         typeName = self.parameter('typeName').getValue()
         kindStr = self.parameter('kind').getValue()
 
@@ -179,7 +179,7 @@ class PrimOverrideNode(_PrimNode):
         super(PrimOverrideNode, self).__init__(*args, **kwargs)
 
     def _execute(self, stage, prim):
-        primPath = self._getCurrentPrimPath(prim)
+        primPath = self._getCurrentExecutePrimPath(prim)
         typeName = self.parameter('typeName').getValue()
         kindStr = self.parameter('kind').getValue()
 

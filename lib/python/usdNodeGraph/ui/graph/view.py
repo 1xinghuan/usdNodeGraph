@@ -722,13 +722,12 @@ class GraphicsScene(QGraphicsScene):
 
         for pipe in selectedPipes:
             pipe.breakConnection()
-            self.removeItem(pipe)
 
         for node in selectedNodes:
             for port in node.ports:
                 for pipe in port.pipes:
                     pipe.breakConnection()
-                    self.removeItem(pipe)
+
             self.removeItem(node)
             self._allNodes.pop(node)
 
