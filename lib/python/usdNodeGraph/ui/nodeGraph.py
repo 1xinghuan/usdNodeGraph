@@ -15,8 +15,8 @@ from usdNodeGraph.ui.timeSlider import TimeSliderWidget
 from usdNodeGraph.utils.settings import User_Setting, read_setting, write_setting
 
 
-class DockWidget(QDockWidget):
-    maximizedRequired = Signal()
+class DockWidget(QtWidgets.QDockWidget):
+    maximizedRequired = QtCore.Signal()
 
     def __init__(self, title='', objName='', *args, **kwargs):
         super(DockWidget, self).__init__(*args, **kwargs)
@@ -27,11 +27,11 @@ class DockWidget(QDockWidget):
     def keyPressEvent(self, event):
         super(DockWidget, self).keyPressEvent(event)
 
-        if event.key() == Qt.Key_Space:
+        if event.key() == QtCore.Qt.Key_Space:
             self.maximizedRequired.emit()
 
 
-class NodeGraphTab(QTabWidget):
+class NodeGraphTab(QtWidgets.QTabWidget):
     def __init__(self, *args, **kwargs):
         super(NodeGraphTab, self).__init__(*args, **kwargs)
 
@@ -39,9 +39,9 @@ class NodeGraphTab(QTabWidget):
         self.setMovable(True)
 
 
-class UsdNodeGraph(QMainWindow):
-    entityItemDoubleClicked = Signal(object)
-    currentSceneChanged = Signal(object)
+class UsdNodeGraph(QtWidgets.QMainWindow):
+    entityItemDoubleClicked = QtCore.Signal(object)
+    currentSceneChanged = QtCore.Signal(object)
     _actionShortCutMap = {}
 
     @classmethod
@@ -72,7 +72,7 @@ class UsdNodeGraph(QMainWindow):
             dock.maximizedRequired.connect(self._dockMaxRequired)
 
     def _setMenus(self):
-        self.fileMenu = QMenu('File', self)
+        self.fileMenu = QtWidgets.QMenu('File', self)
         self.menuBar().addMenu(self.fileMenu)
         self._addAction('open_file', 'Open', self.fileMenu, shortCut='Ctrl+O', triggerFunc=self._openActionTriggered)
         self._addAction('reload_stage', 'Reload Stage', self.fileMenu, shortCut='Alt+Shift+R', triggerFunc=self._reloadStageActionTriggered)
@@ -82,7 +82,7 @@ class UsdNodeGraph(QMainWindow):
         self._addAction('apply_changes', 'Apply', self.fileMenu, shortCut='Ctrl+Shift+A', triggerFunc=self._applyActionTriggered)
         self._addAction('export_file', 'Export', self.fileMenu, shortCut='Ctrl+E', triggerFunc=self._exportActionTriggered)
 
-        self.editMenu = QMenu('Edit', self)
+        self.editMenu = QtWidgets.QMenu('Edit', self)
         self.menuBar().addMenu(self.editMenu)
         self._addAction('create_node', 'Create New', self.editMenu, shortCut='Tab', triggerFunc=self._createNodeActionTriggered)
         self._addAction('select_all_node', 'Select All', self.editMenu, shortCut='Ctrl+A', triggerFunc=self._selectAllActionTriggered)
@@ -95,7 +95,7 @@ class UsdNodeGraph(QMainWindow):
         self._addAction('enter_node', 'Enter', self.editMenu, shortCut='Ctrl+Return', triggerFunc=self._enterActionTriggered)
 
     def _addAction(self, name, label, menu, shortCut=None, triggerFunc=None):
-        action = QAction(label, menu)
+        action = QtWidgets.QAction(label, menu)
         menu.addAction(action)
         if name in self._actionShortCutMap:
             shortCut = self._actionShortCutMap.get(name)
@@ -116,7 +116,7 @@ class UsdNodeGraph(QMainWindow):
         self.nodeGraphTab = NodeGraphTab(parent=self)
         self.parameterPanel = ParameterPanel(parent=self)
         self.timeSlider = TimeSliderWidget()
-        self.editTextEdit = QTextEdit()
+        self.editTextEdit = QtWidgets.QTextEdit()
 
         self._addNewScene()
 
@@ -129,9 +129,9 @@ class UsdNodeGraph(QMainWindow):
         self.textEditDock = DockWidget(title='Edit Text', objName='textEditDock')
         self.textEditDock.setWidget(self.editTextEdit)
 
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.nodeGraphDock)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.parameterPanelDock)
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.timeSliderDock)
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self.nodeGraphDock)
+        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self.parameterPanelDock)
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self.timeSliderDock)
 
         self._docks.append(self.nodeGraphDock)
         self._docks.append(self.parameterPanelDock)
@@ -268,11 +268,11 @@ class UsdNodeGraph(QMainWindow):
 
     def _copyActionTriggered(self):
         nodesString = self.currentScene.scene.getSelectedNodesAsString()
-        cb = QApplication.clipboard()
+        cb = QtWidgets.QApplication.clipboard()
         cb.setText(nodesString)
 
     def _pasteActionTriggered(self):
-        nodesString = QApplication.clipboard().text()
+        nodesString = QtWidgets.QApplication.clipboard().text()
         nodes = self.currentScene.scene.pasteNodesFromString(nodesString)
 
     def _cutActionTriggered(self):

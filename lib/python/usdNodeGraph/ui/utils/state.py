@@ -1,8 +1,8 @@
-from usdNodeGraph.module.sqt import QObject, Signal
+from usdNodeGraph.module.sqt import QtCore
 
 
-class GraphState(QObject):
-    currentTimeChanged = Signal(float)
+class GraphState(QtCore.QObject):
+    currentTimeChanged = QtCore.Signal(float)
 
     _state = None
     _times = {}

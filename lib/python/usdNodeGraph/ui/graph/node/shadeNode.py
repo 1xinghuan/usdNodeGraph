@@ -21,8 +21,8 @@ PORT_SPACING = 20
 
 
 class _UsdShadeNodeItem(UsdNodeItem):
-    fillNormalColor = QColor(50, 60, 80)
-    borderNormalColor = QColor(200, 250, 200, 200)
+    fillNormalColor = QtGui.QColor(50, 60, 80)
+    borderNormalColor = QtGui.QColor(200, 250, 200, 200)
     reverse = False
 
     def __init__(self, *args, **kwargs):
@@ -140,8 +140,8 @@ class _UsdShadeNodeItem(UsdNodeItem):
 
 class _UsdShadeNode(UsdNode):
     nodeType = '_UsdShade'
-    fillNormalColor = QColor(50, 60, 80)
-    borderNormalColor = QColor(170, 250, 170, 200)
+    fillNormalColor = QtGui.QColor(50, 60, 80)
+    borderNormalColor = QtGui.QColor(170, 250, 170, 200)
     reverse = False
 
     def __init__(self, prim=None, **kwargs):
@@ -285,7 +285,7 @@ class MaterialNode(_UsdShadeNode):
 class ShaderNode(_UsdShadeNode):
     nodeType = 'Shader'
     nodeItem = ShaderNodeItem
-    borderNormalColor = QColor(250, 250, 150, 200)
+    borderNormalColor = QtGui.QColor(250, 250, 150, 200)
 
     def __init__(self, prim=None, **kwargs):
         super(ShaderNode, self).__init__(prim=prim, **kwargs)

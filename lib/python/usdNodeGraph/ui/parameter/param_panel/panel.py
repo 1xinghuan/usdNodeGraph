@@ -4,8 +4,8 @@ from usdNodeGraph.utils.res import resource
 from usdNodeGraph.ui.utils.layout import FormLayout
 
 
-class NodeParameterWidget(QWidget):
-    removeClicked = Signal()
+class NodeParameterWidget(QtWidgets.QWidget):
+    removeClicked = QtCore.Signal()
 
     def __init__(self):
         super(NodeParameterWidget, self).__init__()
@@ -24,22 +24,22 @@ class NodeParameterWidget(QWidget):
 
     def _initUI(self):
 
-        self._backLabel = QLabel(parent=self)
+        self._backLabel = QtWidgets.QLabel(parent=self)
         self._backLabel.move(0, 0)
         self._backLabel.setStyleSheet('''
         background: rgb(250, 250, 250, 10);
         border-radius: 3px;
         ''')
 
-        self.masterLayout = QVBoxLayout()
+        self.masterLayout = QtWidgets.QVBoxLayout()
         self.masterLayout.setContentsMargins(5, 5, 5, 5)
         self.setLayout(self.masterLayout)
 
-        self.expandButton = QPushButton()
+        self.expandButton = QtWidgets.QPushButton()
         self.expandButton.setIcon(resource.get_qicon('btn', 'arrow1_down.png'))
         self.nodeNameEdit = StringParameterWidget()
-        self.nodeTypeLabel = QLabel()
-        self.closeButton = QPushButton()
+        self.nodeTypeLabel = QtWidgets.QLabel()
+        self.closeButton = QtWidgets.QPushButton()
         self.closeButton.setIcon(resource.get_qicon('btn', 'close.png'))
 
         self.expandButton.setFixedSize(20, 20)
@@ -47,21 +47,21 @@ class NodeParameterWidget(QWidget):
         self.nodeNameEdit.setFixedHeight(20)
         self.nodeTypeLabel.setFixedHeight(20)
 
-        self.topLayout = QHBoxLayout()
+        self.topLayout = QtWidgets.QHBoxLayout()
         self.topLayout.addWidget(self.expandButton)
         self.topLayout.addWidget(self.nodeNameEdit)
         self.topLayout.addWidget(self.nodeTypeLabel)
         self.topLayout.addStretch()
         self.topLayout.addWidget(self.closeButton)
 
-        self.parameterTabWidget = QTabWidget()
+        self.parameterTabWidget = QtWidgets.QTabWidget()
 
         self.masterLayout.addLayout(self.topLayout)
         self.masterLayout.addWidget(self.parameterTabWidget)
 
-        self.setSizePolicy(QSizePolicy(
-            QSizePolicy.Preferred,
-            QSizePolicy.Maximum
+        self.setSizePolicy(QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Preferred,
+            QtWidgets.QSizePolicy.Maximum
         ))
 
     def sizeHint(self):
@@ -102,15 +102,15 @@ class NodeParameterWidget(QWidget):
             parameterLabel = parameter.getLabel()
             # if len(parameterLabel) > 15:
             #     parameterLabel = '{}...{}'.format(parameterLabel[:6], parameterLabel[-6:])
-            parameterWidget = ParameterObject.createParameterWidget(parameter)
+            parameterWidget = ParameterWidget.createParameterWidget(parameter)
 
             self._paramWidgets.update({parameter.name(): parameterWidget})
             layout.addRow(parameterLabel, parameterWidget)
 
     def _buildTab(self, label, parameters=[]):
         layout = FormLayout()
-        layout.setLabelAlignment(Qt.AlignRight)
-        tab = QWidget()
+        layout.setLabelAlignment(QtCore.Qt.AlignRight)
+        tab = QtWidgets.QWidget()
         tab.setLayout(layout)
         self._tabs.update({label: tab})
 
@@ -151,7 +151,7 @@ class NodeParameterWidget(QWidget):
             layout.removeRowWidget(parameterWidget)
 
 
-class ParameterPanel(QWidget):
+class ParameterPanel(QtWidgets.QWidget):
     def __init__(self, *args, **kwargs):
         super(ParameterPanel, self).__init__(*args, **kwargs)
 
@@ -165,25 +165,25 @@ class ParameterPanel(QWidget):
 
     def _initUI(self):
 
-        self.masterLayout = QVBoxLayout()
+        self.masterLayout = QtWidgets.QVBoxLayout()
         self.setLayout(self.masterLayout)
 
-        self.widgetNumEdit = QLineEdit('10')
+        self.widgetNumEdit = QtWidgets.QLineEdit('10')
         self.widgetNumEdit.setFixedSize(50, 20)
-        self.clearButton = QPushButton()
+        self.clearButton = QtWidgets.QPushButton()
         self.clearButton.setFixedSize(20, 20)
         self.clearButton.setIcon(resource.get_qicon('btn', 'close.png'))
-        self.widgetsAreaWidget = QWidget()
-        self.widgetsAreaLayout = QVBoxLayout()
-        self.widgetsAreaLayout.setAlignment(Qt.AlignTop)
+        self.widgetsAreaWidget = QtWidgets.QWidget()
+        self.widgetsAreaLayout = QtWidgets.QVBoxLayout()
+        self.widgetsAreaLayout.setAlignment(QtCore.Qt.AlignTop)
         self.widgetsAreaLayout.addStretch()
         self.widgetsAreaWidget.setLayout(self.widgetsAreaLayout)
-        self.widgetsArea = QScrollArea()
+        self.widgetsArea = QtWidgets.QScrollArea()
         self.widgetsArea.setWidget(self.widgetsAreaWidget)
         self.widgetsArea.setWidgetResizable(True)
 
-        self.topLayout = QHBoxLayout()
-        # self.topLayout.setAlignment(Qt.AlignLeft)
+        self.topLayout = QtWidgets.QHBoxLayout()
+        # self.topLayout.setAlignment(QtCore.Qt.AlignLeft)
         self.topLayout.addWidget(self.widgetNumEdit)
         self.topLayout.addWidget(self.clearButton)
         self.topLayout.addStretch()
@@ -192,7 +192,7 @@ class ParameterPanel(QWidget):
         self.masterLayout.addWidget(self.widgetsArea)
 
     def sizeHint(self):
-        return QSize(200, 200)
+        return QtCore.QSize(200, 200)
 
     def _numChanged(self):
         self._removeExtraWidgets()

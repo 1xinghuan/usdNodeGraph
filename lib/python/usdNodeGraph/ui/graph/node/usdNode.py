@@ -25,7 +25,7 @@ class UsdNode(Node):
         self._stage = stage
         self._layer = layer
 
-        self.parameter('name').setValue(name, emitSignal=False)
+        self.parameter('name').setValueQuietly(name)
 
     def getStage(self):
         return self._stage
@@ -47,9 +47,9 @@ class _PrimNode(UsdNode):
         super(_PrimNode, self).__init__(*args, **kwargs)
 
         if prim is not None:
-            self.parameter('primName').setValue(prim.name)
-            self.parameter('typeName').setValue(prim.typeName)
-            self.parameter('kind').setValue(prim.kind)
+            self.parameter('primName').setValueQuietly(prim.name)
+            self.parameter('typeName').setValueQuietly(prim.typeName)
+            self.parameter('kind').setValueQuietly(prim.kind)
 
     def _initParameters(self):
         super(_PrimNode, self)._initParameters()
@@ -68,15 +68,15 @@ class _PrimNode(UsdNode):
 
 class LayerNode(UsdNode):
     nodeType = 'Layer'
-    fillNormalColor = QColor(50, 60, 70, 150)
-    borderNormalColor = QColor(250, 250, 250, 150)
+    fillNormalColor = QtGui.QColor(50, 60, 70, 150)
+    borderNormalColor = QtGui.QColor(250, 250, 250, 150)
 
     def __init__(self, layerPath='', layerOffset=None, *args, **kwargs):
         super(LayerNode, self).__init__(*args, **kwargs)
 
-        self.parameter('layerPath').setValue(layerPath)
-        # self.parameter('layerOffset').setValue(layerOffset.offset)
-        # self.parameter('layerScale').setValue(layerOffset.scale)
+        self.parameter('layerPath').setValueQuietly(layerPath)
+        # self.parameter('layerOffset').setValueQuietly(layerOffset.offset)
+        # self.parameter('layerScale').setValueQuietly(layerOffset.scale)
 
     def _initParameters(self):
         super(LayerNode, self)._initParameters()
@@ -98,23 +98,23 @@ class LayerNode(UsdNode):
 
 class RootNode(UsdNode):
     nodeType = 'Root'
-    fillNormalColor = QColor(50, 60, 70)
-    borderNormalColor = QColor(250, 250, 250, 200)
+    fillNormalColor = QtGui.QColor(50, 60, 70)
+    borderNormalColor = QtGui.QColor(250, 250, 250, 200)
 
     def __init__(self, *args, **kwargs):
         super(RootNode, self).__init__(*args, **kwargs)
 
         if self._layer is not None:
-            self.parameter('defaultPrim').setValue(self._layer.defaultPrim)
+            self.parameter('defaultPrim').setValueQuietly(self._layer.defaultPrim)
             if self._layer.HasStartTimeCode():
-                self.parameter('startTimeCode').setValue(self._layer.startTimeCode)
+                self.parameter('startTimeCode').setValueQuietly(self._layer.startTimeCode)
             if self._layer.HasEndTimeCode():
-                self.parameter('endTimeCode').setValue(self._layer.endTimeCode)
+                self.parameter('endTimeCode').setValueQuietly(self._layer.endTimeCode)
 
         # how to get layer's upAxis, not stage?
         if self._stage is not None:
             upAxis = UsdGeom.GetStageUpAxis(self._stage)
-            self.parameter('upAxis').setValue(upAxis)
+            self.parameter('upAxis').setValueQuietly(upAxis)
 
     def _initParameters(self):
         super(RootNode, self)._initParameters()
@@ -148,8 +148,8 @@ class RootNode(UsdNode):
 
 class PrimDefineNode(_PrimNode):
     nodeType = 'PrimDefine'
-    fillNormalColor = QColor(50, 60, 70)
-    borderNormalColor = QColor(200, 250, 200, 200)
+    fillNormalColor = QtGui.QColor(50, 60, 70)
+    borderNormalColor = QtGui.QColor(200, 250, 200, 200)
 
     def __init__(self, *args, **kwargs):
         super(PrimDefineNode, self).__init__(*args, **kwargs)
@@ -172,8 +172,8 @@ class PrimDefineNode(_PrimNode):
 
 class PrimOverrideNode(_PrimNode):
     nodeType = 'PrimOverride'
-    fillNormalColor = QColor(50, 60, 70)
-    borderNormalColor = QColor(200, 200, 250, 200)
+    fillNormalColor = QtGui.QColor(50, 60, 70)
+    borderNormalColor = QtGui.QColor(200, 200, 250, 200)
 
     def __init__(self, *args, **kwargs):
         super(PrimOverrideNode, self).__init__(*args, **kwargs)
@@ -196,8 +196,8 @@ class PrimOverrideNode(_PrimNode):
 
 class _RefNode(UsdNode):
     nodeType = '_Ref'
-    fillNormalColor = QColor(50, 60, 70)
-    borderNormalColor = QColor(200, 150, 150, 200)
+    fillNormalColor = QtGui.QColor(50, 60, 70)
+    borderNormalColor = QtGui.QColor(200, 150, 150, 200)
 
     def _initParameters(self):
         super(_RefNode, self)._initParameters()
@@ -223,9 +223,9 @@ class ReferenceNode(_RefNode):
         self.item.addTag(PixmapTag('Reference.png'), position=0.25)
 
         if reference is not None:
-            self.parameter('assetPath').setValue(reference.assetPath)
-            self.parameter('layerOffset').setValue(reference.layerOffset.offset)
-            self.parameter('layerScale').setValue(reference.layerOffset.scale)
+            self.parameter('assetPath').setValueQuietly(reference.assetPath)
+            self.parameter('layerOffset').setValueQuietly(reference.layerOffset.offset)
+            self.parameter('layerScale').setValueQuietly(reference.layerOffset.scale)
 
     def _execute(self, stage, prim):
         assetPath = self.parameter('assetPath').getValue()
@@ -246,10 +246,10 @@ class PayloadNode(_RefNode):
         self.item.addTag(PixmapTag('Payload.png'), position=0.25)
 
         if payload is not None:
-            self.parameter('assetPath').setValue(payload.assetPath)
-            self.parameter('primPath').setValue(payload.primPath.pathString)
-            self.parameter('layerOffset').setValue(payload.layerOffset.offset)
-            self.parameter('layerScale').setValue(payload.layerOffset.scale)
+            self.parameter('assetPath').setValueQuietly(payload.assetPath)
+            self.parameter('primPath').setValueQuietly(payload.primPath.pathString)
+            self.parameter('layerOffset').setValueQuietly(payload.layerOffset.offset)
+            self.parameter('layerScale').setValueQuietly(payload.layerOffset.scale)
 
     def _initParameters(self):
         super(PayloadNode, self)._initParameters()
@@ -267,8 +267,8 @@ class PayloadNode(_RefNode):
 
 class AttributeSetNode(UsdNode):
     nodeType = 'AttributeSet'
-    fillNormalColor = QColor(50, 70, 60)
-    borderNormalColor = QColor(250, 250, 250, 200)
+    fillNormalColor = QtGui.QColor(50, 70, 60)
+    borderNormalColor = QtGui.QColor(250, 250, 250, 200)
 
     def __init__(self, prim=None, *args, **kwargs):
         super(AttributeSetNode, self).__init__(*args, **kwargs)
@@ -293,7 +293,7 @@ class AttributeSetNode(UsdNode):
             if attribute.HasInfo('timeSamples'):
                 param.setTimeSamples(attribute.GetInfo('timeSamples'))
             else:
-                param.setValue(attribute.default)
+                param.setValueQuietly(attribute.default)
 
     def _initParameters(self):
         super(AttributeSetNode, self)._initParameters()
@@ -323,8 +323,8 @@ class AttributeSetNode(UsdNode):
 
 class RelationshipSetNode(UsdNode):
     nodeType = 'RelationshipSet'
-    fillNormalColor = QColor(70, 60, 50)
-    borderNormalColor = QColor(250, 250, 250, 200)
+    fillNormalColor = QtGui.QColor(70, 60, 50)
+    borderNormalColor = QtGui.QColor(250, 250, 250, 200)
 
     def __init__(self, prim=None, *args, **kwargs):
         super(RelationshipSetNode, self).__init__(*args, **kwargs)
@@ -340,7 +340,7 @@ class RelationshipSetNode(UsdNode):
 
         param = self.addParameter(relationshipName, 'string[]', custom=True)
         if param is not None:
-            param.setValue(targetPathList)
+            param.setValueQuietly(targetPathList)
 
     def _initParameters(self):
         super(RelationshipSetNode, self)._initParameters()
@@ -363,8 +363,8 @@ class RelationshipSetNode(UsdNode):
 
 class _VariantNode(UsdNode):
     nodeType = '_Variant'
-    fillNormalColor = QColor(50, 60, 70)
-    borderNormalColor = QColor(200, 200, 150)
+    fillNormalColor = QtGui.QColor(50, 60, 70)
+    borderNormalColor = QtGui.QColor(200, 200, 150)
 
 
 class VariantSetNode(_VariantNode):
@@ -376,8 +376,8 @@ class VariantSetNode(_VariantNode):
         self.item.addTag(PixmapTag('VariantSet.png'), position=0.25)
 
         if variantSet is not None:
-            self.parameter('variantSetName').setValue(variantSet.name)
-            self.parameter('variantList').setValue([v.name for v in variantSet.variantList])
+            self.parameter('variantSetName').setValueQuietly(variantSet.name)
+            self.parameter('variantList').setValueQuietly([v.name for v in variantSet.variantList])
 
     def _initParameters(self):
         super(VariantSetNode, self)._initParameters()
@@ -405,8 +405,8 @@ class VariantSelectNode(_VariantNode):
 
         self.item.addTag(PixmapTag('VariantSelect.png'), position=0.25)
 
-        self.parameter('variantSetName').setValue(variantSetName)
-        self.parameter('variantSelected').setValue(variantSelected)
+        self.parameter('variantSetName').setValueQuietly(variantSetName)
+        self.parameter('variantSelected').setValueQuietly(variantSelected)
 
         if self._prim is not None:
             stagePrim = self._getUsdPrim()
@@ -453,8 +453,8 @@ class VariantSwitchNode(_VariantNode):
 
         self.item.addTag(PixmapTag('VariantSwitch.png'), position=0.25)
 
-        self.parameter('variantSetName').setValue(variantSetName)
-        self.parameter('variantSelected').setValue(variantSelected)
+        self.parameter('variantSetName').setValueQuietly(variantSetName)
+        self.parameter('variantSelected').setValueQuietly(variantSelected)
 
     def _initParameters(self):
         super(VariantSwitchNode, self)._initParameters()
@@ -486,14 +486,14 @@ class TransformNode(_PrimNode):
 
 class MaterialAssignNode(UsdNode):
     nodeType = 'MaterialAssign'
-    fillNormalColor = QColor(50, 60, 80)
-    borderNormalColor = QColor(250, 250, 250, 200)
+    fillNormalColor = QtGui.QColor(50, 60, 80)
+    borderNormalColor = QtGui.QColor(250, 250, 250, 200)
 
     def __init__(self, material=None, *args, **kwargs):
         super(MaterialAssignNode, self).__init__(*args, **kwargs)
 
         if material is not None:
-            self.parameter('material').setValue(material)
+            self.parameter('material').setValueQuietly(material)
 
     def _initParameters(self):
         super(MaterialAssignNode, self)._initParameters()

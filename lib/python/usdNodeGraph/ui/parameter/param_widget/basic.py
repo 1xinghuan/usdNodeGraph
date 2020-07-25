@@ -2,11 +2,15 @@ from usdNodeGraph.module.sqt import *
 from ..parameter import Parameter, Vec3fParameter
 from usdNodeGraph.ui.utils.state import GraphState
 from usdNodeGraph.ui.utils.layout import clearLayout
+from usdNodeGraph.utils.log import get_logger
 
 
-class ParameterObject(object):
+logger = get_logger('usdNodeGraph.ParameterWidget')
+
+
+class ParameterWidget(object):
     parameterClass = None
-    parameterValueChanged = Signal()
+    editValueChanged = QtCore.Signal()
 
     @classmethod
     def createParameterWidget(cls, parameter):
@@ -16,7 +20,7 @@ class ParameterObject(object):
         parameterWidgetClass = ParameterRegister.getParameterWidget(typeName)
 
         if parameterWidgetClass is None:
-            print('Un-Support Attribute Type in createParameterWidget! {}'.format(typeName))
+            logger.warning('Un-Support Attribute Type in createParameterWidget! {}'.format(typeName))
             return
 
         parameterWidget = parameterWidgetClass()
@@ -25,9 +29,10 @@ class ParameterObject(object):
         return parameterWidget
 
     def __init__(self):
-        super(ParameterObject, self).__init__()
+        super(ParameterWidget, self).__init__()
 
         self._parameter = None
+        self._signalBreaked = True
 
         self.masterLayout = None
         self._connectEdit = None
@@ -40,10 +45,16 @@ class ParameterObject(object):
         return GraphState.getCurrentTime(self._getStage())
 
     def _breakSignal(self):
-        self._parameter.parameterValueChanged.disconnect(self._parameterValueChanged)
+        if not self._signalBreaked:
+            self._signalBreaked = True
+            self._parameter.valueChanged.disconnect(self._parameterValueChanged)
+            self._parameter.valueChanged.disconnect(self._parameter._valueChanged)
 
     def _reConnectSignal(self):
-        self._parameter.parameterValueChanged.connect(self._parameterValueChanged)
+        if self._signalBreaked:
+            self._signalBreaked = False
+            self._parameter.valueChanged.connect(self._parameterValueChanged)
+            self._parameter.valueChanged.connect(self._parameter._valueChanged)
 
     def _parameterValueChanged(self, parameter, value):
         self.updateUI()
@@ -52,11 +63,12 @@ class ParameterObject(object):
         value = self.getPyValue()
         value = self._parameter.convertValueFromPy(value)
 
-        self._breakSignal()
-
-        self._parameter.setValueAt(value, self._getCurrentTime())
-
-        self._reConnectSignal()
+        if self._signalBreaked:
+            self._parameter.setValueAt(value, self._getCurrentTime(), emitSignal=False)
+        else:
+            self._breakSignal()
+            self._parameter.setValueAt(value, self._getCurrentTime())
+            self._reConnectSignal()
 
     def setParameter(self, parameter):
         self._parameter = parameter
@@ -70,12 +82,23 @@ class ParameterObject(object):
     def _setMasterWidgetEnable(self, enable):
         pass
 
+    def _beforeUpdateUI(self):
+        self._breakSignal()
+
+    def _afterUpdateUI(self):
+        self._reConnectSignal()
+
     def updateUI(self):
+        self._beforeUpdateUI()
+        self._updateUI()
+        self._afterUpdateUI()
+
+    def _updateUI(self):
         self.setToolTip(self._parameter.name())
 
         if self._parameter.hasConnect():
             if self._connectEdit is None:
-                self._connectEdit = QLineEdit()
+                self._connectEdit = QtWidgets.QLineEdit()
                 self._connectEdit.setStyleSheet('background: rgb(60, 60, 70)')
                 self._connectEdit.setReadOnly(True)
                 self.masterLayout.addWidget(self._connectEdit)
@@ -99,26 +122,24 @@ class ParameterObject(object):
 
     def _connectEditChanged(self):
         self._breakSignal()
-
         connect = str(self._connectEdit.text())
         self._parameter.setConnect(connect)
-
         self._reConnectSignal()
 
 
-class ArrayParameterWidget(QWidget, ParameterObject):
+class ArrayParameterWidget(QtWidgets.QWidget, ParameterWidget):
     def __init__(self):
         super(ArrayParameterWidget, self).__init__()
-        ParameterObject.__init__(self)
+        ParameterWidget.__init__(self)
 
-        self.masterLayout = QVBoxLayout()
+        self.masterLayout = QtWidgets.QVBoxLayout()
         self.masterLayout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.masterLayout)
 
-        self.expandButton = QPushButton('expand...')
+        self.expandButton = QtWidgets.QPushButton('expand...')
         self.expandButton.setFixedHeight(20)
 
-        self.scrollArea = QScrollArea()
+        self.scrollArea = QtWidgets.QScrollArea()
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setMinimumHeight(100)
         self.scrollArea.setVisible(0)
@@ -147,8 +168,8 @@ class ArrayParameterWidget(QWidget, ParameterObject):
     def _expandClicked(self):
         self.expanded = 1 - self.expanded
         if self.areaWidget is None:
-            self.areaWidget = QWidget()
-            self.areaLayout = QFormLayout()
+            self.areaWidget = QtWidgets.QWidget()
+            self.areaLayout = QtWidgets.QFormLayout()
             self.areaWidget.setLayout(self.areaLayout)
             self.scrollArea.setWidget(self.areaWidget)
         if not self.expanded:
@@ -167,12 +188,12 @@ class ArrayParameterWidget(QWidget, ParameterObject):
         else:
             editWidget.setPyTimeSamples(pyTimeSamples)
 
-        editWidget.valueChanged.connect(self._editValueChanged)
+        editWidget.editValueChanged.connect(self._editValueChanged)
 
         self.editWidgets.append(editWidget)
         self.areaLayout.addRow(str(index), editWidget)
 
-    def updateUI(self):
+    def _updateUI(self):
         self.setToolTip(self._parameter.name())
 
         if self.areaLayout is not None and self.scrollArea.isVisible():
@@ -202,9 +223,7 @@ class ArrayParameterWidget(QWidget, ParameterObject):
         value = self._parameter.convertValueFromPy(value)
 
         self._breakSignal()
-
         self._parameter.setValueAt(value, self._getCurrentTime())
-
         self._reConnectSignal()
 
 
@@ -271,7 +290,7 @@ class BasicWidget(object):
         return value
 
 
-class BasicLineEdit(QLineEdit, BasicWidget):
+class BasicLineEdit(QtWidgets.QLineEdit, BasicWidget):
     def __init__(self):
         super(BasicLineEdit, self).__init__()
         BasicWidget.__init__(self)
@@ -297,7 +316,7 @@ class BasicLineEdit(QLineEdit, BasicWidget):
         validator = self.validator()
         if validator is None:
             value = text
-        elif isinstance(validator, QIntValidator):
+        elif isinstance(validator, QtGui.QIntValidator):
             try:  # may be ''
                 value = int(text)
             except:
@@ -314,7 +333,7 @@ class IntLineEdit(BasicLineEdit):
     def __init__(self):
         super(IntLineEdit, self).__init__()
 
-        validator = QIntValidator()
+        validator = QtGui.QIntValidator()
         self.setValidator(validator)
 
 
@@ -322,19 +341,19 @@ class FloatLineEdit(BasicLineEdit):
     def __init__(self):
         super(FloatLineEdit, self).__init__()
 
-        validator = QDoubleValidator()
+        validator = QtGui.QDoubleValidator()
         self.setValidator(validator)
 
 
-class VecWidget(QWidget):
-    valueChanged = Signal()
+class VecWidget(QtWidgets.QWidget):
+    editValueChanged = QtCore.Signal()
     _valueSize = 1
     _lineEdit = BasicLineEdit
 
     def __init__(self):
         super(VecWidget, self).__init__()
 
-        self.masterLayout = QHBoxLayout()
+        self.masterLayout = QtWidgets.QHBoxLayout()
         self.masterLayout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.masterLayout)
 
@@ -351,7 +370,7 @@ class VecWidget(QWidget):
         GraphState.getState().currentTimeChanged.connect(self.updateCurrentUI)
 
     def _editTextChanged(self):
-        self.valueChanged.emit()
+        self.editValueChanged.emit()
         lineEdit = self.sender()
         if lineEdit.hasKeys():
             if hasattr(self, '_getStage'):

@@ -5,7 +5,7 @@
 
 import os
 from os.path import join as opj
-from usdNodeGraph.module.sqt import QSettings, to_unicode, QByteArray
+from usdNodeGraph.module.sqt import QtCore, to_unicode
 import sys
 
 PY_MAIN_VERSION = sys.version_info[0]
@@ -20,21 +20,21 @@ else:
     basestring = basestring
 
 
-User_Setting = QSettings(
+User_Setting = QtCore.QSettings(
     opj(
         os.path.expanduser('~'),
         '.usd',
         'nodegraph.ini')
-    , QSettings.IniFormat
+    , QtCore.QSettings.IniFormat
 )
 
 
 def get_user_setting(setting='sins'):
-    return QSettings(opj(
+    return QtCore.QSettings(opj(
         os.path.expanduser('~'),
         '.sins',
         '{}.ini'.format(setting)
-    ), QSettings.IniFormat)
+    ), QtCore.QSettings.IniFormat)
 
 
 def setting_to_unicode(setting):
@@ -92,7 +92,7 @@ def setting_to_dict_list(setting):
 
 
 def setting_to_bytearray(setting):
-    if isinstance(setting, QByteArray):
+    if isinstance(setting, QtCore.QByteArray):
         return setting
     else:
         return setting.toByteArray()

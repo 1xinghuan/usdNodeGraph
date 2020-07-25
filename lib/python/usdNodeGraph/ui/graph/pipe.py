@@ -7,11 +7,11 @@ from usdNodeGraph.module.sqt import *
 import math
 
 
-PIPE_NORMAL_COLOR = QColor(130, 130, 130)
-PIPE_HIGHTLIGHT_COLOR = QColor(250, 250, 100)
+PIPE_NORMAL_COLOR = QtGui.QColor(130, 130, 130)
+PIPE_HIGHTLIGHT_COLOR = QtGui.QColor(250, 250, 100)
 
 
-class Pipe(QGraphicsPathItem):
+class Pipe(QtWidgets.QGraphicsPathItem):
     """A connection between two versions"""
     normalColor = PIPE_NORMAL_COLOR
     lineStyle = None
@@ -19,7 +19,7 @@ class Pipe(QGraphicsPathItem):
     def __init__(self, orientation=0, **kwargs):
         super(Pipe, self).__init__(**kwargs)
 
-        self.setFlag(QGraphicsItem.ItemIsSelectable, False)
+        self.setFlag(QtWidgets.QGraphicsItem.ItemIsSelectable, False)
         self.setAcceptHoverEvents(True)
 
         self.lineColor = self.normalColor
@@ -57,7 +57,7 @@ class Pipe(QGraphicsPathItem):
         if sourcePos is None or targetPos is None:
             return
 
-        path = QPainterPath()
+        path = QtGui.QPainterPath()
         path.moveTo(sourcePos)
 
         dx = targetPos.x() - sourcePos.x()
@@ -86,10 +86,10 @@ class Pipe(QGraphicsPathItem):
                 self.curv2 = 0.5
                 self.curv4 = 0.5
 
-        ctrl1 = QPointF(
+        ctrl1 = QtCore.QPointF(
             sourcePos.x() + dx * self.curv1,
             sourcePos.y() + dy * self.curv2)
-        ctrl2 = QPointF(
+        ctrl2 = QtCore.QPointF(
             sourcePos.x() + dx * self.curv3,
             sourcePos.y() + dy * self.curv4)
 
@@ -115,9 +115,9 @@ class Pipe(QGraphicsPathItem):
         pointAtLength = self.pointAtLength / math.sqrt(zoom)
 
         if self.isSelected():
-            pen = QPen(PIPE_HIGHTLIGHT_COLOR, thickness)
+            pen = QtGui.QPen(PIPE_HIGHTLIGHT_COLOR, thickness)
         else:
-            pen = QPen(self.lineColor, thickness)
+            pen = QtGui.QPen(self.lineColor, thickness)
         if self.lineStyle is not None:
             pen.setStyle(self.lineStyle)
         self.setPen(pen)
@@ -130,9 +130,9 @@ class Pipe(QGraphicsPathItem):
         painter.setPen(pen)
         painter.translate(center_pos)
         painter.rotate(180 - (center_angle + 30))
-        painter.drawLine(QPointF(0, 0), QPointF(pointAtLength, 0))
+        painter.drawLine(QtCore.QPointF(0, 0), QtCore.QPointF(pointAtLength, 0))
         painter.rotate(60)
-        painter.drawLine(QPointF(0, 0), QPointF(pointAtLength, 0))
+        painter.drawLine(QtCore.QPointF(0, 0), QtCore.QPointF(pointAtLength, 0))
 
     def _getDistance(self, currentPos):
         sourcePos = self.path().pointAtPercent(0)
@@ -158,7 +158,7 @@ class Pipe(QGraphicsPathItem):
         self.update()
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() == QtCore.Qt.LeftButton:
             currentPos = event.pos()
             self.startPos = currentPos
             aroundPort, port = self._getDistance(currentPos)
@@ -183,7 +183,7 @@ class Pipe(QGraphicsPathItem):
             elif self.target is not None:
                 self.updatePath(sourcePos=currentPos)
 
-            findPort = self.scene().itemAt(currentPos, QTransform())
+            findPort = self.scene().itemAt(currentPos, QtGui.QTransform())
             if findPort is not None and isinstance(findPort, Port):
                 self.foundPort = findPort
                 self.foundPort.setHighlight(True)
@@ -198,7 +198,7 @@ class Pipe(QGraphicsPathItem):
             from .node.port import Port, InputPort, OutputPort
 
             scenePos = event.pos()
-            findPort = self.scene().itemAt(scenePos, QTransform())
+            findPort = self.scene().itemAt(scenePos, QtGui.QTransform())
 
             self.breakConnection()
 
@@ -215,7 +215,7 @@ class Pipe(QGraphicsPathItem):
 
 
 class ConnectionPipe(Pipe):
-    lineStyle = Qt.DashLine
-    normalColor = QColor(100, 130, 100)
+    lineStyle = QtCore.Qt.DashLine
+    normalColor = QtGui.QColor(100, 130, 100)
 
 

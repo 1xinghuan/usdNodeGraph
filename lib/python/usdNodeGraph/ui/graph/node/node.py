@@ -10,29 +10,29 @@ from ..const import *
 from usdNodeGraph.ui.parameter.parameter import (
     Parameter, TextParameter, FloatParameter, StringParameter, BoolParameter
 )
+from usdNodeGraph.utils.log import get_logger
 from .nodeItem import NodeItem
 import time
 import re
 import os
-import logging
 
 
-logger = logging.getLogger('usdNodeGraph.node')
+logger = get_logger('usdNodeGraph.node')
 
 
-class Node(QObject):
-    parameterValueChanged = Signal(object, object)
-    parameterAdded = Signal(object)
-    parameterRemoved = Signal(object)
+class Node(QtCore.QObject):
+    parameterValueChanged = QtCore.Signal(object, object)
+    parameterAdded = QtCore.Signal(object)
+    parameterRemoved = QtCore.Signal(object)
 
     _nodeTypes = {}
     nodeType = 'Node'
     nodeItem = NodeItem
 
-    fillNormalColor = QColor(50, 60, 70)
-    fillHighlightColor = QColor(230, 230, 100)
-    borderNormalColor = QColor(50, 60, 70)
-    borderHighlightColor = QColor(180, 180, 250)
+    fillNormalColor = QtGui.QColor(50, 60, 70)
+    fillHighlightColor = QtGui.QColor(230, 230, 100)
+    borderNormalColor = QtGui.QColor(50, 60, 70)
+    borderHighlightColor = QtGui.QColor(180, 180, 250)
 
     @classmethod
     def createItem(cls, nodeType, **kwargs):
@@ -99,6 +99,7 @@ class Node(QObject):
             return self.item.scenePos().y()
 
     def _paramterValueChanged(self, parameter, value):
+        logger.debug('_paramterValueChanged:{}, {}'.format(parameter.name(), value))
         self.parameterValueChanged.emit(parameter, value)
         if parameter.name() == 'name':
             self.item.scene()._afterNodeNameChanged(self.item)

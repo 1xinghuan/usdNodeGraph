@@ -21,25 +21,25 @@ logger = logging.getLogger('usdNodeGraph.view')
 NODE_NAME_PATTERN = re.compile('(?P<suffix>[^\d]*)(?P<index>\d+)')
 VARIANT_PRIM_PATH_PATTERN = re.compile('.*{(?P<variantSet>.+)=(?P<variant>.+)}$')
 
-VIEW_FILL_COLOR = QColor(38, 38, 38)
-VIEW_LINE_COLOR = QColor(55, 55, 55)
-VIEW_CENTER_LINE_COLOR = QColor(80, 80, 60, 50)
+VIEW_FILL_COLOR = QtGui.QColor(38, 38, 38)
+VIEW_LINE_COLOR = QtGui.QColor(55, 55, 55)
+VIEW_CENTER_LINE_COLOR = QtGui.QColor(80, 80, 60, 50)
 VIEW_GRID_WIDTH = 200
 VIEW_GRID_HEIGHT = 100
 
 VIEW_ZOOM_STEP = 1.1
 
 
-class FloatLineEdit(QFrame):
-    editFinished = Signal(str)
+class FloatLineEdit(QtWidgets.QFrame):
+    editFinished = QtCore.Signal(str)
 
     def __init__(self, *args, **kwargs):
         super(FloatLineEdit, self).__init__(*args, **kwargs)
 
-        self.masterLayout = QHBoxLayout()
+        self.masterLayout = QtWidgets.QHBoxLayout()
         self.setLayout(self.masterLayout)
 
-        self._edit = QLineEdit()
+        self._edit = QtWidgets.QLineEdit()
         self.masterLayout.addWidget(self._edit)
 
         self.setFixedWidth(200)
@@ -61,7 +61,7 @@ class FloatLineEdit(QFrame):
     def reset(self):
         allNodeClass = Node.getAllNodeClass()
         completer = QCompleter(allNodeClass)
-        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        completer.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
         self._edit.setCompleter(completer)
 
     def setVisible(self, bool):
@@ -70,7 +70,7 @@ class FloatLineEdit(QFrame):
             self._edit.setFocus()
 
 
-class GraphicsView(QGraphicsView):
+class GraphicsView(QtWidgets.QGraphicsView):
     def __init__(self, *args, **kwargs):
         super(GraphicsView, self).__init__(*args, **kwargs)
 
@@ -78,17 +78,17 @@ class GraphicsView(QGraphicsView):
         self.panningMult = 2.0 * self.currentZoom
         self.panning = False
         self.keyZooming = False
-        self.clickedPos = QPointF(0, 0)
+        self.clickedPos = QtCore.QPointF(0, 0)
 
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setDragMode(QGraphicsView.RubberBandDrag)
-        self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
+        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.setDragMode(QtWidgets.QGraphicsView.RubberBandDrag)
+        self.setTransformationAnchor(QtWidgets.QGraphicsView.AnchorUnderMouse)
         if VIEWPORT_FULL_UPDATE == '0':
-            self.setViewportUpdateMode(QGraphicsView.SmartViewportUpdate)
+            self.setViewportUpdateMode(QtWidgets.QGraphicsView.SmartViewportUpdate)
         else:
-            self.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
-        # self.setRenderHint(QPainter.Antialiasing)
+            self.setViewportUpdateMode(QtWidgets.QGraphicsView.FullViewportUpdate)
+        # self.setRenderHint(QtGui.QPainter.Antialiasing)
 
         self._createNewFloatEdit = FloatLineEdit(self)
         self._createNewFloatEdit.setVisible(False)
@@ -101,12 +101,12 @@ class GraphicsView(QGraphicsView):
         self._resizeScene()
 
     def _resizeScene(self, setLabel=True):
-        center_x = self.mapToScene(QPoint(self.viewport().width() / 2, self.viewport().height() / 2)).x()
-        center_y = self.mapToScene(QPoint(self.viewport().width() / 2, self.viewport().height() / 2)).y()
+        center_x = self.mapToScene(QtCore.QPoint(self.viewport().width() / 2, self.viewport().height() / 2)).x()
+        center_y = self.mapToScene(QtCore.QPoint(self.viewport().width() / 2, self.viewport().height() / 2)).y()
         w = self.viewport().width() / self.currentZoom * 2 + 25000
         h = self.viewport().height() / self.currentZoom * 2 + 25000
 
-        self.scene().setSceneRect(QRectF(
+        self.scene().setSceneRect(QtCore.QRectF(
             center_x - w / 2,
             center_y - h / 2,
             w,
@@ -120,15 +120,15 @@ class GraphicsView(QGraphicsView):
 
     def _setAntialiasing(self):
         antialiasing = True if self.currentZoom >= 0.1 else False
-        self.setRenderHint(QPainter.Antialiasing, antialiasing)
+        self.setRenderHint(QtGui.QPainter.Antialiasing, antialiasing)
 
     def _setLabelVisible(self):
         showPortLabel = True if self.currentZoom >= 1 else False
         showNodeLabel = True if self.currentZoom >= 0.5 else False
 
-        point1 = self.mapToScene(QPoint(0, 0))
-        point2 = self.mapToScene(QPoint(self.viewport().width(), self.viewport().height()))
-        rect = QRectF(point1, point2)
+        point1 = self.mapToScene(QtCore.QPoint(0, 0))
+        point2 = self.mapToScene(QtCore.QPoint(self.viewport().width(), self.viewport().height()))
+        rect = QtCore.QRectF(point1, point2)
 
         for node in self.scene().allNodes():
             if rect.contains(node.pos()):
@@ -140,15 +140,15 @@ class GraphicsView(QGraphicsView):
 
     # def keyPressEvent(self, event):
     #     super(GraphicsView, self).keyPressEvent(event)
-    #     if event.key() == Qt.Key_Tab:
+    #     if event.key() == QtCore.Qt.Key_Tab:
     #         self.showFloatEdit()
-    #     # elif event.key() == Qt.Key_Delete:
+    #     # elif event.key() == QtCore.Qt.Key_Delete:
     #     #     self.scene().deleteSelection()
 
     def keyReleaseEvent(self, event):
         super(GraphicsView, self).keyReleaseEvent(event)
         if not self._createNewFloatEdit.isVisible():
-            if event.key() == Qt.Key_F:
+            if event.key() == QtCore.Qt.Key_F:
                 self.scene().frameSelection()
 
     def fitTo(self, items=[]):
@@ -178,7 +178,7 @@ class GraphicsView(QGraphicsView):
         self.currentZoom = self.transform().m11()
         self._resizeScene()
 
-        self.centerOn(QPointF(center_x, center_y))
+        self.centerOn(QtCore.QPointF(center_x, center_y))
 
     def mousePressEvent(self, event):
         """Initiate custom panning using middle mouse button."""
@@ -186,22 +186,22 @@ class GraphicsView(QGraphicsView):
         # self.clickedPos = event.pos()
 
         if self.panning:
-            if event.button() == Qt.LeftButton:
+            if event.button() == QtCore.Qt.LeftButton:
                 self.keyZooming = True
                 self.panning = False
-                self.setCursor(Qt.ArrowCursor)
+                self.setCursor(QtCore.Qt.ArrowCursor)
                 return
 
-        if event.button() == Qt.MiddleButton:
-            self.setDragMode(QGraphicsView.NoDrag)
+        if event.button() == QtCore.Qt.MiddleButton:
+            self.setDragMode(QtWidgets.QGraphicsView.NoDrag)
             self.panning = True
             self.prevPos = event.pos()
-            self.prevCenter = self.mapToScene(QPoint(self.viewport().width() / 2, self.viewport().height() / 2))
-            self.setCursor(Qt.SizeAllCursor)
-        elif event.button() == Qt.LeftButton:
-            self.setDragMode(QGraphicsView.RubberBandDrag)
+            self.prevCenter = self.mapToScene(QtCore.QPoint(self.viewport().width() / 2, self.viewport().height() / 2))
+            self.setCursor(QtCore.Qt.SizeAllCursor)
+        elif event.button() == QtCore.Qt.LeftButton:
+            self.setDragMode(QtWidgets.QGraphicsView.RubberBandDrag)
         super(GraphicsView, self).mousePressEvent(event)
-        if event.button() == Qt.MiddleButton:
+        if event.button() == QtCore.Qt.MiddleButton:
             for item in selectedItems:
                 item.setSelected(True)
         self._highlightConnection()
@@ -220,7 +220,7 @@ class GraphicsView(QGraphicsView):
             self.prevPos = event.pos()
         if self.panning:
             mouseMove = event.pos() - self.prevPos
-            newCenter = QPointF(
+            newCenter = QtCore.QPointF(
                 self.prevCenter.x() - mouseMove.x() / self.currentZoom,
                 self.prevCenter.y() - mouseMove.y() / self.currentZoom
             )
@@ -232,7 +232,7 @@ class GraphicsView(QGraphicsView):
     def mouseReleaseEvent(self, event):
         if self.panning:
             self.panning = False
-            self.setCursor(Qt.ArrowCursor)
+            self.setCursor(QtCore.Qt.ArrowCursor)
         if self.keyZooming:
             self.keyZooming = False
 
@@ -248,8 +248,8 @@ class GraphicsView(QGraphicsView):
         self._zoom(zoom)
 
     def drawBackground(self, painter, rect):
-        painter.setBrush(QBrush(VIEW_FILL_COLOR))
-        painter.setPen(QPen(VIEW_LINE_COLOR))
+        painter.setBrush(QtGui.QBrush(VIEW_FILL_COLOR))
+        painter.setPen(QtGui.QPen(VIEW_LINE_COLOR))
 
         painter.drawRect(rect)
         lines = []
@@ -257,24 +257,24 @@ class GraphicsView(QGraphicsView):
         line_w = VIEW_GRID_WIDTH * scale
         line_h = VIEW_GRID_HEIGHT * scale
 
-        point1 = self.mapToScene(QPoint(0, 0))
-        point2 = self.mapToScene(QPoint(self.viewport().width(), self.viewport().height()))
+        point1 = self.mapToScene(QtCore.QPoint(0, 0))
+        point2 = self.mapToScene(QtCore.QPoint(self.viewport().width(), self.viewport().height()))
 
         # for i in range(int(point1.y() / line_h), int(self.scene().height() / line_h)):
         for i in range(int(point1.y() / line_h), int(point2.y() / line_h) + 1):
-            lines.append(QLineF(
-                QPoint(rect.x(), i * line_h),
-                QPoint(rect.x() + rect.width(), i * line_h)))
+            lines.append(QtCore.QLineF(
+                QtCore.QPoint(rect.x(), i * line_h),
+                QtCore.QPoint(rect.x() + rect.width(), i * line_h)))
         # for i in range(int(self.scene().sceneRect().x()), int(self.scene().width() / line_w)):
         for i in range(int(point1.x() / line_w), int(point2.x() / line_w) + 1):
-            lines.append(QLineF(
-                QPoint(i * line_w, rect.y()),
-                QPoint(i * line_w, rect.y() + rect.height())))
+            lines.append(QtCore.QLineF(
+                QtCore.QPoint(i * line_w, rect.y()),
+                QtCore.QPoint(i * line_w, rect.y() + rect.height())))
         painter.drawLines(lines)
 
-        painter.setPen(QPen(VIEW_CENTER_LINE_COLOR))
-        painter.drawLine(QLineF(QPoint(rect.x(), 0), QPoint(rect.x() + rect.width(), 0)))
-        painter.drawLine(QLineF(QPoint(0, rect.y()), QPoint(0, rect.y() + rect.height())))
+        painter.setPen(QtGui.QPen(VIEW_CENTER_LINE_COLOR))
+        painter.drawLine(QtCore.QLineF(QtCore.QPoint(rect.x(), 0), QtCore.QPoint(rect.x() + rect.width(), 0)))
+        painter.drawLine(QtCore.QLineF(QtCore.QPoint(0, rect.y()), QtCore.QPoint(0, rect.y() + rect.height())))
 
     def _highlightConnection(self):
         for item in self.scene().items():
@@ -303,11 +303,11 @@ class GraphicsView(QGraphicsView):
             node.setY(scenePos.y())
 
 
-class GraphicsSceneWidget(QWidget):
-    itemDoubleClicked = Signal(object)
-    showWidgetSignal = Signal(int)
-    enterFileRequired = Signal(str)
-    enterLayerRequired = Signal(object, object)
+class GraphicsSceneWidget(QtWidgets.QWidget):
+    itemDoubleClicked = QtCore.Signal(object)
+    showWidgetSignal = QtCore.Signal(int)
+    enterFileRequired = QtCore.Signal(str)
+    enterLayerRequired = QtCore.Signal(object, object)
 
     def __init__(self, parent=None):
         super(GraphicsSceneWidget, self).__init__(parent=parent)
@@ -317,7 +317,7 @@ class GraphicsSceneWidget(QWidget):
 
         self._initUI()
 
-        # self.showWidgetSignal.connect(self.show_entity_widget, Qt.QueuedConnection)
+        # self.showWidgetSignal.connect(self.show_entity_widget, QtCore.Qt.QueuedConnection)
         self.scene.enterFileRequired.connect(self._enterFileRequired)
         self.scene.enterLayerRequired.connect(self._enterLayerRequired)
 
@@ -328,11 +328,11 @@ class GraphicsSceneWidget(QWidget):
         self.view.setScene(self.scene)
         self.setGeometry(100, 100, 800, 600)
 
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.view)
         self.setLayout(layout)
 
-        self.scene.setSceneRect(QRectF(
+        self.scene.setSceneRect(QtCore.QRectF(
             -(self.view.viewport().width() / self.view.currentZoom * 2 + 25000) / 2,
             -(self.view.viewport().height() / self.view.currentZoom * 2 + 25000) / 2,
             self.view.viewport().width() / self.view.currentZoom * 2 + 25000,
@@ -373,10 +373,10 @@ class GraphicsSceneWidget(QWidget):
         self.scene.applyChanges()
 
 
-class GraphicsScene(QGraphicsScene):
-    enterFileRequired = Signal(str)
-    enterLayerRequired = Signal(str)
-    nodeParameterChanged = Signal(object)
+class GraphicsScene(QtWidgets.QGraphicsScene):
+    enterFileRequired = QtCore.Signal(str)
+    enterLayerRequired = QtCore.Signal(str)
+    nodeParameterChanged = QtCore.Signal(object)
 
     def __init__(self, view=None, **kwargs):
         super(GraphicsScene, self).__init__(**kwargs)
@@ -390,13 +390,7 @@ class GraphicsScene(QGraphicsScene):
         self._nodesSuffix = {}
         self._primNodes = {}
 
-        self.setSceneRect(QRectF(-25000 / 2, -25000 / 2, 25000, 25000))
-
-        self.nodeParameterChanged.connect(self._nodeParameterChanged)
-
-    def _nodeParameterChanged(self, parameter):
-        if parameter.name() == 'name':
-            print parameter.getValue()
+        self.setSceneRect(QtCore.QRectF(-25000 / 2, -25000 / 2, 25000, 25000))
 
     def _addLayerNodes(self, rootLayer):
         for index, layerPath in enumerate(rootLayer.subLayerPaths):
@@ -501,8 +495,25 @@ class GraphicsScene(QGraphicsScene):
                     prim=prim
                 )
                 self._addChildNode(variantSelectNode, upNode)
+                upNode = variantSelectNode
 
         return upNode
+
+    def _getIntoPrim(self, prim, upNode, index=0):
+        childrenCount = 0
+
+        primPath = prim.path.pathString
+        node = upNode
+        if primPath != '/':
+            node = self._getPrim(prim, upNode, index)
+        for childName, child in prim.nameChildren.items():
+            currentChildCount = self._getIntoPrim(child, node, childrenCount)
+            if currentChildCount > 1:
+                childrenCount += currentChildCount
+            else:
+                childrenCount += 1
+
+        return childrenCount
 
     def _getPrimAttributes(self, prim, upNode, index=0):
         if len(prim.attributes.keys()) == 0:
@@ -532,22 +543,6 @@ class GraphicsScene(QGraphicsScene):
         upNode = relationshipSetNode
 
         return upNode
-
-    def _getIntoPrim(self, prim, upNode, index=0):
-        childrenCount = 0
-
-        primPath = prim.path
-        node = upNode
-        if primPath != '/':
-            node = self._getPrim(prim, upNode, index)
-        for childName, child in prim.nameChildren.items():
-            currentChildCount = self._getIntoPrim(child, node, childrenCount)
-            if currentChildCount > 1:
-                childrenCount += currentChildCount
-            else:
-                childrenCount += 1
-
-        return childrenCount
 
     def _connectShadeNodeInputs(self, node):
         if not node.Class() in ['Shader', 'Material']:

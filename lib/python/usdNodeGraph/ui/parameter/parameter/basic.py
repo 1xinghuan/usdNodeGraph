@@ -6,10 +6,10 @@ import copy
 from usdNodeGraph.module.sqt import *
 
 
-class Parameter(QObject):
+class Parameter(QtCore.QObject):
     parameterTypeString = None
     valueTypeName = None
-    parameterValueChanged = Signal(object, object)
+    valueChanged = QtCore.Signal(object, object)
 
     @classmethod
     def convertValueFromPy(cls, pyValue):
@@ -60,7 +60,10 @@ class Parameter(QObject):
         self._connect = None
         self._isCustom = custom
 
-        self.parameterValueChanged.connect(self._node._paramterValueChanged)
+        self.valueChanged.connect(self._valueChanged)
+
+    def _valueChanged(self, param, value):
+        self._node._paramterValueChanged(param, value)
 
     def hasKey(self):
         return self._timeSamples is not None
@@ -101,28 +104,32 @@ class Parameter(QObject):
     def setTimeSamples(self, timeSamples, emitSignal=False):
         self._timeSamples = timeSamples
         if emitSignal:
-            self.parameterValueChanged.emit(self, value)
+            self.valueChanged.emit(self, value)
 
     def setValue(self, value, emitSignal=True):
         self._value = value
         if emitSignal:
-            self.parameterValueChanged.emit(self, value)
+            self.valueChanged.emit(self, value)
+
+    def setValueQuietly(self, value):
+        self.setValue(value, emitSignal=False)
     
-    def setValueAt(self, value, time=None):
+    def setValueAt(self, value, time=None, emitSignal=True):
         if self._timeSamples is None:
-            self.setValue(value)
+            self.setValue(value, emitSignal)
             return
         self._timeSamples.update({time: value})
-        self.parameterValueChanged.emit(self, value)
+        if emitSignal:
+            self.valueChanged.emit(self, value)
 
     def setConnect(self, connect, emitSignal=True):
         self._connect = connect
         if emitSignal:
-            self.parameterValueChanged.emit(self, None)
+            self.valueChanged.emit(self, None)
 
     def breakConnect(self):
         self._connect = None
-        self.parameterValueChanged.emit(self, None)
+        self.valueChanged.emit(self, None)
 
     def isCustom(self):
         return self._isCustom

@@ -15,30 +15,30 @@ import re
 import os
 
 
-NAME_FONT = QFont('Arial', 10, italic=True)
+NAME_FONT = QtGui.QFont('Arial', 10, italic=True)
 NAME_FONT.setBold(True)
-LABEL_FONT = QFont('Arial', 10)
+LABEL_FONT = QtGui.QFont('Arial', 10)
 
 EXPRESSION_VALUE_PATTERN = re.compile(r'\[value [^\[\]]+\]')
 EXPRESSION_PYTHON_PATTERN = re.compile(r'\[python [^\[\]]+\]')
 
 
-class _BaseNodeItem(QGraphicsItem):
+class _BaseNodeItem(QtWidgets.QGraphicsItem):
     x = 0
     y = 0
     w = 150
     h = 50
 
-    labelNormalColor = QColor(200, 200, 200)
-    labelHighlightColor = QColor(40, 40, 40)
+    labelNormalColor = QtGui.QColor(200, 200, 200)
+    labelHighlightColor = QtGui.QColor(40, 40, 40)
 
-    disablePenColor = QColor(150, 20, 20)
+    disablePenColor = QtGui.QColor(150, 20, 20)
 
     def __init__(self, nodeObjectClass, **kwargs):
         super(_BaseNodeItem, self).__init__()
 
-        self.setFlag(QGraphicsItem.ItemIsMovable, True)
-        self.setFlag(QGraphicsItem.ItemIsSelectable, True)
+        self.setFlag(QtWidgets.QGraphicsItem.ItemIsMovable, True)
+        self.setFlag(QtWidgets.QGraphicsItem.ItemIsSelectable, True)
         self.setAcceptHoverEvents(True)
 
         self.pipes = []
@@ -152,12 +152,12 @@ class _BaseNodeItem(QGraphicsItem):
     def _updateDisableItem(self):
         disable = self.parameter('disable').getValue()
         if self.disableItem is None:
-            self.disableItem = QGraphicsLineItem(self)
-            self.disablePen = QPen(self.disablePenColor)
+            self.disableItem = QtWidgets.QGraphicsLineItem(self)
+            self.disablePen = QtGui.QPen(self.disablePenColor)
             self.disablePen.setWidth(5)
             self.disableItem.setPen(self.disablePen)
-        self.disableItem.setLine(QLineF(
-            QPointF(0, 0), QPointF(self.w, self.h)
+        self.disableItem.setLine(QtCore.QLineF(
+            QtCore.QPointF(0, 0), QtCore.QPointF(self.w, self.h)
         ))
         self.disableItem.setVisible(disable)
 
@@ -174,7 +174,7 @@ class _BaseNodeItem(QGraphicsItem):
         if not visible and self.nameItem is None:
             return
         if visible and self.nameItem is None:
-            self.nameItem = QGraphicsSimpleTextItem(self)
+            self.nameItem = QtWidgets.QGraphicsSimpleTextItem(self)
             self.nameItem.setFont(NAME_FONT)
             self.nameItem.setBrush(DEFAULT_LABEL_COLOR)
         self.nameItem.setVisible(visible)
@@ -277,9 +277,9 @@ class _BaseNodeItem(QGraphicsItem):
 
     def _createContextMenu(self):
         self.setContextMenu()
-        self.menu = QMenu(self.scene().parent())
+        self.menu = QtWidgets.QMenu(self.scene().parent())
         for i in self._context_menus:
-            action = QAction(i[0], self.menu)
+            action = QtWidgets.QAction(i[0], self.menu)
             action.triggered.connect(i[1])
             self.menu.addAction(action)
 
@@ -289,7 +289,7 @@ class _BaseNodeItem(QGraphicsItem):
         self.menu.show()
 
     def boundingRect(self):
-        rect = QRectF(
+        rect = QtCore.QRectF(
             self.x,
             self.y,
             self.w,
@@ -304,10 +304,10 @@ class _BaseNodeItem(QGraphicsItem):
             penWidth = 5
         self.setHighlight(self.isSelected())
 
-        pen = QPen(self.borderColor)
+        pen = QtGui.QPen(self.borderColor)
         pen.setWidth(penWidth)
         painter.setPen(pen)
-        painter.setBrush(QBrush(self.fillColor))
+        painter.setBrush(QtGui.QBrush(self.fillColor))
 
         painter.drawRoundedRect(self.x, self.y, self.w, self.h, self.roundness, self.roundness)
 
@@ -394,7 +394,7 @@ class NodeItem(_BaseNodeItem):
         if not visible and self.labelItem is None:
             return
         if visible and self.labelItem is None:
-            self.labelItem = QGraphicsTextItem(self)
+            self.labelItem = QtWidgets.QGraphicsTextItem(self)
             self.labelItem.setFont(LABEL_FONT)
         self.labelItem.setVisible(visible)
         if visible:

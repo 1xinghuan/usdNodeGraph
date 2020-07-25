@@ -1,10 +1,10 @@
-from .basic import ParameterObject, VecWidget
+from .basic import ParameterWidget, VecWidget
 from usdNodeGraph.module.sqt import *
 
 
-class StringParameterWidget(VecWidget, ParameterObject):
+class StringParameterWidget(VecWidget, ParameterWidget):
     def __init__(self):
-        ParameterObject.__init__(self)
+        ParameterWidget.__init__(self)
         super(StringParameterWidget, self).__init__()
 
     def _editTextChanged(self):
@@ -13,24 +13,24 @@ class StringParameterWidget(VecWidget, ParameterObject):
         self._setValueFromEdit()
 
 
-class ChooseWidget(QWidget):
-    valueChanged = Signal()
+class ChooseWidget(QtWidgets.QWidget):
+    editValueChanged = QtCore.Signal()
 
     def __init__(self):
         super(ChooseWidget, self).__init__()
 
-        self.masterLayout = QHBoxLayout()
+        self.masterLayout = QtWidgets.QHBoxLayout()
         self.masterLayout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.masterLayout)
 
-        self._comboBox = QComboBox()
+        self._comboBox = QtWidgets.QComboBox()
         self._comboBox.setEditable(True)
         self.masterLayout.addWidget(self._comboBox)
 
         self._comboBox.currentIndexChanged.connect(self._editIndexChanged)
 
     def _editIndexChanged(self):
-        self.valueChanged.emit()
+        self.editValueChanged.emit()
 
     def _setMasterWidgetEnable(self, enable):
         self._comboBox.setVisible(enable)
@@ -52,9 +52,9 @@ class ChooseWidget(QWidget):
         return str(self._comboBox.currentText())
 
 
-class ChooseParameterWidget(ChooseWidget, ParameterObject):
+class ChooseParameterWidget(ChooseWidget, ParameterWidget):
     def __init__(self):
-        ParameterObject.__init__(self)
+        ParameterWidget.__init__(self)
         super(ChooseParameterWidget, self).__init__()
 
     def setParameter(self, parameter):
@@ -70,8 +70,8 @@ class ChooseParameterWidget(ChooseWidget, ParameterObject):
         self._setValueFromEdit()
 
 
-class TextWidget(QTextEdit):
-    valueChanged = Signal()
+class TextWidget(QtWidgets.QTextEdit):
+    editValueChanged = QtCore.Signal()
 
     def __init__(self):
         super(TextWidget, self).__init__()
@@ -81,7 +81,7 @@ class TextWidget(QTextEdit):
         self.textChanged.connect(self._editTextChanged)
 
     def _editTextChanged(self):
-        self.valueChanged.emit()
+        self.editValueChanged.emit()
 
     def setPyValue(self, value):
         self.setPlainText(value)
@@ -90,9 +90,9 @@ class TextWidget(QTextEdit):
         return str(self.toPlainText())
 
 
-class TextParameterWidget(TextWidget, ParameterObject):
+class TextParameterWidget(TextWidget, ParameterWidget):
     def __init__(self):
-        ParameterObject.__init__(self)
+        ParameterWidget.__init__(self)
         super(TextParameterWidget, self).__init__()
 
     def _editTextChanged(self):

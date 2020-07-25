@@ -2,20 +2,20 @@ from usdNodeGraph.module.sqt import *
 from usdNodeGraph.ui.utils.state import GraphState
 
 
-class LineEdit(QLineEdit):
+class LineEdit(QtWidgets.QLineEdit):
     def __init__(self, text=""):
         super(LineEdit, self).__init__()
 
         self.setFixedHeight(30)
         self.setText(text)
-        self.setAlignment(Qt.AlignHCenter)
+        self.setAlignment(QtCore.Qt.AlignHCenter)
 
 
-class TimeSlider(QSlider):
+class TimeSlider(QtWidgets.QSlider):
     def __init__(self):
         super(TimeSlider, self).__init__()
 
-        self.setOrientation(Qt.Horizontal)
+        self.setOrientation(QtCore.Qt.Horizontal)
 
         self._isHhover = False
         self._isMoving = False
@@ -28,7 +28,7 @@ class TimeSlider(QSlider):
     def paintEvent(self, QPaintEvent):
         super(TimeSlider, self).paintEvent(QPaintEvent)
 
-        painter = QPainter(self)
+        painter = QtGui.QPainter(self)
 
         self._drawHover(painter)
 
@@ -43,7 +43,7 @@ class TimeSlider(QSlider):
 
     def _drawHover(self, painter):
         if self._isHhover:
-            pen = QPen(QColor(220, 220, 220))
+            pen = QtGui.QPen(QtGui.QColor(220, 220, 220))
             pen.setWidth(2)
             painter.setPen(pen)
             length = 10
@@ -51,11 +51,11 @@ class TimeSlider(QSlider):
             positionX = self._getPosition(percent)
             y1 = (self.height() - length) / 2.0
             y2 = (self.height() - length) / 2.0 + length
-            hoverline = QLine(QPoint(positionX, y1), QPoint(positionX, y2))
+            hoverline = QtCore.QLine(QtCore.QPoint(positionX, y1), QtCore.QPoint(positionX, y2))
             painter.drawLine(hoverline)
             text = str(self.hoverValue)
-            font = QFont("Arial", 10)
-            fm = QFontMetrics(font)
+            font = QtGui.QFont("Arial", 10)
+            fm = QtGui.QFontMetrics(font)
             textWidth = fm.boundingRect(text).width()
             painter.setFont(font)
             textX = positionX - textWidth / 2.0
@@ -94,7 +94,7 @@ class TimeSlider(QSlider):
         self._isMoving = False
 
 
-class TimeSliderWidget(QWidget):
+class TimeSliderWidget(QtWidgets.QWidget):
     def __init__(self):
         super(TimeSliderWidget, self).__init__()
 
@@ -107,7 +107,7 @@ class TimeSliderWidget(QWidget):
         self.timeSlider.valueChanged.connect(self._timeSliderValueChanged)
 
     def _initUI(self):
-        self.masterLayout = QHBoxLayout()
+        self.masterLayout = QtWidgets.QHBoxLayout()
         self.masterLayout.setContentsMargins(10, 0, 10, 0)
         self.setLayout(self.masterLayout)
 

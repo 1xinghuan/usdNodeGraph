@@ -2,12 +2,8 @@
 # __author__ = 'XingHuan'
 # 4/16/2018
 
-import os
 import sys
-from Qt.QtWidgets import *
-from Qt.QtCore import *
-from Qt.QtGui import *
-from Qt import __binding__
+from Qt import __binding__, QtWidgets, QtCore, QtGui
 
 PY_MAIN_VERSION = sys.version_info[0]
 
@@ -32,8 +28,5 @@ def to_unicode(qstring):
 
 # for pycharm auto complete
 if False:
-    from PyQt5.QtCore import *
-    from PyQt5.QtGui import *
-    from PyQt5.QtWidgets import *
-    from PyQt5 import QtSvg, QtCharts, QtOpenGL
+    from PyQt5 import QtSvg, QtCharts, QtOpenGL, QtWidgets, QtCore, QtGui
 

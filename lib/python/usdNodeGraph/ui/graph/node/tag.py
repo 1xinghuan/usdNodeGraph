@@ -11,7 +11,7 @@ TAG_W = 20
 TAG_H = 20
 
 
-class PixmapTag(QGraphicsPixmapItem):
+class PixmapTag(QtWidgets.QGraphicsPixmapItem):
     def __init__(self, icon=None, **kwargs):
         super(PixmapTag, self).__init__(**kwargs)
 
@@ -30,7 +30,7 @@ class PixmapTag(QGraphicsPixmapItem):
             'icon',
             self.icon,
             color=color,
-            scale=QSize(TAG_W * self.scale_factor, TAG_H * self.scale_factor)
+            scale=QtCore.QSize(TAG_W * self.scale_factor, TAG_H * self.scale_factor)
         ))
         self.setScale(1.0 / self.scale_factor)
 

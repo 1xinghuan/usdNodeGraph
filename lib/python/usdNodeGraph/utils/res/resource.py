@@ -7,6 +7,7 @@ import os
 import sys
 from usdNodeGraph.module.sqt import *
 
+
 RES_FOLDER = '/'.join(__file__.replace('\\', '/').split('/')[:-3]) + '/resource'
 
 
@@ -16,15 +17,15 @@ def get_pic(*args):
 
 
 def get_qicon(*args):
-    return QIcon(get_pic(*args))
+    return QtGui.QIcon(get_pic(*args))
 
 
 def get_pixmap(*args, **kwargs):
     """
-    return QPixmap object based on name and scale
+    return QtGui.QPixmap object based on name and scale
     :param name: pic name
     :param scale: scale factor, list or int
-    :return: QPixmap
+    :return: QtGui.QPixmap
     """
     path = args[0] if os.path.isfile(args[0]) else get_pic(*args)
     scale = kwargs.get('scale')
@@ -33,24 +34,24 @@ def get_pixmap(*args, **kwargs):
     error = kwargs.get('error', 'Error01')
     clip = kwargs.get('clip')
 
-    if isinstance(scale, QSize):
+    if isinstance(scale, QtCore.QSize):
         pass
     elif isinstance(scale, (list, tuple)):
-        scale = QSize(scale[0], scale[1])
+        scale = QtCore.QSize(scale[0], scale[1])
     elif isinstance(scale, int):
-        scale = QSize(scale, scale)
+        scale = QtCore.QSize(scale, scale)
 
-    if isinstance(color, QColor):
+    if isinstance(color, QtGui.QColor):
         pass
     elif color == "auto":
-        color = QApplication.instance().palette(None).text().color()
+        color = QtWidgets.QApplication.instance().palette(None).text().color()
     elif isinstance(color, basestring):
-        color = QColor(color)
+        color = QtGui.QColor(color)
     elif isinstance(color, int):
-        color = QColor(color)
+        color = QtGui.QColor(color)
     elif isinstance(color, list):
-        color = QColor(color[0], color[1], color[2])
-    elif isinstance(color, QWidget):
+        color = QtGui.QColor(color[0], color[1], color[2])
+    elif isinstance(color, QtWidgets.QWidget):
         widget = color
         is_enabled = widget.isEnabled()
         if not is_enabled:
@@ -59,33 +60,33 @@ def get_pixmap(*args, **kwargs):
         if not is_enabled:
             widget.setEnabled(is_enabled)
 
-    img = QImage(path)
+    img = QtGui.QImage(path)
 
     if scale:
         if aspect == 'keep':
-            img = img.scaled(scale, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            img = img.scaled(scale, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
         elif aspect == 'expand':
-            img = img.scaled(scale, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+            img = img.scaled(scale, QtCore.Qt.KeepAspectRatioByExpanding, QtCore.Qt.SmoothTransformation)
         elif aspect == 'width':
-            img = img.scaledToWidth(scale.width(), Qt.SmoothTransformation)
+            img = img.scaledToWidth(scale.width(), QtCore.Qt.SmoothTransformation)
         elif aspect == 'height':
-            img = img.scaledToHeight(scale.height(), Qt.SmoothTransformation)
+            img = img.scaledToHeight(scale.height(), QtCore.Qt.SmoothTransformation)
     if color:
-        img = img.convertToFormat(QImage.Format_Indexed8)
+        img = img.convertToFormat(QtGui.QImage.Format_Indexed8)
         if img.depth() in [1, 8]:
             for index in range(img.colorCount()):
-                src_color = QColor.fromRgba(img.color(index))
-                img.setColor(index, QColor(color.red(), color.green(), color.blue(),
+                src_color = QtGui.QColor.fromRgba(img.color(index))
+                img.setColor(index, QtGui.QColor(color.red(), color.green(), color.blue(),
                                                  src_color.alpha()).rgba())
         else:
             for row in range(img.height()):
                 for col in range(img.width()):
-                    src_color = QColor.fromRgba(img.pixel(col, row))
+                    src_color = QtGui.QColor.fromRgba(img.pixel(col, row))
                     if not src_color.alpha():
                         continue
                     img.setPixel(col, row, color.rgb())
 
-    pixmap = QPixmap.fromImage(img)
+    pixmap = QtGui.QPixmap.fromImage(img)
 
     if clip and isinstance(clip, (list, tuple)):
         pixmap = pixmap.copy(*clip)

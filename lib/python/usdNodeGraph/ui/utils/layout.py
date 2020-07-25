@@ -1,4 +1,5 @@
-from usdNodeGraph.module.sqt import QFormLayout
+from usdNodeGraph.module.sqt import QtWidgets
+
 
 def clearLayout(layout):
     if layout is not None:
@@ -10,7 +11,7 @@ def clearLayout(layout):
                 clearLayout(child.layout())
 
 
-class FormLayout(QFormLayout):
+class FormLayout(QtWidgets.QFormLayout):
     def addRow(self, label, widget):
         setattr(widget, 'parentLayout', self)
         return super(FormLayout, self).addRow(label, widget)

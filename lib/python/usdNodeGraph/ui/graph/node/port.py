@@ -8,11 +8,11 @@ from ..pipe import Pipe, ConnectionPipe
 from ..const import Const
 
 PORT_SIZE = 10
-PORT_LABEL_COLOR = QColor(200, 200, 200)
+PORT_LABEL_COLOR = QtGui.QColor(200, 200, 200)
 
 
-class PortObject(QObject):
-    connectChanged = Signal(object)
+class PortObject(QtCore.QObject):
+    connectChanged = QtCore.Signal(object)
 
     def __init__(self, item=None, *args, **kwargs):
         super(PortObject, self).__init__(*args, **kwargs)
@@ -23,16 +23,16 @@ class PortObject(QObject):
         self.connectChanged.emit(self._item)
 
 
-class Port(QGraphicsEllipseItem):
+class Port(QtWidgets.QGraphicsEllipseItem):
     orientation = 0
     x = 0
     y = 0
     w = PORT_SIZE
     h = PORT_SIZE
 
-    fillColor = QColor(230, 230, 0)
-    borderNormalColor = QColor(200, 200, 250)
-    borderHighlightColor = QColor(255, 255, 0)
+    fillColor = QtGui.QColor(230, 230, 0)
+    borderNormalColor = QtGui.QColor(200, 200, 250)
+    borderHighlightColor = QtGui.QColor(255, 255, 0)
 
     maxConnections = None
 
@@ -54,7 +54,7 @@ class Port(QGraphicsEllipseItem):
 
         self.nameItem = None
 
-        self.setCursor(Qt.PointingHandCursor)
+        self.setCursor(QtCore.Qt.PointingHandCursor)
         self.setAcceptDrops(True)
         self.setZValue(10)
 
@@ -62,20 +62,20 @@ class Port(QGraphicsEllipseItem):
         self._updateUI()
 
     def _updateUI(self):
-        pen = QPen(self.borderColor)
+        pen = QtGui.QPen(self.borderColor)
         pen.setWidth(self.borderWidth)
         self.setPen(pen)
-        self.setBrush(QBrush(self.fillColor))
+        self.setBrush(QtGui.QBrush(self.fillColor))
 
     def setLabelVisible(self, visible):
         if not visible and self.nameItem is None:
             return
         if visible and self.nameItem is None:
-            self.nameItem = QGraphicsSimpleTextItem(self)
+            self.nameItem = QtWidgets.QGraphicsSimpleTextItem(self)
             self.nameItem.setBrush(PORT_LABEL_COLOR)
             self.nameItem.setText(self.label)
             self.nameRect = self.nameItem.boundingRect()
-            self.nameTransform = QTransform()
+            self.nameTransform = QtGui.QTransform()
             self._setNameTransform()
             self.nameItem.setTransform(self.nameTransform)
         self.nameItem.setVisible(visible)
@@ -140,7 +140,7 @@ class Port(QGraphicsEllipseItem):
             pipe.breakConnection()
 
     def boundingRect(self):
-        rect = QRectF(
+        rect = QtCore.QRectF(
             self.x,
             self.y,
             self.w,
@@ -170,7 +170,7 @@ class Port(QGraphicsEllipseItem):
         del self
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() == QtCore.Qt.LeftButton:
             self.findingPort = True
             # self.startPos = self.scenePos()
             self.startPos = self.mapToScene(self.boundingRect().center())
@@ -180,14 +180,14 @@ class Port(QGraphicsEllipseItem):
     def mouseMoveEvent(self, event):
         if self.findingPort:
             pos = event.pos()
-            pos = pos - QPointF(self.w / 2.0, self.h / 2.0)
+            pos = pos - QtCore.QPointF(self.w / 2.0, self.h / 2.0)
             scenePos = self.startPos + pos
             if isinstance(self, InputPort):
                 self.floatPipe.updatePath(scenePos, self.startPos)
             elif isinstance(self, OutputPort):
                 self.floatPipe.updatePath(self.startPos, scenePos)
 
-            findPort = self.scene().itemAt(scenePos, QTransform())
+            findPort = self.scene().itemAt(scenePos, QtGui.QTransform())
             if findPort is not None and isinstance(findPort, Port) and not isinstance(findPort, self.__class__):
                 self.foundPort = findPort
                 self.foundPort.setHighlight(True)
@@ -197,11 +197,11 @@ class Port(QGraphicsEllipseItem):
                     self.foundPort = None
 
     def mouseReleaseEvent(self, event):
-        if event.button() == Qt.LeftButton and self.findingPort:
+        if event.button() == QtCore.Qt.LeftButton and self.findingPort:
             pos = event.pos()
-            pos = pos - QPointF(self.w / 2.0, self.h / 2.0)
+            pos = pos - QtCore.QPointF(self.w / 2.0, self.h / 2.0)
             scenePos = self.startPos + pos
-            findPort = self.scene().itemAt(scenePos, QTransform())
+            findPort = self.scene().itemAt(scenePos, QtGui.QTransform())
             if findPort is not None and isinstance(findPort, Port) and not isinstance(findPort, self.__class__):
                 if self.name != findPort.name:
                     self.connectTo(findPort)
@@ -214,7 +214,7 @@ class Port(QGraphicsEllipseItem):
 
 
 class InputPort(Port):
-    fillColor = QColor(40, 60, 100)
+    fillColor = QtGui.QColor(40, 60, 100)
 
     def __init__(self, *args, **kwargs):
         super(InputPort, self).__init__(*args, **kwargs)
@@ -231,7 +231,7 @@ class InputPort(Port):
 
 
 class OutputPort(Port):
-    fillColor = QColor(50, 100, 80)
+    fillColor = QtGui.QColor(50, 100, 80)
 
     def __init__(self, *args, **kwargs):
         super(OutputPort, self).__init__(*args, **kwargs)
