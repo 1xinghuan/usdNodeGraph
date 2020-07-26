@@ -19,7 +19,7 @@ class NumberEditLabel(QtWidgets.QLabel):
         self.setFixedSize(EDIT_LABEL_WIDTH, EDIT_LABEL_HEIGHT)
         self.setAlignment(QtCore.Qt.AlignCenter)
         self.setStyleSheet("""
-        background: rgb(50, 50, 60)
+        background: rgb(40, 40, 40)
         """)
 
     def addValue(self, value):
@@ -34,12 +34,12 @@ class NumberEditLabel(QtWidgets.QLabel):
         if editing:
             self.setStyleSheet("""
             border: 1px solid rgb(120, 120, 120);
-            background: rgb(50, 50, 60)
+            background: rgb(40, 40, 40)
             """)
         else:
             self.setDefault()
             self.setStyleSheet("""
-            background: rgb(50, 50, 60)
+            background: rgb(40, 40, 40)
             """)
 
 
