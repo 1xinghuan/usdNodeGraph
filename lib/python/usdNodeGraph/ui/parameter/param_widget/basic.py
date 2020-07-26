@@ -3,6 +3,7 @@ from ..parameter import Parameter, Vec3fParameter
 from usdNodeGraph.ui.utils.state import GraphState
 from usdNodeGraph.ui.utils.layout import clearLayout
 from usdNodeGraph.utils.log import get_logger
+from ..param_edit.number_edit import IntEditWidget, FloatEditWidget, EDIT_LABEL_HEIGHT
 
 
 logger = get_logger('usdNodeGraph.ParameterWidget')
@@ -295,6 +296,10 @@ class BasicLineEdit(QtWidgets.QLineEdit, BasicWidget):
         super(BasicLineEdit, self).__init__()
         BasicWidget.__init__(self)
 
+        self._editWidget = None
+        self._editMode = False
+        self._editStartPos = None
+
     def setText(self, string):
         super(BasicLineEdit, self).setText(string)
         self.setCursorPosition(0)
@@ -328,6 +333,43 @@ class BasicLineEdit(QtWidgets.QLineEdit, BasicWidget):
                 value = 0
         return value
 
+    def mousePressEvent(self, event):
+        super(BasicLineEdit, self).mousePressEvent(event)
+        if event.button() == QtCore.Qt.MiddleButton:
+            self._enableEditMode()
+            self._editStartPos = QtGui.QCursor.pos()
+
+    def mouseReleaseEvent(self, event):
+        super(BasicLineEdit, self).mouseReleaseEvent(event)
+        if event.button() == QtCore.Qt.MiddleButton:
+            self._disableEditMode()
+
+    def mouseMoveEvent(self, event):
+        super(BasicLineEdit, self).mouseMoveEvent(event)
+        if self._editMode:
+            targetPos = QtGui.QCursor.pos()
+            QtGui.QCursor.setPos(self._editStartPos.x(), targetPos.y())
+            value = self._editWidget.setEditingPos(targetPos - self._editStartPos)
+            currentValue = self.getRealValue()
+            self.setText(str(currentValue + value))
+            self.editingFinished.emit()
+
+    def _enableEditMode(self):
+        from usdNodeGraph.ui.nodeGraph import USD_NODE_GRAPH_WINDOW
+
+        pos = USD_NODE_GRAPH_WINDOW.mapFromGlobal(QtGui.QCursor.pos())
+        x = pos.x() - self._editWidget.width() / 2
+        y = pos.y() - self._editWidget.height() / 2
+        self._editWidget.move(x, y)
+        self._editWidget.setVisible(True)
+
+        self._editMode = True
+
+    def _disableEditMode(self):
+        self._editMode = False
+        if self._editWidget is not None:
+            self._editWidget.setVisible(False)
+
 
 class IntLineEdit(BasicLineEdit):
     def __init__(self):
@@ -336,6 +378,13 @@ class IntLineEdit(BasicLineEdit):
         validator = QtGui.QIntValidator()
         self.setValidator(validator)
 
+    def _enableEditMode(self):
+        if self._editWidget is None:
+            from usdNodeGraph.ui.nodeGraph import USD_NODE_GRAPH_WINDOW
+            self._editWidget = IntEditWidget(parent=USD_NODE_GRAPH_WINDOW)
+            self._editWidget.show()
+        super(IntLineEdit, self)._enableEditMode()
+
 
 class FloatLineEdit(BasicLineEdit):
     def __init__(self):
@@ -343,6 +392,13 @@ class FloatLineEdit(BasicLineEdit):
 
         validator = QtGui.QDoubleValidator()
         self.setValidator(validator)
+
+    def _enableEditMode(self):
+        if self._editWidget is None:
+            from usdNodeGraph.ui.nodeGraph import USD_NODE_GRAPH_WINDOW
+            self._editWidget = FloatEditWidget(parent=USD_NODE_GRAPH_WINDOW)
+            self._editWidget.show()
+        super(FloatLineEdit, self)._enableEditMode()
 
 
 class VecWidget(QtWidgets.QWidget):
@@ -363,6 +419,7 @@ class VecWidget(QtWidgets.QWidget):
 
             # lineEdit.returnPressed.connect(self._editTextChanged)
             lineEdit.editingFinished.connect(self._editTextChanged)
+            # lineEdit.textChanged.connect(self._editTextChanged)
 
             self.masterLayout.addWidget(lineEdit)
             self.lineEdits.append(lineEdit)

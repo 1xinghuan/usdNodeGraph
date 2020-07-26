@@ -5,12 +5,14 @@ import inspect
 import functools
 import time
 import sys
+import os
 
-LOG_LEVEL_ENV = 'WARNING'
+LOG_LEVEL_ENV = os.environ.get('USD_NODEGRAPH_DEBUG_LEVEL', 'DEBUG').upper()  # DEBUG/WARNING/ERROR
 LOG_LEVEL = getattr(logging, LOG_LEVEL_ENV)
 LOG_FORMATS = [
-    '%(levelname)s:%(name)s: %(asctime)s %(pathname)s[line:%(lineno)d] %(funcName)s %(message)s',
-    '%(levelname)s:%(name)s: %(asctime)s %(message)s',
+    '[%(levelname)s]:%(name)s: %(asctime)s %(pathname)s[line:%(lineno)d] %(funcName)s: %(message)s',
+    '[%(levelname)s]:%(name)s: %(funcName)s: %(message)s',
+    '[%(levelname)s]:%(name)s: %(asctime)s %(message)s',
 ]
 LOGGERS = {}
 
@@ -34,7 +36,7 @@ def set_logger(logger, format=0):
     logger.addHandler(chHandler)
 
 
-def get_logger(name, format=0):
+def get_logger(name, format=1):
     global LOGGERS
 
     if name not in LOGGERS:
@@ -46,7 +48,7 @@ def get_logger(name, format=0):
     return logger
 
 
-timeLogger = get_logger('log_cost_time', 1)
+timeLogger = get_logger('log_cost_time', 2)
 
 
 def log_cost_time(func):

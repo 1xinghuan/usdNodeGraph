@@ -127,6 +127,9 @@ class Parameter(QtCore.QObject):
         if emitSignal:
             self.valueChanged.emit(self, None)
 
+    def setConnectQuietly(self, connect):
+        self.setConnect(connect, emitSignal=False)
+
     def breakConnect(self):
         self._connect = None
         self.valueChanged.emit(self, None)

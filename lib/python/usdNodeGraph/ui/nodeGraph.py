@@ -15,6 +15,9 @@ from usdNodeGraph.ui.timeSlider import TimeSliderWidget
 from usdNodeGraph.utils.settings import User_Setting, read_setting, write_setting
 
 
+USD_NODE_GRAPH_WINDOW = None
+
+
 class DockWidget(QtWidgets.QDockWidget):
     maximizedRequired = QtCore.Signal()
 
@@ -55,6 +58,9 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
             parent=None
     ):
         super(UsdNodeGraph, self).__init__(parent=parent)
+
+        global USD_NODE_GRAPH_WINDOW
+        USD_NODE_GRAPH_WINDOW = self
 
         self.currentScene = None
         self.scenes = []

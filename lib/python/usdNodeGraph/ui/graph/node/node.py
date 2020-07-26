@@ -53,6 +53,8 @@ class Node(QtCore.QObject):
         super(Node, self).__init__()
 
         self.item = item
+        self._parameters = {}
+        self._primPaths = []
 
         self._initParameters()
         self._initDefaults()
@@ -99,7 +101,7 @@ class Node(QtCore.QObject):
             return self.item.scenePos().y()
 
     def _paramterValueChanged(self, parameter, value):
-        logger.debug('_paramterValueChanged:{}, {}'.format(parameter.name(), value))
+        logger.debug('{}, {}'.format(parameter.name(), value))
         self.parameterValueChanged.emit(parameter, value)
         if parameter.name() == 'name':
             self.item.scene()._afterNodeNameChanged(self.item)

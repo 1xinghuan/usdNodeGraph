@@ -39,6 +39,17 @@ class UsdNode(Node):
     def _execute(self, stage, prim):
         return stage, prim
 
+    def addPrimPath(self, primPath):
+        if primPath is not None:
+            self._primPaths.append(primPath)
+
+    def removePrimPath(self, primPath):
+        if primPath in self._primPaths:
+            self._primPaths.remove(primPath)
+
+    def clearPrimPath(self):
+        self._primPaths = []
+
 
 class _PrimNode(UsdNode):
     nodeType = 'Prim'
@@ -298,6 +309,15 @@ class AttributeSetNode(UsdNode):
     def _initParameters(self):
         super(AttributeSetNode, self)._initParameters()
         pass
+
+    def _paramterValueChanged(self, parameter, value):
+        super(AttributeSetNode, self)._paramterValueChanged(parameter, value)
+
+        attrName = parameter.name()
+        for primPath in self._primPaths:
+            prim = self._stage.GetPrimAtPath(primPath)
+            attribute = prim.GetAttribute(attrName)
+            attribute.Set(value)
 
     def _execute(self, stage, prim):
         params = [param for param in self._parameters.values() if not param.isBuiltIn()]

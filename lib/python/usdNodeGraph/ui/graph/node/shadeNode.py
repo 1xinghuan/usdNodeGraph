@@ -2,7 +2,6 @@
 # __author__ = 'XingHuan'
 
 
-import logging
 from pxr import Usd, Sdf, Kind, UsdGeom
 from usdNodeGraph.module.sqt import *
 from .nodeItem import NodeItem
@@ -11,10 +10,11 @@ from usdNodeGraph.ui.parameter.parameter import Parameter, StringParameter
 from .usdNode import UsdNode, UsdNodeItem
 from .port import InputPort, OutputPort, ShaderInputPort, ShaderOutputPort
 from usdNodeGraph.utils.const import INPUT_ATTRIBUTE_PREFIX, OUTPUT_ATTRIBUTE_PREFIX
+from usdNodeGraph.utils.log import get_logger
 from .sdr import SdrRegistry
 
 
-logger = logging.getLogger('usdNodeGraph.shadeNode')
+logger = get_logger('usdNodeGraph.shadeNode')
 
 
 PORT_SPACING = 20
@@ -140,14 +140,14 @@ class _UsdShadeNodeItem(UsdNodeItem):
 
 class _UsdShadeNode(UsdNode):
     nodeType = '_UsdShade'
-    fillNormalColor = QtGui.QColor(50, 60, 80)
+    fillNormalColor = QtGui.QColor(30, 40, 70)
     borderNormalColor = QtGui.QColor(170, 250, 170, 200)
     reverse = False
 
     def __init__(self, prim=None, **kwargs):
         super(_UsdShadeNode, self).__init__(**kwargs)
 
-        self.parameter('primName').setValue(self.name(), emitSignal=False)
+        self.parameter('primName').setValueQuietly(self.name())
 
         if prim is not None:
             attrKeys = prim.attributes.keys()
@@ -155,7 +155,7 @@ class _UsdShadeNode(UsdNode):
             for index, name in enumerate(attrKeys):
                 attribute = prim.attributes[name]
                 self._addAttributeParameter(attribute)
-            self.parameter('primName').setValue(prim.name, emitSignal=False)
+            self.parameter('primName').setValueQuietly(prim.name)
 
     def _initParameters(self):
         super(_UsdShadeNode, self)._initParameters()
@@ -174,11 +174,11 @@ class _UsdShadeNode(UsdNode):
             if attribute.HasInfo('connectionPaths'):
                 connectionPathList = attribute.connectionPathList.GetAddedOrExplicitItems()
                 connect = connectionPathList[0]
-                param.setConnect(connect.pathString, emitSignal=False)
+                param.setConnectQuietly(connect.pathString)
             if attribute.HasInfo('timeSamples'):
                 param.setTimeSamples(attribute.GetInfo('timeSamples'))
             else:
-                param.setValue(attribute.default, emitSignal=False)
+                param.setValueQuietly(attribute.default)
 
     def addParameter(self, *args, **kwargs):
         parameterName = args[0]
@@ -295,8 +295,8 @@ class ShaderNode(_UsdShadeNode):
         if prim is not None:
             for name, attribute in prim.attributes.items():
                 if name == 'info:id':
-                    self.parameter('info:id').setValue(attribute.default)
-            self.parameter('primName').setValue(prim.name, emitSignal=False)
+                    self.parameter('info:id').setValueQuietly(attribute.default)
+            self.parameter('primName').setValueQuietly(prim.name)
 
             for name, param in self._parameters.items():
                 if name.startswith(INPUT_ATTRIBUTE_PREFIX) or name.startswith(OUTPUT_ATTRIBUTE_PREFIX):
@@ -344,12 +344,12 @@ class ShaderNode(_UsdShadeNode):
             oldParam = self._oldShaderParameters.get(paramName)
             if oldParam is not None:
                 if oldParam.hasConnect():
-                    param.setConnect(oldParam.getConnect())
+                    param.setConnectQuietly(oldParam.getConnect())
                 elif param.parameterTypeString == oldParam.parameterTypeString:
                     if oldParam.hasKey():
                         param.setTimeSamples(oldParam.getTimeSamples())
                     else:
-                        param.setValue(oldParam.getValue())
+                        param.setValueQuietly(oldParam.getValue())
 
             return param
 

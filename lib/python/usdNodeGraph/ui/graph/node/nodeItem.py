@@ -10,9 +10,13 @@ from ..const import *
 from usdNodeGraph.ui.parameter.parameter import (
     Parameter, TextParameter, FloatParameter, StringParameter, BoolParameter
 )
+from usdNodeGraph.utils.log import get_logger
 import time
 import re
 import os
+
+
+logger = get_logger('usdNodeGraph.nodeItem')
 
 
 NAME_FONT = QtGui.QFont('Arial', 10, italic=True)
@@ -201,12 +205,12 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
         """
         inputPort = self.getInputPort(inputName)
         if inputPort is None:
-            print('Input Port Not Exist! {}:{}'.format(node.name(), inputName))
+            logger.warning('Input Port Not Exist! {}:{}'.format(node.name(), inputName))
             return
 
         outputPort = node.getOutputPort(outputName)
         if outputPort is None:
-            print('Output Port Not Exist! {}{}'.format(node.name(), outputName))
+            logger.warning('Output Port Not Exist! {}{}'.format(node.name(), outputName))
             return
 
         inputPort.connectTo(outputPort)
