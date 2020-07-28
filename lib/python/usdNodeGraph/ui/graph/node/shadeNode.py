@@ -223,7 +223,7 @@ class _UsdShadeNode(UsdNode):
                     return
                 outputPort = connectNode.getPort(connectParamName)
                 if outputPort is not None:
-                    inputPort.connectTo(outputPort, emitSignal=emitSignal, connection=True)
+                    inputPort.connectTo(outputPort, emitSignal=emitSignal)
 
     def _execute(self, stage, prim):
         primPath = self.item.getCurrentNodeItemPrimPath(prim)

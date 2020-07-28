@@ -103,10 +103,7 @@ class Port(QtWidgets.QGraphicsEllipseItem):
         self._checkConnectionNumber()
         port._checkConnectionNumber()
 
-        if connection:
-            pipe = ConnectionPipe(orientation=self.orientation)
-        else:
-            pipe = Pipe(orientation=self.orientation)
+        pipe = self.createPipe()
         if isinstance(self, InputPort):
             pipe.source = port
             pipe.target = self
@@ -169,12 +166,19 @@ class Port(QtWidgets.QGraphicsEllipseItem):
         self.scene().removeItem(self)
         del self
 
+    def createPipe(self):
+        if isinstance(self, (ShaderInputPort, ShaderOutputPort)):
+            pipe = ConnectionPipe(orientation=self.orientation)
+        else:
+            pipe = Pipe(orientation=self.orientation)
+        return pipe
+
     def mousePressEvent(self, event):
         if event.button() == QtCore.Qt.LeftButton:
             self.findingPort = True
             # self.startPos = self.scenePos()
             self.startPos = self.mapToScene(self.boundingRect().center())
-            self.floatPipe = Pipe(orientation=self.orientation)
+            self.floatPipe = self.createPipe()
             self.scene().addItem(self.floatPipe)
 
     def mouseMoveEvent(self, event):
