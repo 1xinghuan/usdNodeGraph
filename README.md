@@ -30,7 +30,7 @@ Parameter:
 
 + Show keyframe in different color
 
-    ![screenshot01](screenshot/screenshot04.png)
+    ![screenshot01](screenshot/usdnodegraph03.gif)
 
 + Connect shader
 
