@@ -4,13 +4,8 @@ from usdNodeGraph.module.sqt import *
 
 class StringParameterWidget(VecWidget, ParameterWidget):
     def __init__(self):
-        ParameterWidget.__init__(self)
         super(StringParameterWidget, self).__init__()
-
-    def _editTextChanged(self):
-        super(StringParameterWidget, self)._editTextChanged()
-
-        self._setValueFromEdit()
+        ParameterWidget.__init__(self)
 
 
 class ChooseWidget(QtWidgets.QWidget):
@@ -54,8 +49,8 @@ class ChooseWidget(QtWidgets.QWidget):
 
 class ChooseParameterWidget(ChooseWidget, ParameterWidget):
     def __init__(self):
-        ParameterWidget.__init__(self)
         super(ChooseParameterWidget, self).__init__()
+        ParameterWidget.__init__(self)
 
     def setParameter(self, parameter):
         super(ChooseParameterWidget, self).setParameter(parameter)
@@ -63,11 +58,6 @@ class ChooseParameterWidget(ChooseWidget, ParameterWidget):
         for value in self.getParameter().getItems():
             if self._comboBox.findText(value) == -1:
                 self._comboBox.addItem(value)
-
-    def _editIndexChanged(self):
-        super(ChooseParameterWidget, self)._editIndexChanged()
-
-        self._setValueFromEdit()
 
 
 class TextWidget(QtWidgets.QTextEdit):
@@ -92,13 +82,7 @@ class TextWidget(QtWidgets.QTextEdit):
 
 class TextParameterWidget(TextWidget, ParameterWidget):
     def __init__(self):
-        ParameterWidget.__init__(self)
         super(TextParameterWidget, self).__init__()
-
-    def _editTextChanged(self):
-        super(TextParameterWidget, self)._editTextChanged()
-
-        self._setValueFromEdit()
-
+        ParameterWidget.__init__(self)
 
 

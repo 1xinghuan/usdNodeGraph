@@ -168,8 +168,8 @@ class _ArrayParameter(Parameter):
 
 class StringArrayParameter(_ArrayParameter):
     parameterTypeString = 'string[]'
-    valueTypeName = None
-    _usdValueClass = list
+    valueTypeName = Sdf.ValueTypeNames.StringArray
+    _usdValueClass = Vt.StringArray
 
 
 class IntArrayParameter(_ArrayParameter):

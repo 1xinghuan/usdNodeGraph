@@ -38,6 +38,8 @@ class ParameterWidget(object):
         self.masterLayout = None
         self._connectEdit = None
 
+        self.editValueChanged.connect(self._editWidgetValueChanged)
+
     def _getStage(self):
         stage = self._parameter.node().getStage()
         return stage
@@ -45,34 +47,41 @@ class ParameterWidget(object):
     def _getCurrentTime(self):
         return GraphState.getCurrentTime(self._getStage())
 
+    def _editWidgetValueChanged(self):
+        self._setValueFromEdit()
+
+    def _breakEditSignal(self):
+        self.editValueChanged.disconnect(self._editWidgetValueChanged)
+
+    def _reConnectEditSignal(self):
+        self.editValueChanged.connect(self._editWidgetValueChanged)
+
     def _breakSignal(self):
         if not self._signalBreaked:
             self._signalBreaked = True
             self._parameter.valueChanged.disconnect(self._parameterValueChanged)
-            self._parameter.valueChanged.disconnect(self._parameter._valueChanged)
+        # self._parameter._breakSignal()
 
     def _reConnectSignal(self):
         if self._signalBreaked:
             self._signalBreaked = False
             self._parameter.valueChanged.connect(self._parameterValueChanged)
-            self._parameter.valueChanged.connect(self._parameter._valueChanged)
+        # self._parameter._reConnectSignal()
 
-    def _parameterValueChanged(self, parameter, value):
+    def _parameterValueChanged(self, parameter):
         self.updateUI()
 
     def _setValueFromEdit(self):
         value = self.getPyValue()
         value = self._parameter.convertValueFromPy(value)
 
-        if self._signalBreaked:
-            self._parameter.setValueAt(value, self._getCurrentTime(), emitSignal=False)
-        else:
-            self._breakSignal()
-            self._parameter.setValueAt(value, self._getCurrentTime())
-            self._reConnectSignal()
+        self._breakSignal()
+        self._parameter.setValueAt(value, self._getCurrentTime())
+        self._reConnectSignal()
 
     def setParameter(self, parameter):
         self._parameter = parameter
+        self._parameter.addParamWidget(self)
         self._reConnectSignal()
 
         self.updateUI()
@@ -84,9 +93,11 @@ class ParameterWidget(object):
         pass
 
     def _beforeUpdateUI(self):
+        self._breakEditSignal()
         self._breakSignal()
 
     def _afterUpdateUI(self):
+        self._reConnectEditSignal()
         self._reConnectSignal()
 
     def updateUI(self):
@@ -97,7 +108,10 @@ class ParameterWidget(object):
     def _updateUI(self):
         self.setToolTip(self._parameter.name())
 
-        if self._parameter.hasConnect():
+        value, timeSamples, connect = self._parameter.getShowValues()
+        hasConnect = connect is not None
+
+        if hasConnect:
             if self._connectEdit is None:
                 self._connectEdit = QtWidgets.QLineEdit()
                 self._connectEdit.setStyleSheet('background: rgb(60, 60, 70)')
@@ -108,16 +122,14 @@ class ParameterWidget(object):
 
             self._connectEdit.setText(self._parameter.getConnect())
 
-        self._setMasterWidgetEnable(not self._parameter.hasConnect())
+        self._setMasterWidgetEnable(not hasConnect)
         if self._connectEdit is not None:
-            self._connectEdit.setVisible(self._parameter.hasConnect())
+            self._connectEdit.setVisible(hasConnect)
 
-        timeSamples = self._parameter.getTimeSamples()
         if timeSamples is not None:
             timeSamples = self._parameter.convertTimeSamplesToPy(timeSamples)
             self.setPyTimeSamples(timeSamples)
         else:
-            value = self._parameter.getValue()
             value = self._parameter.convertValueToPy(value)
             self.setPyValue(value)
 
@@ -427,7 +439,6 @@ class VecWidget(QtWidgets.QWidget):
         GraphState.getState().currentTimeChanged.connect(self.updateCurrentUI)
 
     def _editTextChanged(self):
-        self.editValueChanged.emit()
         lineEdit = self.sender()
         if lineEdit.hasKeys():
             if hasattr(self, '_getStage'):
@@ -439,6 +450,8 @@ class VecWidget(QtWidgets.QWidget):
             else:
                 time = self.parameterWidget._getCurrentTime()
             lineEdit.setKey(lineEdit.getRealValue(), time)
+
+        self.editValueChanged.emit()
 
     def _setMasterWidgetEnable(self, enable):
         for i in self.lineEdits:

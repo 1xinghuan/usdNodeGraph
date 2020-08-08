@@ -89,6 +89,12 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
         paramsDict = {}
         for paramName, param in self.nodeObject._parameters.items():
             if paramName != 'name':
+                override = param.isOverride()
+                custom = param.isCustom()
+
+                if not (override or custom):
+                    continue
+
                 builtIn = param.isBuiltIn()
                 visible = param.isVisible()
 
@@ -116,11 +122,7 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
                 if timeSamplesDict is not None:
                     paramDict.update({'timeSamples': timeSamplesDict})
                 paramDict.update({'value': value})
-                if (timeSamplesDict is not None
-                        or connect is not None
-                        or param.isCustom()
-                        or value != param.getDefaultValue()):
-                    paramsDict.update({paramName: paramDict})
+                paramsDict.update({paramName: paramDict})
 
         inputsDict = self._getInputsDict()
         # outputsDict = self._getOutputsDict()
@@ -165,11 +167,11 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
         ))
         self.disableItem.setVisible(disable)
 
-    def _paramterValueChanged(self, parameter, value):
+    def _paramterValueChanged(self, parameter):
         if parameter.name() == 'x':
-            self.setX(value)
+            self.setX(parameter.getValue())
         if parameter.name() == 'y':
-            self.setY(value)
+            self.setY(parameter.getValue())
         if parameter.name() == 'disable':
             self._updateDisableItem()
         self._updateUI()

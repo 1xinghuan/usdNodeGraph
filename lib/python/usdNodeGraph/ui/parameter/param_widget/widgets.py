@@ -34,13 +34,8 @@ class BoolWidget(QtWidgets.QWidget):
 
 class BoolParameterWidget(BoolWidget, ParameterWidget):
     def __init__(self):
-        ParameterWidget.__init__(self)
         super(BoolParameterWidget, self).__init__()
-
-    def _checkedChanged(self):
-        super(BoolParameterWidget, self)._checkedChanged()
-
-        self._setValueFromEdit()
+        ParameterWidget.__init__(self)
 
 
 class IntWidget(VecWidget):
@@ -50,13 +45,8 @@ class IntWidget(VecWidget):
 
 class IntParameterWidget(IntWidget, ParameterWidget):
     def __init__(self):
-        ParameterWidget.__init__(self)
         super(IntParameterWidget, self).__init__()
-
-    def _editTextChanged(self):
-        super(IntParameterWidget, self)._editTextChanged()
-
-        self._setValueFromEdit()
+        ParameterWidget.__init__(self)
 
 
 class FloatWidget(VecWidget):
@@ -66,13 +56,8 @@ class FloatWidget(VecWidget):
 
 class FloatParameterWidget(FloatWidget, ParameterWidget):
     def __init__(self):
-        ParameterWidget.__init__(self)
         super(FloatParameterWidget, self).__init__()
-
-    def _editTextChanged(self):
-        super(FloatParameterWidget, self)._editTextChanged()
-
-        self._setValueFromEdit()
+        ParameterWidget.__init__(self)
 
 
 class Vec2fWidget(FloatWidget):
@@ -81,13 +66,8 @@ class Vec2fWidget(FloatWidget):
 
 class Vec2fParameterWidget(Vec2fWidget, ParameterWidget):
     def __init__(self):
-        ParameterWidget.__init__(self)
         super(Vec2fParameterWidget, self).__init__()
-
-    def _editTextChanged(self):
-        super(Vec2fParameterWidget, self)._editTextChanged()
-
-        self._setValueFromEdit()
+        ParameterWidget.__init__(self)
 
 
 class Vec3fWidget(FloatWidget):
@@ -96,13 +76,8 @@ class Vec3fWidget(FloatWidget):
 
 class Vec3fParameterWidget(Vec3fWidget, ParameterWidget):
     def __init__(self):
-        ParameterWidget.__init__(self)
         super(Vec3fParameterWidget, self).__init__()
-
-    def _editTextChanged(self):
-        super(Vec3fParameterWidget, self)._editTextChanged()
-
-        self._setValueFromEdit()
+        ParameterWidget.__init__(self)
 
 
 class Vec4fWidget(FloatWidget):
@@ -111,12 +86,7 @@ class Vec4fWidget(FloatWidget):
 
 class Vec4fParameterWidget(Vec4fWidget, ParameterWidget):
     def __init__(self):
-        ParameterWidget.__init__(self)
         super(Vec4fParameterWidget, self).__init__()
-
-    def _editTextChanged(self):
-        super(Vec4fParameterWidget, self)._editTextChanged()
-
-        self._setValueFromEdit()
+        ParameterWidget.__init__(self)
 
 

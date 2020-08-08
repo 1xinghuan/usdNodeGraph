@@ -160,7 +160,7 @@ class _UsdShadeNode(UsdNode):
     def _initParameters(self):
         super(_UsdShadeNode, self)._initParameters()
         param = self.addParameter('primName', 'string', defaultValue='')
-        param.setOrder(-1)
+        # param.setOrder(-1)
 
     def _addAttributeParameter(self, attribute):
         attributeName = attribute.name
@@ -204,8 +204,8 @@ class _UsdShadeNode(UsdNode):
 
         return parameter
 
-    def _paramterValueChanged(self, parameter, value):
-        super(_UsdShadeNode, self)._paramterValueChanged(parameter, value)
+    def _paramterValueChanged(self, parameter):
+        super(_UsdShadeNode, self)._paramterValueChanged(parameter)
 
         self.connectShader(parameter)
 
@@ -305,7 +305,7 @@ class ShaderNode(_UsdShadeNode):
     def _initParameters(self):
         super(ShaderNode, self)._initParameters()
         param = self.addParameter('info:id', 'choose', defaultValue='')
-        param.setOrder(0)
+        # param.setOrder(0)
         param.addItems(SdrRegistry.getNodeNames())
 
     def _paramterValueChanged(self, parameter, value):

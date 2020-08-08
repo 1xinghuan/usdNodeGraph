@@ -4,13 +4,74 @@ from usdNodeGraph.utils.res import resource
 from usdNodeGraph.ui.utils.layout import FormLayout
 
 
+class ParamStatusButton(QtWidgets.QPushButton):
+    def __init__(self):
+        super(ParamStatusButton, self).__init__()
+
+        self._parameter = None
+
+        self.clicked.connect(self._selfClicked)
+
+        self.setStyleSheet("""
+        border:none;
+        """)
+
+    def setParameter(self, parameter):
+        self._parameter = parameter
+        self._parameter.valueChanged.connect(self._valueChanged)
+        self._updateColor()
+
+    def _selfClicked(self):
+        self._parameter.setOverride(not self._parameter.isOverride())
+        # self._updateColor()
+
+    def _valueChanged(self, *args, **kwargs):
+        self._updateColor()
+
+    def _updateColor(self):
+        override = self._parameter.isOverride()
+        if override:
+            self.setIcon(resource.get_qicon('btn', 'radio_checked.png'))
+        else:
+            self.setIcon(resource.get_qicon('btn', 'radio_unchecked.png'))
+
+
+class ParamLabelWidget(QtWidgets.QWidget):
+    def __init__(self):
+        super(ParamLabelWidget, self).__init__()
+
+        self._parameter = None
+
+        self.masterLayout = QtWidgets.QHBoxLayout()
+        self.masterLayout.setAlignment(QtCore.Qt.AlignLeft)
+        self.masterLayout.setContentsMargins(0, 0, 0, 0)
+        self.masterLayout.setSpacing(0)
+        self.setLayout(self.masterLayout)
+
+        self.nameLabel = QtWidgets.QLabel()
+        self.statusLabel = ParamStatusButton()
+        self.statusLabel.setFixedSize(20, 20)
+
+        self.masterLayout.addWidget(self.nameLabel)
+        self.masterLayout.addWidget(self.statusLabel)
+
+    def setParameter(self, parameter):
+        self._parameter = parameter
+        self.statusLabel.setParameter(parameter)
+        self._updateUI()
+
+    def _updateUI(self):
+        self.nameLabel.setText(self._parameter.getLabel())
+        self.statusLabel._updateColor()
+
+
 class NodeParameterWidget(QtWidgets.QWidget):
     removeClicked = QtCore.Signal()
 
     def __init__(self):
         super(NodeParameterWidget, self).__init__()
 
-        self._node = None
+        self._nodeItem = None
         self._tabs = {}
         self._paramWidgets = {}
         self._expanded = True
@@ -21,9 +82,10 @@ class NodeParameterWidget(QtWidgets.QWidget):
     def _createSignal(self):
         self.expandButton.clicked.connect(self._expandClicked)
         self.closeButton.clicked.connect(self._closeClicked)
+        self.syncButton.clicked.connect(self._syncClicked)
+        self.pushButton.clicked.connect(self._applyClicked)
 
     def _initUI(self):
-
         self._backLabel = QtWidgets.QLabel(parent=self)
         self._backLabel.move(0, 0)
         self._backLabel.setStyleSheet('''
@@ -42,8 +104,21 @@ class NodeParameterWidget(QtWidgets.QWidget):
         self.closeButton = QtWidgets.QPushButton()
         self.closeButton.setIcon(resource.get_qicon('btn', 'close.png'))
 
-        self.expandButton.setFixedSize(20, 20)
-        self.closeButton.setFixedSize(20, 20)
+        self.syncButton = QtWidgets.QPushButton()
+        self.syncButton.setIcon(resource.get_qicon('btn', 'refresh_blue.png'))
+        self.syncButton.setToolTip('Sync To Parameter')
+        self.pushButton = QtWidgets.QPushButton()
+        self.pushButton.setIcon(resource.get_qicon('btn', 'arrow_up2_white.png'))
+        self.pushButton.setToolTip('Force Apply Changes')
+
+        for btn in [
+            self.expandButton,
+            self.closeButton,
+            self.syncButton,
+            self.pushButton,
+        ]:
+            btn.setFixedSize(20, 20)
+
         self.nodeNameEdit.setFixedHeight(20)
         self.nodeTypeLabel.setFixedHeight(20)
 
@@ -52,6 +127,8 @@ class NodeParameterWidget(QtWidgets.QWidget):
         self.topLayout.addWidget(self.nodeNameEdit)
         self.topLayout.addWidget(self.nodeTypeLabel)
         self.topLayout.addStretch()
+        self.topLayout.addWidget(self.syncButton)
+        self.topLayout.addWidget(self.pushButton)
         self.topLayout.addWidget(self.closeButton)
 
         self.parameterTabWidget = QtWidgets.QTabWidget()
@@ -79,15 +156,21 @@ class NodeParameterWidget(QtWidgets.QWidget):
         # self.deleteLater()
         self.removeClicked.emit()
 
+    def _syncClicked(self):
+        pass
+
+    def _applyClicked(self):
+        self._nodeItem.nodeObject.applyChanges()
+
     def resizeEvent(self, event):
         super(NodeParameterWidget, self).resizeEvent(event)
 
         self._backLabel.resize(self.width(), 30)
 
     def setNode(self, node):
-        self._node = node
-        self._node.nodeObject.parameterAdded.connect(self._nodeParameterAdded)
-        self._node.nodeObject.parameterRemoved.connect(self._nodeParameterRemoved)
+        self._nodeItem = node
+        self._nodeItem.nodeObject.parameterAdded.connect(self._nodeParameterAdded)
+        self._nodeItem.nodeObject.parameterRemoved.connect(self._nodeParameterRemoved)
 
         self.nodeNameEdit.setParameter(node.parameter('name'))
 
@@ -95,11 +178,12 @@ class NodeParameterWidget(QtWidgets.QWidget):
         self.updateUI()
 
     def getNode(self):
-        return self._node
+        return self._nodeItem
 
     def createParameterWidget(self, parameter, layout):
         if parameter.isVisible():
-            parameterLabel = parameter.getLabel()
+            parameterLabel = ParamLabelWidget()
+            parameterLabel.setParameter(parameter)
             # if len(parameterLabel) > 15:
             #     parameterLabel = '{}...{}'.format(parameterLabel[:6], parameterLabel[-6:])
             parameterWidget = ParameterWidget.createParameterWidget(parameter)
@@ -120,26 +204,26 @@ class NodeParameterWidget(QtWidgets.QWidget):
         self.parameterTabWidget.addTab(tab, label)
 
     def _buildUI(self):
-        parameters = self._node.parameters()
+        parameters = self._nodeItem.parameters()
         nodeParameters = [param for param in parameters if not param.isBuiltIn()]
         builtInParameters = [param for param in parameters if param.isBuiltIn() and param.name() != 'name']
 
-        nodeParameters.sort(lambda p1, p2: cmp(p1.getOrder(), p2.getOrder()))
+        # nodeParameters.sort(lambda p1, p2: cmp(p1.getOrder(), p2.getOrder()))
         builtInParameters.sort(lambda p1, p2: cmp(p1.getOrder(), p2.getOrder()))
 
-        self._buildTab(self._node.nodeType, nodeParameters)
+        self._buildTab(self._nodeItem.nodeType, nodeParameters)
         self._buildTab('Node', builtInParameters)
 
     def updateUI(self):
-        self.nodeTypeLabel.setText(self._node.nodeType)
-        self.nodeNameEdit.setPyValue(self._node.name())
+        self.nodeTypeLabel.setText(self._nodeItem.nodeType)
+        self.nodeNameEdit.setPyValue(self._nodeItem.name())
 
         for paramWidget in self._paramWidgets.values():
             if paramWidget is not None:
                 paramWidget.updateUI()
 
     def _nodeParameterAdded(self, parameter):
-        tab = self._tabs[self._node.nodeType]
+        tab = self._tabs[self._nodeItem.nodeType]
         layout = tab.layout()
         self.createParameterWidget(parameter, layout)
 

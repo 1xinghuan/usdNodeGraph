@@ -2,14 +2,16 @@
 # __author__ = 'XingHuan'
 # 8/29/2018
 
-
+import os
 import re
 import json
 import time
 from pxr import Usd, Sdf, Ar
 from usdNodeGraph.module.sqt import *
 from usdNodeGraph.utils.const import INPUT_ATTRIBUTE_PREFIX, OUTPUT_ATTRIBUTE_PREFIX, VIEWPORT_FULL_UPDATE
-from .node import (Node, NodeItem, LayerNode, ReferenceNode, PayloadNode)
+from .node import (
+    Node, NodeItem, LayerNode, ReferenceNode, PayloadNode,
+    TransformNode, AttributeSetNode)
 from .pipe import Pipe
 from .node.port import Port
 from usdNodeGraph.utils.log import get_logger, log_cost_time
@@ -59,8 +61,8 @@ class FloatLineEdit(QtWidgets.QFrame):
         self._edit.setFocus()
 
     def reset(self):
-        allNodeClass = Node.getAllNodeClass()
-        completer = QCompleter(allNodeClass)
+        allNodeClass = Node.getAllNodeClassNames()
+        completer = QtWidgets.QCompleter(allNodeClass)
         completer.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
         self._edit.setCompleter(completer)
 
@@ -405,10 +407,10 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             node.setY(upNode.pos().y() + upNode.h + 100)
             node.connectToNode(upNode)
 
-    def _getPrim(self, prim, upNode=None, index=0):
+    def _getPrim(self, primSpec, upNode=None, index=0):
         skipAttribute = False
 
-        primPath = prim.path.pathString
+        primPath = primSpec.path.pathString
         match = re.match(VARIANT_PRIM_PATH_PATTERN, primPath)
         if match:
             variantSwitchNode = self.createNode(
@@ -420,19 +422,19 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             upNode = variantSwitchNode
         else:
             # prim define
-            specifier = prim.specifier
+            specifier = primSpec.specifier
             if specifier == Sdf.SpecifierDef:
-                typeName = prim.typeName
+                typeName = primSpec.typeName
                 if typeName in ['Material', 'Shader']:
                     primNode = self.createNode(
-                        typeName, name=prim.name, primPath=primPath,
-                        prim=prim
+                        typeName, name=primSpec.name, primPath=primPath,
+                        primSpec=primSpec
                     )
                     skipAttribute = True
                 else:
-                    primNode = self.createNode('PrimDefine', primPath=primPath, prim=prim)
+                    primNode = self.createNode('PrimDefine', primPath=primPath, primSpec=primSpec)
             elif specifier == Sdf.SpecifierOver:
-                primNode = self.createNode('PrimOverride', primPath=primPath, prim=prim)
+                primNode = self.createNode('PrimOverride', primPath=primPath, primSpec=primSpec)
             else:
                 return upNode
 
@@ -441,7 +443,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             upNode = primNode
 
         # reference
-        referenceList = prim.referenceList.GetAddedOrExplicitItems()
+        referenceList = primSpec.referenceList.GetAddedOrExplicitItems()
         for reference in referenceList:
             referenceNode = self.createNode('Reference', primPath=primPath, reference=reference)
             self._addChildNode(referenceNode, upNode)
@@ -449,7 +451,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             upNode = referenceNode
 
         # payload
-        payloadList = prim.payloadList.GetAddedOrExplicitItems()
+        payloadList = primSpec.payloadList.GetAddedOrExplicitItems()
         for payload in payloadList:
             payloadNode = self.createNode('Payload', primPath=primPath, payload=payload)
             self._addChildNode(payloadNode, upNode)
@@ -458,18 +460,18 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
 
         # attribute
         if not skipAttribute:
-            upNode = self._getPrimAttributes(prim, upNode)
+            upNode = self._getPrimAttributes(primSpec, upNode)
 
         # relationship
-        upNode = self._getPrimRelationships(prim, upNode)
+        upNode = self._getPrimRelationships(primSpec, upNode)
 
         # variant
         selectedVariantDict = {}
-        variantSetNameList = prim.variantSetNameList
+        variantSetNameList = primSpec.variantSetNameList
         variantSetNameItems = variantSetNameList.GetAddedOrExplicitItems()
-        variantSelections = prim.variantSelections
+        variantSelections = primSpec.variantSelections
         if len(variantSetNameItems) > 0:
-            variantSets = prim.variantSets
+            variantSets = primSpec.variantSets
             for variantSetName, variantSetSpec in variantSets.items():
                 variantSetNode = self.createNode('VariantSet', primPath=primPath, variantSet=variantSetSpec)
                 self._addChildNode(variantSetNode, upNode)
@@ -479,7 +481,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
                     'VariantSelect', primPath=primPath,
                     variantSetName=variantSetName,
                     variantSelected=variantSelected,
-                    prim=prim
+                    primSpec=primSpec
                 )
                 self._addChildNode(variantSelectNode, variantSetNode)
                 selectedVariantDict.update({variantSetName: variantSelected})
@@ -495,21 +497,21 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
                     'VariantSelect', primPath=primPath,
                     variantSetName=variantSetName,
                     variantSelected=variantSelected,
-                    prim=prim
+                    primSpec=primSpec
                 )
                 self._addChildNode(variantSelectNode, upNode)
                 upNode = variantSelectNode
 
         return upNode
 
-    def _getIntoPrim(self, prim, upNode, index=0):
+    def _getIntoPrim(self, primSpec, upNode, index=0):
         childrenCount = 0
 
-        primPath = prim.path.pathString
+        primPath = primSpec.path.pathString
         node = upNode
         if primPath != '/':
-            node = self._getPrim(prim, upNode, index)
-        for childName, child in prim.nameChildren.items():
+            node = self._getPrim(primSpec, upNode, index)
+        for childName, child in primSpec.nameChildren.items():
             currentChildCount = self._getIntoPrim(child, node, childrenCount)
             if currentChildCount > 1:
                 childrenCount += currentChildCount
@@ -518,30 +520,40 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
 
         return childrenCount
 
-    def _getPrimAttributes(self, prim, upNode, index=0):
-        if len(prim.attributes.keys()) == 0:
+    def _getPrimAttributes(self, primSpec, upNode, index=0):
+        attrs = primSpec.attributes.keys()
+        if len(attrs) == 0:
             return upNode
 
-        attributeSetNode = self.createNode('AttributeSet', primPath=prim.path.pathString, prim=prim)
-        self._addChildNode(attributeSetNode, upNode, index=index)
+        addTransform = TransformNode._checkIsNodeNeeded(attrs)
+        if addTransform:
+            transformNode = self.createNode('Transform', primPath=primSpec.path.pathString, primSpec=primSpec)
+            self._addChildNode(transformNode, upNode, index=index)
+            upNode = transformNode
 
-        return attributeSetNode
+        addAttributeSet = AttributeSetNode._checkIsNodeNeeded(attrs)
+        if addAttributeSet:
+            attributeSetNode = self.createNode('AttributeSet', primPath=primSpec.path.pathString, primSpec=primSpec)
+            self._addChildNode(attributeSetNode, upNode, index=index)
+            upNode = attributeSetNode
 
-    def _getPrimRelationships(self, prim, upNode, index=0):
-        if len(prim.relationships.keys()) == 0:
+        return upNode
+
+    def _getPrimRelationships(self, primSpec, upNode, index=0):
+        if len(primSpec.relationships.keys()) == 0:
             return upNode
 
-        if 'material:binding' in prim.relationships.keys():
-            relationship = prim.relationships.get('material:binding')
+        if 'material:binding' in primSpec.relationships.keys():
+            relationship = primSpec.relationships.get('material:binding')
             material = relationship.targetPathList.GetAddedOrExplicitItems()[0].pathString
-            materialAssignNode = self.createNode('MaterialAssign', primPath=prim.path.pathString, material=material)
+            materialAssignNode = self.createNode('MaterialAssign', primPath=primSpec.path.pathString, material=material)
             self._addChildNode(materialAssignNode, upNode, index=index)
             upNode = materialAssignNode
 
-            if len(prim.relationships.keys()) == 1:  # only material:binding
+            if len(primSpec.relationships.keys()) == 1:  # only material:binding
                 return upNode
 
-        relationshipSetNode = self.createNode('RelationshipSet', primPath=prim.path.pathString, prim=prim)
+        relationshipSetNode = self.createNode('RelationshipSet', primPath=primSpec.path.pathString, primSpec=primSpec)
         self._addChildNode(relationshipSetNode, upNode, index=index)
         upNode = relationshipSetNode
 
@@ -664,12 +676,12 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
 
         t = time.time()
 
-        prim = self.layer.GetPrimAtPath('/')
+        primSpec = self.layer.GetPrimAtPath('/')
 
         self.rootNode = self.createNode('Root')
 
         self._addLayerNodes(self.layer)
-        self._getIntoPrim(prim, self.rootNode)
+        self._getIntoPrim(primSpec, self.rootNode)
 
         # we need to connect shader nodes after all nodes are created
         self._connectShadeNodes()
@@ -684,17 +696,17 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
     def createNode(self, nodeClass, name=None, primPath=None, **kwargs):
         # QCoreApplication.processEvents()
 
-        if nodeClass in Node.getAllNodeClass():
+        if nodeClass in Node.getAllNodeClassNames():
             if name is None:
                 name = nodeClass
             nodeName, suffix, index = self._getUniqueName(name)
             nodeItem = Node.createItem(
                 nodeClass,
                 stage=self.stage, layer=self.layer,
-                name=nodeName,
+                name=nodeName, primPath=primPath,
                 **kwargs
             )
-            nodeItem.nodeObject.addPrimPath(primPath)
+            # nodeItem.nodeObject.addPrimPath(primPath)
 
             self.addItem(nodeItem)
             nodeItem.afterAddToScene()
@@ -849,7 +861,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
                 else:
                     for key, value in timeSamples.items():
                         timeSamples[key] = parameter.convertValueFromPy(value)
-                    parameter.setTimeSamples(timeSamples)
+                    parameter.setTimeSamplesQuietly(timeSamples)
 
         # connections
         for oldNodeName, nodeDict in nodesDict.items():

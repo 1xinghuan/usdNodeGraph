@@ -66,21 +66,29 @@ export PYTHONPATH=$USD_NODEGRAPH_ROOT/lib/python:$PYTHONPATH
 ```
 
 ```python
-from AL import usdmaya
-stageCache = usdmaya.StageCache.Get()
-stages = stageCache.GetAllStages()
-stage = stages[0]
-layer = stage.GetEditTarget()
+
+import mayaUsd.ufe
+from maya import cmds
+
+
+def whenParameterChanged(**kwargs):
+    cmds.refresh()
+
+
+proxyShape = '|world|s00|s00Shape'
+stage = mayaUsd.ufe.getStage(proxyShape)
 
 import usdNodeGraph.ui.nodeGraph as usdNodeGraph
-reload(usdNodeGraph)
+from usdNodeGraph.api import addNodeCallback
+
 usdNodeGraph.UsdNodeGraph.registerActionShortCut('open_file', None)
 usdNodeGraph.UsdNodeGraph.registerActionShortCut('reload_layer', 'Ctrl+R')
+addNodeCallback('AttributeSet', 'parameterValueChanged', whenParameterChanged)
 
 nodeGraph = usdNodeGraph.UsdNodeGraph()
 
 nodeGraph.show()
-nodeGraph.setStage(stage, layer=layer)
+nodeGraph.setStage(stage)
 ```
 
 

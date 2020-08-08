@@ -21,7 +21,7 @@ logger = get_logger('usdNodeGraph.node')
 
 
 class Node(QtCore.QObject):
-    parameterValueChanged = QtCore.Signal(object, object)
+    parameterValueChanged = QtCore.Signal(object)
     parameterAdded = QtCore.Signal(object)
     parameterRemoved = QtCore.Signal(object)
 
@@ -42,37 +42,54 @@ class Node(QtCore.QObject):
         return item
 
     @classmethod
-    def getAllNodeClass(cls):
+    def getAllNodeClassNames(cls):
         return cls._nodeTypes.keys()
 
     @classmethod
+    def getAllNodeClass(cls):
+        return cls._nodeTypes.values()
+
+    @classmethod
     def setParameterDefault(cls, parameterName, value):
-        cls.parameterDefaultDict.update({parameterName: value})
+        cls.parameterDefaults.update({parameterName: value})
+
+    @classmethod
+    def addCallback(cls, callbackType, func):
+        if callbackType not in cls.callbacks:
+            cls.callbacks[callbackType] = []
+        cls.callbacks[callbackType].append(func)
 
     def __init__(self, item=None):
         super(Node, self).__init__()
 
         self.item = item
         self._parameters = {}
-        self._primPaths = []
+        self._parametersName = []
+        self._updateToDated = False
 
         self._initParameters()
         self._initDefaults()
+        self._syncParameters()
 
     def _initParameters(self):
         self._parameters = {
-            # 'id': StringParameter(name='id', value=str(hex(id(self))), parent=self, builtIn=True),
-            'name': Parameter(name='name', value='', parent=self, builtIn=True),
-            'label': TextParameter(name='label', value='', parent=self, builtIn=True),
-            'x': FloatParameter(name='x', value=None, parent=self, builtIn=True, visible=False),
-            'y': FloatParameter(name='y', value=None, parent=self, builtIn=True, visible=False),
-            'disable': BoolParameter(name='disable', value=0, parent=self, builtIn=True),
+            # 'id': StringParameter(name='id', defaultValue=str(hex(id(self))), parent=self, builtIn=True),
+            'name': Parameter(name='name', defaultValue='', parent=self, builtIn=True),
+            'label': TextParameter(name='label', defaultValue='', parent=self, builtIn=True),
+            'x': FloatParameter(name='x', defaultValue=None, parent=self, builtIn=True, visible=False),
+            'y': FloatParameter(name='y', defaultValue=None, parent=self, builtIn=True, visible=False),
+            'disable': BoolParameter(name='disable', defaultValue=0, parent=self, builtIn=True),
         }
+        self._parametersName = self._parameters.keys()
+        self._parametersName.sort()
 
     def _initDefaults(self):
-        for name in self.parameterDefaultDict.keys():
-            defaultValue = self.parameterDefaultDict.get(name)
-            self.parameter(name).setValue(defaultValue, emitSignal=False)
+        for name in self.parameterDefaults.keys():
+            defaultValue = self.parameterDefaults.get(name)
+            self.parameter(name).setValueQuietly(defaultValue, override=False)
+
+    def _syncParameters(self):
+        pass
 
     def parameter(self, parameterName):
         return self._parameters.get(parameterName)
@@ -81,7 +98,7 @@ class Node(QtCore.QObject):
         return name in self._parameters
 
     def parameters(self):
-        return [v for v in self._parameters.values()]
+        return [self._parameters.get(n) for n in self._parametersName]
 
     def Class(self):
         return self.nodeType
@@ -100,9 +117,19 @@ class Node(QtCore.QObject):
         if name == 'y':
             return self.item.scenePos().y()
 
-    def _paramterValueChanged(self, parameter, value):
-        logger.debug('{}, {}'.format(parameter.name(), value))
-        self.parameterValueChanged.emit(parameter, value)
+    def _executeCallbacks(self, callbackType, **kwargs):
+        funcs = self.callbacks.get(callbackType, [])
+        kwargs.update({'node': self, 'type': callbackType})
+        for func in funcs:
+            func(**kwargs)
+
+    def _paramterValueChanged(self, parameter):
+        logger.debug('{}, {}'.format(parameter.name(), parameter.getValue()))
+        self.parameterValueChanged.emit(parameter)
+        self._whenParamterValueChanged(parameter)
+        self._executeCallbacks('parameterValueChanged', parameter=parameter)
+
+    def _whenParamterValueChanged(self, parameter):
         if parameter.name() == 'name':
             self.item.scene()._afterNodeNameChanged(self.item)
 
@@ -128,10 +155,11 @@ class Node(QtCore.QObject):
         parameter = parameterClass(
             parameterName,
             parent=self,
-            value=defaultValue,
+            defaultValue=defaultValue,
             **kwargs
         )
         self._parameters.update({parameterName: parameter})
+        self._parametersName.append(parameterName)
 
         self.parameterAdded.emit(parameter)
 
@@ -141,18 +169,26 @@ class Node(QtCore.QObject):
         if parameterName in self._parameters:
             # parameter = self.parameter(parameterName)
             self._parameters.pop(parameterName)
+            self._parametersName.remove(parameterName)
             self.parameterRemoved.emit(parameterName)
 
 
 def registerNode(nodeObjectClass):
     nodeType = nodeObjectClass.nodeType
     Node._nodeTypes[nodeType] = nodeObjectClass
-    nodeObjectClass.parameterDefaultDict = {}
+    nodeObjectClass.parameterDefaults = {}
+    nodeObjectClass.callbacks = {}
 
 
 def setParamDefault(nodeType, paramName, value):
     nodeClass = Node._nodeTypes.get(nodeType)
     if nodeClass is not None:
         nodeClass.setParameterDefault(paramName, value)
+
+
+def addNodeCallback(nodeType, callbackType, func):
+    nodeClass = Node._nodeTypes.get(nodeType)
+    if nodeClass is not None:
+        nodeClass.addCallback(callbackType, func)
 
 

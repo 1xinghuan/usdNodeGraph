@@ -9,7 +9,7 @@ from usdNodeGraph.module.sqt import *
 class Parameter(QtCore.QObject):
     parameterTypeString = None
     valueTypeName = None
-    valueChanged = QtCore.Signal(object, object)
+    valueChanged = QtCore.Signal(object)
 
     @classmethod
     def convertValueFromPy(cls, pyValue):
@@ -36,9 +36,8 @@ class Parameter(QtCore.QObject):
     def __init__(
             self,
             name='',
-            value=None,
+            defaultValue=None,
             parent=None,
-            timeSamples=None,
             builtIn=False,
             visible=True,
             label=None,
@@ -52,18 +51,44 @@ class Parameter(QtCore.QObject):
         self._label = name if label is None else label
         self._order = order
         self._node = parent
-        self._value = value
-        self._defaultValue = value
-        self._timeSamples = timeSamples
+
+        self._defaultValue = defaultValue
+        self._value = defaultValue
+        self._timeSamples = None
+        self._connect = None
+
+        self._valueOverride = False
+        self._inheritValue = defaultValue
+        self._inheritTimeSamples = None
+        self._inheritConnect = None
+
         self._builtIn = builtIn
         self._visible = visible
-        self._connect = None
         self._isCustom = custom
 
-        self.valueChanged.connect(self._valueChanged)
+        self._paramWidgets = []
 
-    def _valueChanged(self, param, value):
-        self._node._paramterValueChanged(param, value)
+        self._signalConnected = False
+        self._reConnectSignal()
+
+    def addParamWidget(self, w):
+        self._paramWidgets.append(w)
+
+    def removeParamWidget(self, w):
+        self._paramWidgets.remove(w)
+
+    def _breakSignal(self):
+        if self._signalConnected:
+            self._signalConnected = False
+            self.valueChanged.disconnect(self._valueChanged)
+
+    def _reConnectSignal(self):
+        if not self._signalConnected:
+            self._signalConnected = True
+            self.valueChanged.connect(self._valueChanged)
+
+    def _valueChanged(self, param):
+        self._node._paramterValueChanged(param)
 
     def hasKey(self):
         return self._timeSamples is not None
@@ -101,38 +126,78 @@ class Parameter(QtCore.QObject):
     def getTimeSamples(self):
         return self._timeSamples
 
-    def setTimeSamples(self, timeSamples, emitSignal=False):
-        self._timeSamples = timeSamples
-        if emitSignal:
-            self.valueChanged.emit(self, value)
+    # --------------------set value--------------------
+    def _beforeSetValue(self):
+        for w in self._paramWidgets:
+            w._breakEditSignal()
 
-    def setValue(self, value, emitSignal=True):
+    def _afterSetValue(self):
+        for w in self._paramWidgets:
+            w._reConnectEditSignal()
+
+    def setValue(self, value, emitSignal=True, override=True):
+        self._beforeSetValue()
+        self._valueOverride = override
         self._value = value
         if emitSignal:
-            self.valueChanged.emit(self, value)
+            self.valueChanged.emit(self)
+        self._afterSetValue()
 
-    def setValueQuietly(self, value):
-        self.setValue(value, emitSignal=False)
-    
-    def setValueAt(self, value, time=None, emitSignal=True):
+    def setValueAt(self, value, time=None, emitSignal=True, override=True):
+        self._valueOverride = override
         if self._timeSamples is None:
-            self.setValue(value, emitSignal)
+            self.setValue(value, emitSignal, override=override)
             return
+
+        self._beforeSetValue()
         self._timeSamples.update({time: value})
         if emitSignal:
-            self.valueChanged.emit(self, value)
+            self.valueChanged.emit(self)
+        self._afterSetValue()
 
-    def setConnect(self, connect, emitSignal=True):
+    def setTimeSamples(self, timeSamples, emitSignal=True, override=True):
+        self._beforeSetValue()
+        self._valueOverride = override
+        self._timeSamples = timeSamples
+        if emitSignal:
+            self.valueChanged.emit(self)
+        self._afterSetValue()
+
+    def setConnect(self, connect, emitSignal=True, override=True):
+        self._beforeSetValue()
+        self._valueOverride = override
         self._connect = connect
         if emitSignal:
-            self.valueChanged.emit(self, None)
+            self.valueChanged.emit(self)
+        self._afterSetValue()
 
-    def setConnectQuietly(self, connect):
-        self.setConnect(connect, emitSignal=False)
+    def setInheritValue(self, value):
+        self._inheritValue = value
+
+    def setInheritTimeSamples(self, timeSamples):
+        self._inheritTimeSamples = timeSamples
+
+    def setInheritConnect(self, connect):
+        self._inheritConnect = connect
+
+    def setTimeSamplesQuietly(self, timeSamples, **kwargs):
+        self.setTimeSamples(timeSamples, emitSignal=False, **kwargs)
+
+    def setValueQuietly(self, value, **kwargs):
+        self.setValue(value, emitSignal=False, **kwargs)
+
+    def setConnectQuietly(self, connect, **kwargs):
+        self.setConnect(connect, emitSignal=False, **kwargs)
 
     def breakConnect(self):
         self._connect = None
-        self.valueChanged.emit(self, None)
+        self.valueChanged.emit(self)
+
+    def getShowValues(self):
+        if self._valueOverride:
+            return self.getValue(), self.getTimeSamples(), self.getConnect()
+        else:
+            return self._inheritValue, self._inheritTimeSamples, self._inheritConnect
 
     def isCustom(self):
         return self._isCustom
@@ -153,5 +218,12 @@ class Parameter(QtCore.QObject):
         if self._order is not None:
             return self._order
         return self.getLabel()
+
+    def setOverride(self, override):
+        self._valueOverride = override
+        self.valueChanged.emit(self)
+
+    def isOverride(self):
+        return self._valueOverride
 
 
