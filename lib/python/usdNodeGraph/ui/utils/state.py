@@ -17,15 +17,15 @@ class GraphState(QtCore.QObject):
     def getTimeState(cls, stage):
         if stage not in cls._times:
             cls._times[stage] = {
-                'time': 0,
-                'timeIn': 0,
-                'timeOut': 0,
+                'time': 0.0,
+                'timeIn': 0.0,
+                'timeOut': 0.0,
             }
         return cls._times[stage]
 
     @classmethod
     def setCurrentTime(cls, time, stage):
-        cls.getTimeState(stage)['time'] = time
+        cls.getTimeState(stage)['time'] = float(time)
         cls.getState().currentTimeChanged.emit(float(time))
 
     @classmethod
@@ -34,7 +34,7 @@ class GraphState(QtCore.QObject):
 
     @classmethod
     def setTimeIn(cls, timeIn, stage):
-        cls.getTimeState(stage)['timeIn'] = timeIn
+        cls.getTimeState(stage)['timeIn'] = float(timeIn)
 
     @classmethod
     def getTimeIn(cls, stage):
@@ -42,7 +42,7 @@ class GraphState(QtCore.QObject):
 
     @classmethod
     def setTimeOut(cls, timeOut, stage):
-        cls.getTimeState(stage)['timeOut'] = timeOut
+        cls.getTimeState(stage)['timeOut'] = float(timeOut)
 
     @classmethod
     def getTimeOut(cls, stage):

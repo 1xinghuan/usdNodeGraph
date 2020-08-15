@@ -3,6 +3,7 @@
 
 
 import copy
+from pxr import Gf
 from usdNodeGraph.module.sqt import *
 
 
@@ -32,6 +33,37 @@ class Parameter(QtCore.QObject):
         for key, value in timeSamples.items():
             pyTimeSamples[key] = cls.convertValueToPy(value)
         return pyTimeSamples
+
+    @classmethod
+    def getIntervalValue(cls, timeSamples, time):
+        keys = timeSamples.keys()
+        keys.sort()
+        if time <= keys[0]:
+            return timeSamples[keys[0]]
+        elif time >= keys[-1]:
+            return timeSamples[keys[-1]]
+        else:
+            beforeKey = None
+            afterKey = None
+            for k in keys:
+                if k < time:
+                    beforeKey = k
+                else:
+                    pass
+                if k > time:
+                    afterKey = k
+                else:
+                    pass
+            beforeValue = timeSamples.get(beforeKey)
+            afterValue = timeSamples.get(afterKey)
+            if isinstance(beforeValue, (int, float,
+                                        Gf.Vec2d, Gf.Vec2f, Gf.Vec2h, Gf.Vec2i,
+                                        Gf.Vec3d, Gf.Vec3f, Gf.Vec3h, Gf.Vec3i,
+                                        Gf.Vec4d, Gf.Vec4f, Gf.Vec4h, Gf.Vec4i, )):
+                value = beforeValue + (afterValue - beforeValue) * ((time - beforeKey) / (afterKey - beforeKey))
+            else:
+                value = beforeValue
+            return value
 
     def __init__(
             self,
@@ -72,7 +104,8 @@ class Parameter(QtCore.QObject):
         self._reConnectSignal()
 
     def addParamWidget(self, w):
-        self._paramWidgets.append(w)
+        if w not in self._paramWidgets:
+            self._paramWidgets.append(w)
 
     def removeParamWidget(self, w):
         self._paramWidgets.remove(w)
@@ -105,6 +138,12 @@ class Parameter(QtCore.QObject):
     def node(self):
         return self._node
 
+    def nodeItem(self):
+        return self._node.item
+
+    def stage(self):
+        return self._node.item.scene().stage
+
     def isBuiltIn(self):
         return self._builtIn
 
@@ -120,8 +159,8 @@ class Parameter(QtCore.QObject):
             if time is None:
                 return self._timeSamples.values()[0]
             else:
-                # todo: if time not in keys?
-                return self._timeSamples.get(time)
+                value = self.getIntervalValue(self._timeSamples, time)
+                return value
     
     def getTimeSamples(self):
         return self._timeSamples
@@ -134,6 +173,27 @@ class Parameter(QtCore.QObject):
     def _afterSetValue(self):
         for w in self._paramWidgets:
             w._reConnectEditSignal()
+
+    def setHasKey(self, hasKey):
+        if hasKey:
+            if self._timeSamples is None:
+                self._timeSamples = {}
+        else:
+            self._timeSamples = None
+
+    def removeKey(self, time, emitSignal=True):
+        self._beforeSetValue()
+        time = float(time)
+        if self.hasKey() and time in self._timeSamples.keys():
+            self._timeSamples.pop(time)
+            if len(self._timeSamples.keys()) == 0:
+                self._timeSamples = None
+            if emitSignal:
+                self.valueChanged.emit(self)
+        self._afterSetValue()
+
+    def removeAllKeys(self, emitSignal=True):
+        self.setTimeSamples(None, emitSignal)
 
     def setValue(self, value, emitSignal=True, override=True):
         self._beforeSetValue()

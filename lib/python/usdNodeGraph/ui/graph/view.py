@@ -689,6 +689,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         # self._layoutNodes()
 
         self.view._resizeScene()
+        self.frameSelection()
 
         # logger.debug('resetScene time: {}'.format(time.time() - t))
         logger.debug('scene node number: {}'.format(len(self.allNodes())))
@@ -854,13 +855,15 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
                 if timeSamples is None:
                     if paramName == 'x':
                         value = offsetX + value
+                        node.setX(value)
                     elif paramName == 'y':
                         value = offsetY + value
+                        node.setY(value)
                     value = parameter.convertValueFromPy(value)
                     parameter.setValueQuietly(value)
                 else:
                     for key, value in timeSamples.items():
-                        timeSamples[key] = parameter.convertValueFromPy(value)
+                        timeSamples[float(key)] = parameter.convertValueFromPy(value)
                     parameter.setTimeSamplesQuietly(timeSamples)
 
         # connections
@@ -892,16 +895,15 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
 
     def exportToFile(self):
         stage = self._executeAllToStage()
+        # stage.GetRootLayer().Save()
 
+        # save to another file
         usdFile = self.layer.realPath
 
         exportFile = usdFile
-
-        # test
         exportExt = os.path.splitext(usdFile)[-1]
         exportFile = usdFile.replace(exportExt, '_export' + exportExt)
 
-        # stage.GetRootLayer().Save()
         print exportFile
         print stage.GetRootLayer().ExportToString()
         stage.GetRootLayer().Export(exportFile)

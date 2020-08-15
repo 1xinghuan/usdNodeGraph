@@ -2,6 +2,10 @@ from usdNodeGraph.module.sqt import *
 from ..param_widget import *
 from usdNodeGraph.utils.res import resource
 from usdNodeGraph.ui.utils.layout import FormLayout
+from usdNodeGraph.ui.utils.state import GraphState
+
+
+CONTEXT_MENU = None
 
 
 class ParamStatusButton(QtWidgets.QPushButton):
@@ -45,7 +49,7 @@ class ParamLabelWidget(QtWidgets.QWidget):
         self.masterLayout = QtWidgets.QHBoxLayout()
         self.masterLayout.setAlignment(QtCore.Qt.AlignLeft)
         self.masterLayout.setContentsMargins(0, 0, 0, 0)
-        self.masterLayout.setSpacing(0)
+        # self.masterLayout.setSpacing(0)
         self.setLayout(self.masterLayout)
 
         self.nameLabel = QtWidgets.QLabel()
@@ -64,8 +68,48 @@ class ParamLabelWidget(QtWidgets.QWidget):
         self.nameLabel.setText(self._parameter.getLabel())
         self.statusLabel._updateColor()
 
+    def setContextMenu(self):
+        self._context_menus = [
+            ['Add Keyframe', self._addKeyframeClicked],
+            ['Remove Keyframe', self._removeKeyframeClicked],
+            ['Remove All Keys', self._removeAllKeysClicked],
+        ]
 
-class NodeParameterWidget(QtWidgets.QWidget):
+    def _createContextMenu(self):
+        self.setContextMenu()
+        self.menu = QtWidgets.QMenu(self)
+        for i in self._context_menus:
+            action = QtWidgets.QAction(i[0], self.menu)
+            action.triggered.connect(i[1])
+            self.menu.addAction(action)
+
+    def contextMenuEvent(self, event):
+        super(ParamLabelWidget, self).contextMenuEvent(event)
+        self._createContextMenu()
+        self.menu.move(QtGui.QCursor().pos())
+        self.menu.show()
+
+        global CONTEXT_MENU
+        CONTEXT_MENU = self.menu
+
+    def _addKeyframeClicked(self):
+        currentTime = GraphState.getCurrentTime(self._parameter.stage())
+        currentValue = self._parameter.getValue(time=currentTime)
+        self._parameter.setHasKey(True)
+        self._parameter.setValueAt(currentValue, currentTime)
+
+    def _removeKeyframeClicked(self):
+        currentTime = GraphState.getCurrentTime(self._parameter.stage())
+        self._parameter.removeKey(currentTime)
+
+    def _removeAllKeysClicked(self):
+        currentTime = GraphState.getCurrentTime(self._parameter.stage())
+        currentValue = self._parameter.getValue(time=currentTime)
+        self._parameter.removeAllKeys(emitSignal=False)
+        self._parameter.setValue(currentValue)
+
+
+class NodeParameterWidget(QtWidgets.QFrame):
     removeClicked = QtCore.Signal()
 
     def __init__(self):
@@ -86,11 +130,19 @@ class NodeParameterWidget(QtWidgets.QWidget):
         self.pushButton.clicked.connect(self._applyClicked)
 
     def _initUI(self):
+        self.setObjectName('NodeParameterWidget')
+
         self._backLabel = QtWidgets.QLabel(parent=self)
         self._backLabel.move(0, 0)
         self._backLabel.setStyleSheet('''
         background: rgb(250, 250, 250, 10);
         border-radius: 3px;
+        ''')
+        self.setStyleSheet('''
+        QFrame#NodeParameterWidget{
+        border: 1px solid gray;
+        border-radius: 3px;
+        }
         ''')
 
         self.masterLayout = QtWidgets.QVBoxLayout()
@@ -234,6 +286,32 @@ class NodeParameterWidget(QtWidgets.QWidget):
             layout = parameterWidget.parentLayout
             layout.removeRowWidget(parameterWidget)
 
+    def setContextMenu(self):
+        self._context_menus = [
+            ['Add Parameter', self._addParameterClicked],
+        ]
+
+    def _createContextMenu(self):
+        self.setContextMenu()
+        self.menu = QtWidgets.QMenu(self)
+        for i in self._context_menus:
+            action = QtWidgets.QAction(i[0], self.menu)
+            action.triggered.connect(i[1])
+            self.menu.addAction(action)
+
+    def contextMenuEvent(self, event):
+        super(NodeParameterWidget, self).contextMenuEvent(event)
+        global CONTEXT_MENU
+        if CONTEXT_MENU is None:
+            self._createContextMenu()
+            self.menu.move(QtGui.QCursor().pos())
+            self.menu.show()
+        else:
+            CONTEXT_MENU = None
+
+    def _addParameterClicked(self):
+        pass
+
 
 class ParameterPanel(QtWidgets.QWidget):
     def __init__(self, *args, **kwargs):
@@ -260,6 +338,7 @@ class ParameterPanel(QtWidgets.QWidget):
         self.widgetsAreaWidget = QtWidgets.QWidget()
         self.widgetsAreaLayout = QtWidgets.QVBoxLayout()
         self.widgetsAreaLayout.setAlignment(QtCore.Qt.AlignTop)
+        self.widgetsAreaLayout.setContentsMargins(0, 0, 0, 0)
         self.widgetsAreaLayout.addStretch()
         self.widgetsAreaWidget.setLayout(self.widgetsAreaLayout)
         self.widgetsArea = QtWidgets.QScrollArea()

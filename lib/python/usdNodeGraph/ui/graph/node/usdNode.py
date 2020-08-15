@@ -411,7 +411,7 @@ class AttributeSetNode(UsdNode):
 
 class TransformNode(AttributeSetNode):
     nodeType = 'Transform'
-    fillNormalColor = QtGui.QColor(50, 70, 60)
+    fillNormalColor = QtGui.QColor(60, 80, 70)
     borderNormalColor = QtGui.QColor(250, 250, 250, 200)
     onlyAttrList = [
         [ATTR_CHECK_OP.START, 'xformOp']
@@ -423,19 +423,30 @@ class TransformNode(AttributeSetNode):
 
     def _initParameters(self):
         super(TransformNode, self)._initParameters()
-        self.addParameter('xformOp:translate', 'float3', defaultValue=Vec3fParameter.convertValueFromPy([0, 0, 0]))
-        self.addParameter('xformOp:rotateXYZ', 'float3', defaultValue=Vec3fParameter.convertValueFromPy([0, 0, 0]))
-        self.addParameter('xformOp:scale', 'float3', defaultValue=Vec3fParameter.convertValueFromPy([0, 0, 0]))
+        self.addParameter(
+            'xformOp:translate', 'float3',
+            defaultValue=Vec3fParameter.convertValueFromPy([0, 0, 0]),
+            label='Translate'
+        )
+        self.addParameter(
+            'xformOp:rotateXYZ', 'float3',
+            defaultValue=Vec3fParameter.convertValueFromPy([0, 0, 0]),
+            label='Rotate'
+        )
+        self.addParameter(
+            'xformOp:scale', 'float3',
+            defaultValue=Vec3fParameter.convertValueFromPy([1, 1, 1]),
+            label='Scale'
+        )
         self.addParameter(
             'xformOpOrder', 'token[]',
             defaultValue=TokenArrayParameter.convertValueFromPy([
                 'xformOp:translate', 'xformOp:rotateXYZ', 'xformOp:scale'
-            ])
+            ]),label='Order'
         )
 
     def _syncParameters(self):
         super(TransformNode, self)._syncParameters()
-        print self._primPaths
         for primPath in self._primPaths:
             prim = self._stage.GetPrimAtPath(primPath)
             for attr in prim.GetAttributes():

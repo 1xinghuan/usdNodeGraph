@@ -34,6 +34,7 @@ class ParameterWidget(object):
 
         self._parameter = None
         self._signalBreaked = True
+        self._editSignalBreaked = True
 
         self.masterLayout = None
         self._connectEdit = None
@@ -51,10 +52,14 @@ class ParameterWidget(object):
         self._setValueFromEdit()
 
     def _breakEditSignal(self):
-        self.editValueChanged.disconnect(self._editWidgetValueChanged)
+        if not self._editSignalBreaked:
+            self._editSignalBreaked = True
+            self.editValueChanged.disconnect(self._editWidgetValueChanged)
 
     def _reConnectEditSignal(self):
-        self.editValueChanged.connect(self._editWidgetValueChanged)
+        if self._editSignalBreaked:
+            self._editSignalBreaked = False
+            self.editValueChanged.connect(self._editWidgetValueChanged)
 
     def _breakSignal(self):
         if not self._signalBreaked:
@@ -114,7 +119,7 @@ class ParameterWidget(object):
         if hasConnect:
             if self._connectEdit is None:
                 self._connectEdit = QtWidgets.QLineEdit()
-                self._connectEdit.setStyleSheet('background: rgb(60, 60, 70)')
+                self._connectEdit.setStyleSheet('QLineEdit{background: rgb(60, 60, 70)}')
                 self._connectEdit.setReadOnly(True)
                 self.masterLayout.addWidget(self._connectEdit)
 
@@ -255,51 +260,30 @@ class BasicWidget(object):
         if not isinstance(value, (int, float)):
             self._isNumber = False
         self._hasKey = True
-        self._keys[time] = value
+        self._keys[float(time)] = value
         self.updateUI(time)
 
-    def removeKey(self, time):
-        self._keys.pop(time)
+    def setValue(self, value):
+        pass
 
-    def removeKeys(self):
+    def removeKey(self, time):
+        self._keys.pop(float(time))
+
+    def reset(self):
+        self.removeAllKeys()
+
+    def removeAllKeys(self):
         self._hasKey = False
         self._keys = {}
 
     def getKeys(self):
         return self._keys
 
-    def getIntervalValue(self, time):
-        keys = self._keys.keys()
-        keys.sort()
-        if time <= keys[0]:
-            return self._keys[keys[0]]
-        elif time >= keys[-1]:
-            return self._keys[keys[-1]]
-        else:
-            beforeKey = None
-            afterKey = None
-            for k in keys:
-                if k < time:
-                    beforeKey = k
-                else:
-                    pass
-                if k > time:
-                    afterKey = k
-                else:
-                    pass
-            beforeValue = self._keys.get(beforeKey)
-            afterValue = self._keys.get(afterKey)
-            if self._isNumber:
-                value = beforeValue + (afterValue - beforeValue) * ((time - beforeKey) / (afterKey - beforeKey))
-            else:
-                value = beforeValue
-            return value
-
     def getValueAt(self, time):
         if time in self._keys:
-            value = self._keys.get(time)
+            value = self._keys.get(float(time))
         else:
-            value = self.getIntervalValue(time)
+            value = Parameter.getIntervalValue(self._keys, time)
         return value
 
 
@@ -312,6 +296,11 @@ class BasicLineEdit(QtWidgets.QLineEdit, BasicWidget):
         self._editMode = False
         self._editStartPos = None
 
+    def setValue(self, value):
+        self.removeAllKeys()
+        self.setText(str(value))
+        self.updateUI()
+
     def setText(self, string):
         super(BasicLineEdit, self).setText(string)
         self.setCursorPosition(0)
@@ -321,11 +310,11 @@ class BasicLineEdit(QtWidgets.QLineEdit, BasicWidget):
             value = self.getValueAt(time)
             self.setText(str(value))
             if time in self._keys:
-                self.setStyleSheet('background: rgb(50, 50, 100)')
+                self.setStyleSheet('QLineEdit{background: rgb(50, 50, 100)}')
             else:
-                self.setStyleSheet('background: rgb(60, 60, 70)')
+                self.setStyleSheet('QLineEdit{background: rgb(60, 60, 70)}')
         else:
-            self.setStyleSheet('background: transparent')
+            self.setStyleSheet('QLineEdit{background: transparent}')
             self.setReadOnly(False)
 
     def getRealValue(self):
@@ -436,7 +425,7 @@ class VecWidget(QtWidgets.QWidget):
             self.masterLayout.addWidget(lineEdit)
             self.lineEdits.append(lineEdit)
 
-        GraphState.getState().currentTimeChanged.connect(self.updateCurrentUI)
+        GraphState.getState().currentTimeChanged.connect(self.updateLineEditsUI)
 
     def _editTextChanged(self):
         lineEdit = self.sender()
@@ -462,7 +451,7 @@ class VecWidget(QtWidgets.QWidget):
             value = [value]
         for index, v in enumerate(value):
             lineEdit = self.lineEdits[index]
-            lineEdit.setText(str(v))
+            lineEdit.setValue(v)
 
     def getPyValue(self):
         value = []
@@ -475,6 +464,8 @@ class VecWidget(QtWidgets.QWidget):
         return value
 
     def setPyTimeSamples(self, timeSamples):
+        for lineEdit in self.lineEdits:
+            lineEdit.reset()
         for time, values in timeSamples.items():
             if self._valueSize == 1:
                 self.lineEdits[0].setKey(values, time)
@@ -486,14 +477,14 @@ class VecWidget(QtWidgets.QWidget):
             time = self._getCurrentTime()
         else:
             time = self.parameterWidget._getCurrentTime()
-        self.updateCurrentUI(time)
+        self.updateLineEditsUI(time)
 
     # def getPyTimeSamples(self):
     #     timeSamples = {}
     #
     #     return timeSamples
 
-    def updateCurrentUI(self, time=0):
+    def updateLineEditsUI(self, time=0):
         for lineEdit in self.lineEdits:
             lineEdit.updateUI(time=time)
 

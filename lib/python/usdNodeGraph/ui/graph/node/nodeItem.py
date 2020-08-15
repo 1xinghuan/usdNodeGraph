@@ -92,7 +92,7 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
                 override = param.isOverride()
                 custom = param.isCustom()
 
-                if not (override or custom):
+                if not (override or custom) and paramName not in ['x', 'y']:
                     continue
 
                 builtIn = param.isBuiltIn()
@@ -291,8 +291,8 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
 
     def contextMenuEvent(self, event):
         super(_BaseNodeItem, self).contextMenuEvent(event)
-        self.menu.move(QCursor().pos())
-        self.menu.show()
+        # self.menu.move(QCursor().pos())
+        # self.menu.show()
 
     def boundingRect(self):
         rect = QtCore.QRectF(
