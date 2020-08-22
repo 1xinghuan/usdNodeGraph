@@ -753,10 +753,10 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
 
     def enterSelection(self):
         for item in self.selectedItems():
-            if isinstance(item.nodeObject, LayerNode):
+            if item.nodeObject.Class() == 'Layer':
                 self.enterLayerRequired.emit(item.parameter('layerPath').getValue())
                 return
-            elif isinstance(item.nodeObject, (ReferenceNode, PayloadNode)):
+            elif item.nodeObject.Class() in ['Reference', 'Payload']:
                 self.enterFileRequired.emit(item.parameter('assetPath').getValue())
                 return
 
