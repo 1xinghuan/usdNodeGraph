@@ -82,8 +82,10 @@ class _PrimNode(UsdNode):
         super(_PrimNode, self)._syncParameters()
         if self._primSpec is not None:
             self.parameter('primName').setValueQuietly(self._primSpec.name)
-            self.parameter('typeName').setValueQuietly(self._primSpec.typeName)
-            self.parameter('kind').setValueQuietly(self._primSpec.kind)
+            if self._primSpec.typeName:
+                self.parameter('typeName').setValueQuietly(self._primSpec.typeName)
+            if self._primSpec.kind:
+                self.parameter('kind').setValueQuietly(self._primSpec.kind)
 
     def _initParameters(self):
         super(_PrimNode, self)._initParameters()
@@ -145,13 +147,14 @@ class RootNode(UsdNode):
     def _syncParameters(self):
         super(RootNode, self)._syncParameters()
         if self._layer is not None:
-            self.parameter('defaultPrim').setValueQuietly(self._layer.defaultPrim)
+            if self._layer.defaultPrim != '':
+                self.parameter('defaultPrim').setValueQuietly(self._layer.defaultPrim)
             if self._layer.HasStartTimeCode():
                 self.parameter('startTimeCode').setValueQuietly(self._layer.startTimeCode)
             if self._layer.HasEndTimeCode():
                 self.parameter('endTimeCode').setValueQuietly(self._layer.endTimeCode)
 
-        # how to get layer's upAxis, not stage?
+        # todo: how to get layer's upAxis, not stage?
         if self._stage is not None:
             upAxis = UsdGeom.GetStageUpAxis(self._stage)
             self.parameter('upAxis').setValueQuietly(upAxis)
@@ -160,8 +163,8 @@ class RootNode(UsdNode):
         super(RootNode, self)._initParameters()
         self.addParameter('defaultPrim', 'string', defaultValue='', order=3)
         self.addParameter('upAxis', 'choose', defaultValue='', order=2)
-        self.addParameter('startTimeCode', 'float', defaultValue=None, label='Start', order=0)
-        self.addParameter('endTimeCode', 'float', defaultValue=None, label='End', order=1)
+        self.addParameter('startTimeCode', 'float', defaultValue=0, label='Start', order=0)
+        self.addParameter('endTimeCode', 'float', defaultValue=0, label='End', order=1)
 
         self.parameter('upAxis').addItems(['X', 'Y', 'Z'])
 
@@ -264,8 +267,10 @@ class ReferenceNode(_RefNode):
 
         if reference is not None:
             self.parameter('assetPath').setValueQuietly(reference.assetPath)
-            self.parameter('layerOffset').setValueQuietly(reference.layerOffset.offset)
-            self.parameter('layerScale').setValueQuietly(reference.layerOffset.scale)
+            if reference.layerOffset.offset != 0:
+                self.parameter('layerOffset').setValueQuietly(reference.layerOffset.offset)
+            if reference.layerOffset.scale != 1:
+                self.parameter('layerScale').setValueQuietly(reference.layerOffset.scale)
 
     def _execute(self, stage, prim):
         assetPath = self.parameter('assetPath').getValue()
@@ -287,9 +292,12 @@ class PayloadNode(_RefNode):
 
         if payload is not None:
             self.parameter('assetPath').setValueQuietly(payload.assetPath)
-            self.parameter('primPath').setValueQuietly(payload.primPath.pathString)
-            self.parameter('layerOffset').setValueQuietly(payload.layerOffset.offset)
-            self.parameter('layerScale').setValueQuietly(payload.layerOffset.scale)
+            if payload.primPath.pathString != '':
+                self.parameter('primPath').setValueQuietly(payload.primPath.pathString)
+            if payload.layerOffset.offset != 0:
+                self.parameter('layerOffset').setValueQuietly(payload.layerOffset.offset)
+            if payload.layerOffset.scale != 1:
+                self.parameter('layerScale').setValueQuietly(payload.layerOffset.scale)
 
     def _initParameters(self):
         super(PayloadNode, self)._initParameters()

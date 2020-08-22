@@ -3,6 +3,7 @@ from ..parameter import Parameter, Vec3fParameter
 from usdNodeGraph.ui.utils.state import GraphState
 from usdNodeGraph.ui.utils.layout import clearLayout
 from usdNodeGraph.utils.log import get_logger
+from usdNodeGraph.ui.utils.log import LogWindow
 from ..param_edit.number_edit import IntEditWidget, FloatEditWidget, EDIT_LABEL_HEIGHT
 
 
@@ -21,7 +22,9 @@ class ParameterWidget(object):
         parameterWidgetClass = ParameterRegister.getParameterWidget(typeName)
 
         if parameterWidgetClass is None:
-            logger.warning('Un-Support Attribute Type in createParameterWidget! {}'.format(typeName))
+            message = 'Un-Support Attribute Type in createParameterWidget! {}'.format(typeName)
+            LogWindow.warning(message)
+            logger.warning(message)
             return
 
         parameterWidget = parameterWidgetClass()
@@ -39,6 +42,7 @@ class ParameterWidget(object):
         self.masterLayout = None
         self._connectEdit = None
 
+        self._editSignalBreaked = False
         self.editValueChanged.connect(self._editWidgetValueChanged)
 
     def _getStage(self):
@@ -84,12 +88,12 @@ class ParameterWidget(object):
         self._parameter.setValueAt(value, self._getCurrentTime())
         self._reConnectSignal()
 
-    def setParameter(self, parameter):
+    def setParameter(self, parameter, update=False):
         self._parameter = parameter
         self._parameter.addParamWidget(self)
         self._reConnectSignal()
-
-        self.updateUI()
+        if update:
+            self.updateUI()
 
     def getParameter(self):
         return self._parameter

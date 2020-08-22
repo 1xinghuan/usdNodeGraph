@@ -31,8 +31,6 @@ class ChooseWidget(QtWidgets.QWidget):
         self._comboBox.setVisible(enable)
 
     def setPyValue(self, value):
-        self._comboBox.currentIndexChanged.disconnect(self._editIndexChanged)
-
         index = self._comboBox.findText(value)
         if index != -1:
             self._comboBox.setCurrentIndex(index)
@@ -40,8 +38,6 @@ class ChooseWidget(QtWidgets.QWidget):
             # not exist
             self._comboBox.addItem(value)
             self._comboBox.setCurrentIndex(self._comboBox.count() - 1)
-
-        self._comboBox.currentIndexChanged.connect(self._editIndexChanged)
 
     def getPyValue(self):
         return str(self._comboBox.currentText())
@@ -54,10 +50,11 @@ class ChooseParameterWidget(ChooseWidget, ParameterWidget):
 
     def setParameter(self, parameter):
         super(ChooseParameterWidget, self).setParameter(parameter)
-
+        self._beforeUpdateUI()
         for value in self.getParameter().getItems():
             if self._comboBox.findText(value) == -1:
                 self._comboBox.addItem(value)
+        self._afterUpdateUI()
 
 
 class TextWidget(QtWidgets.QTextEdit):

@@ -12,6 +12,7 @@ from usdNodeGraph.ui.parameter.parameter import (
 )
 from usdNodeGraph.utils.log import get_logger
 from .nodeItem import NodeItem
+from usdNodeGraph.ui.utils.log import LogWindow
 import time
 import re
 import os
@@ -87,6 +88,7 @@ class Node(QtCore.QObject):
         for name in self.parameterDefaults.keys():
             defaultValue = self.parameterDefaults.get(name)
             self.parameter(name).setValueQuietly(defaultValue, override=False)
+            self.parameter(name).setInheritValue(defaultValue)
 
     def _syncParameters(self):
         pass
@@ -144,12 +146,13 @@ class Node(QtCore.QObject):
         from usdNodeGraph.ui.parameter.register import ParameterRegister
 
         if self.hasParameter(parameterName):
-            # print('Parameter Exist! {}'.format(parameterName))
             return self.parameter(parameterName)
 
         parameterClass = ParameterRegister.getParameter(parameterType)
         if parameterClass is None:
-            logger.warning('Un-Support Parameter Type in addParameter! {}: {}'.format(parameterName, parameterType))
+            message = 'Un-Support Parameter Type in addParameter! {}: {}'.format(parameterName, parameterType)
+            LogWindow.warning(message)
+            logger.warning(message)
             return
 
         parameter = parameterClass(

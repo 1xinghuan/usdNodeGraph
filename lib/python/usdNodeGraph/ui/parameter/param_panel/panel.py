@@ -224,7 +224,7 @@ class NodeParameterWidget(QtWidgets.QFrame):
         self._nodeItem.nodeObject.parameterAdded.connect(self._nodeParameterAdded)
         self._nodeItem.nodeObject.parameterRemoved.connect(self._nodeParameterRemoved)
 
-        self.nodeNameEdit.setParameter(node.parameter('name'))
+        self.nodeNameEdit.setParameter(node.parameter('name'), update=True)
 
         self._buildUI()
         self.updateUI()
@@ -242,6 +242,11 @@ class NodeParameterWidget(QtWidgets.QFrame):
 
             self._paramWidgets.update({parameter.name(): parameterWidget})
             layout.addRow(parameterLabel, parameterWidget)
+
+    def removeParameterConnections(self):
+        for paramName, widget in self._paramWidgets.items():
+            param = self._nodeItem.parameter(paramName)
+            param.removeParamWidget(widget)
 
     def _buildTab(self, label, parameters=[]):
         layout = FormLayout()
@@ -374,6 +379,7 @@ class ParameterPanel(QtWidgets.QWidget):
         self._removeWidget(widget)
 
     def _removeWidget(self, nodeWidget):
+        nodeWidget.removeParameterConnections()
         self._widgets.remove(nodeWidget)
         self._nodes.remove(nodeWidget.getNode())
         nodeWidget.deleteLater()
