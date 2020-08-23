@@ -371,6 +371,9 @@ class GraphicsSceneWidget(QtWidgets.QWidget):
     def exportToFile(self):
         self.scene.exportToFile()
 
+    def saveFile(self):
+        self.scene.saveFile()
+
     def applyChanges(self):
         self.scene.applyChanges()
 
@@ -893,10 +896,13 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         stage = self._executeAllToStage()
         return stage.GetRootLayer().ExportToString()
 
-    def exportToFile(self):
+    def _exportToFile(self, exportFile):
         stage = self._executeAllToStage()
-        # stage.GetRootLayer().Save()
+        print exportFile
+        print stage.GetRootLayer().ExportToString()
+        stage.GetRootLayer().Export(exportFile)
 
+    def exportToFile(self):
         # save to another file
         usdFile = self.layer.realPath
 
@@ -904,9 +910,11 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         exportExt = os.path.splitext(usdFile)[-1]
         exportFile = usdFile.replace(exportExt, '_export' + exportExt)
 
-        print exportFile
-        print stage.GetRootLayer().ExportToString()
-        stage.GetRootLayer().Export(exportFile)
+        self._exportToFile(exportFile)
+
+    def saveFile(self):
+        usdFile = self.layer.realPath
+        self._exportToFile(usdFile)
 
     def applyChanges(self):
         stage = self._executeAllToStage()

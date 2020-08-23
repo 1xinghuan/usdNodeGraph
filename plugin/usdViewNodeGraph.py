@@ -4,8 +4,16 @@ from pxr.Usdviewq.plugin import PluginContainer
 from pxr.Usdviewq.qt import QtWidgets, QtCore
 
 
+def whenStateTimeChanged(**kwargs):
+    # todo: can't set frame from usdviewApi
+    pass
+
+
 def openNodeGraph(usdviewApi):
     from usdNodeGraph.ui.nodeGraph import UsdNodeGraph
+    from usdNodeGraph.api import GraphState
+
+    GraphState.addCallback('stageTimeChanged', whenStateTimeChanged)
 
     UsdNodeGraph.registerActionShortCut('open_file', None)
     # UsdNodeGraph.registerActionShortCut('reload_layer', None)

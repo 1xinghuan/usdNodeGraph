@@ -1,24 +1,28 @@
-from usdNodeGraph.module.sqt import *
 from ..param_widget import *
 from usdNodeGraph.utils.res import resource
 from usdNodeGraph.ui.utils.layout import FormLayout
-from usdNodeGraph.ui.utils.state import GraphState
+from usdNodeGraph.state.core import GraphState
 
 
 CONTEXT_MENU = None
 
 
-class ParamStatusButton(QtWidgets.QPushButton):
+class ParamStatusButton(QtWidgets.QLabel):
+    buttonClicked = QtCore.Signal()
+
     def __init__(self):
         super(ParamStatusButton, self).__init__()
 
         self._parameter = None
+        size = 18
 
-        self.clicked.connect(self._selfClicked)
+        self.defaultPixmap = resource.get_pixmap('btn', 'radio_unchecked.png', scale=size)
+        self.overridePixmap = resource.get_pixmap('btn', 'radio_checked.png', scale=size)
 
-        self.setStyleSheet("""
-        border:none;
-        """)
+        self.setAlignment(QtCore.Qt.AlignCenter)
+        self.setFixedSize(size, size)
+
+        # self.buttonClicked.connect(self._selfClicked)
 
     def setParameter(self, parameter):
         self._parameter = parameter
@@ -27,7 +31,6 @@ class ParamStatusButton(QtWidgets.QPushButton):
 
     def _selfClicked(self):
         self._parameter.setOverride(not self._parameter.isOverride())
-        # self._updateColor()
 
     def _valueChanged(self, *args, **kwargs):
         self._updateColor()
@@ -35,9 +38,13 @@ class ParamStatusButton(QtWidgets.QPushButton):
     def _updateColor(self):
         override = self._parameter.isOverride()
         if override:
-            self.setIcon(resource.get_qicon('btn', 'radio_checked.png'))
+            self.setPixmap(self.overridePixmap)
         else:
-            self.setIcon(resource.get_qicon('btn', 'radio_unchecked.png'))
+            self.setPixmap(self.defaultPixmap)
+
+    def mouseReleaseEvent(self, event):
+        self.buttonClicked.emit()
+        self._selfClicked()
 
 
 class ParamLabelWidget(QtWidgets.QWidget):
@@ -54,7 +61,6 @@ class ParamLabelWidget(QtWidgets.QWidget):
 
         self.nameLabel = QtWidgets.QLabel()
         self.statusLabel = ParamStatusButton()
-        self.statusLabel.setFixedSize(20, 20)
 
         self.masterLayout.addWidget(self.nameLabel)
         self.masterLayout.addWidget(self.statusLabel)
@@ -66,6 +72,7 @@ class ParamLabelWidget(QtWidgets.QWidget):
 
     def _updateUI(self):
         self.nameLabel.setText(self._parameter.getLabel())
+        self.nameLabel.setToolTip(self._parameter.name())
         self.statusLabel._updateColor()
 
     def setContextMenu(self):

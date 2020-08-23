@@ -13,6 +13,7 @@ from usdNodeGraph.ui.parameter.parameter import (
 from usdNodeGraph.utils.log import get_logger
 from .nodeItem import NodeItem
 from usdNodeGraph.ui.utils.log import LogWindow
+from usdNodeGraph.state.core import GraphState
 import time
 import re
 import os
@@ -53,12 +54,6 @@ class Node(QtCore.QObject):
     @classmethod
     def setParameterDefault(cls, parameterName, value):
         cls.parameterDefaults.update({parameterName: value})
-
-    @classmethod
-    def addCallback(cls, callbackType, func):
-        if callbackType not in cls.callbacks:
-            cls.callbacks[callbackType] = []
-        cls.callbacks[callbackType].append(func)
 
     def __init__(self, item=None):
         super(Node, self).__init__()
@@ -119,17 +114,14 @@ class Node(QtCore.QObject):
         if name == 'y':
             return self.item.scenePos().y()
 
-    def _executeCallbacks(self, callbackType, **kwargs):
-        funcs = self.callbacks.get(callbackType, [])
-        kwargs.update({'node': self, 'type': callbackType})
-        for func in funcs:
-            func(**kwargs)
-
     def _paramterValueChanged(self, parameter):
         logger.debug('{}, {}'.format(parameter.name(), parameter.getValue()))
         self.parameterValueChanged.emit(parameter)
         self._whenParamterValueChanged(parameter)
-        self._executeCallbacks('parameterValueChanged', parameter=parameter)
+        GraphState.executeCallbacks(
+            'parameterValueChanged',
+            node=self, parameter=parameter
+        )
 
     def _whenParamterValueChanged(self, parameter):
         if parameter.name() == 'name':
@@ -180,18 +172,10 @@ def registerNode(nodeObjectClass):
     nodeType = nodeObjectClass.nodeType
     Node._nodeTypes[nodeType] = nodeObjectClass
     nodeObjectClass.parameterDefaults = {}
-    nodeObjectClass.callbacks = {}
 
 
 def setParamDefault(nodeType, paramName, value):
     nodeClass = Node._nodeTypes.get(nodeType)
     if nodeClass is not None:
         nodeClass.setParameterDefault(paramName, value)
-
-
-def addNodeCallback(nodeType, callbackType, func):
-    nodeClass = Node._nodeTypes.get(nodeType)
-    if nodeClass is not None:
-        nodeClass.addCallback(callbackType, func)
-
 

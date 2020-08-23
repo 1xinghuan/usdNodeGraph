@@ -10,7 +10,12 @@ from usdNodeGraph.module.sqt import *
 class Parameter(QtCore.QObject):
     parameterTypeString = None
     valueTypeName = None
+    valueDefault = None
     valueChanged = QtCore.Signal(object)
+
+    @classmethod
+    def getValueDefault(cls):
+        return cls.valueDefault
 
     @classmethod
     def convertValueFromPy(cls, pyValue):
@@ -83,6 +88,8 @@ class Parameter(QtCore.QObject):
         self._label = name if label is None else label
         self._order = order
         self._node = parent
+
+        defaultValue = defaultValue if defaultValue is not None else self.getValueDefault()
 
         self._defaultValue = defaultValue
         self._value = defaultValue

@@ -1,5 +1,5 @@
 from usdNodeGraph.module.sqt import *
-from usdNodeGraph.ui.utils.state import GraphState
+from usdNodeGraph.state.core import GraphState
 
 
 class LineEdit(QtWidgets.QLineEdit):
@@ -36,7 +36,7 @@ class TimeSlider(QtWidgets.QSlider):
         return percent * self.width() + 5 - 10 * percent
 
     def _getPercent(self, value):
-        if self.maximum() > 1:
+        if self.maximum() > self.minimum():
             return float(value - self.minimum()) / (self.maximum() - self.minimum())
         else:
             return 1.0

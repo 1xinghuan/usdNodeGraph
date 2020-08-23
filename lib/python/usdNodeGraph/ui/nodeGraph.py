@@ -3,14 +3,11 @@
 # 8/29/2018
 
 import os
-import sys
 from pxr import Usd
 from usdNodeGraph.module.sqt import *
 from usdNodeGraph.ui.graph.view import GraphicsSceneWidget
-from usdNodeGraph.ui.graph.node import NodeItem
-from usdNodeGraph.ui.graph.const import Const
 from usdNodeGraph.ui.parameter.param_panel import ParameterPanel
-from usdNodeGraph.ui.utils.state import GraphState
+from usdNodeGraph.state.core import GraphState
 from usdNodeGraph.ui.timeSlider import TimeSliderWidget
 from usdNodeGraph.utils.settings import User_Setting, read_setting, write_setting
 
@@ -45,6 +42,7 @@ class NodeGraphTab(QtWidgets.QTabWidget):
 class UsdNodeGraph(QtWidgets.QMainWindow):
     entityItemDoubleClicked = QtCore.Signal(object)
     currentSceneChanged = QtCore.Signal(object)
+    mainWindowClosed = QtCore.Signal()
     _actionShortCutMap = {}
 
     @classmethod
@@ -77,28 +75,47 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         for dock in self._docks:
             dock.maximizedRequired.connect(self._dockMaxRequired)
 
+    def _getMenuActions(self):
+        actions = [
+            ['File', [
+                ['open_file', 'Open', 'Ctrl+O', self._openActionTriggered],
+                ['reload_stage', 'Reload Stage', 'Alt+Shift+R', self._reloadStageActionTriggered],
+                ['reload_layer', 'Reload Layer', 'Alt+R', self._reloadLayerActionTriggered],
+                ['show_edit_text', 'Show Edit Text', None, self._showEditTextActionTriggered],
+                ['apply_changes', 'Apply', 'Ctrl+Shift+A', self._applyActionTriggered],
+                ['save_file', 'Save Layer', 'Ctrl+S', self._saveLayerActionTriggered],
+                ['export_file', 'Export', 'Ctrl+E', self._exportActionTriggered],
+            ]],
+            ['Edit', [
+                ['create_node', 'Create New', 'Tab', self._createNodeActionTriggered],
+                ['select_all_node', 'Select All', 'Ctrl+A', self._selectAllActionTriggered],
+                ['copy_node', 'Copy', 'Ctrl+C', self._copyActionTriggered],
+                ['cut_node', 'Cut', 'Ctrl+X', self._cutActionTriggered],
+                ['paste_node', 'Paste', 'Ctrl+V', self._pasteActionTriggered],
+                ['frame_selection', 'Frame Selection', None, self._frameSelectionActionTriggered],
+                ['disable_selection', 'Disable Selection', 'D', self._disableSelectionActionTriggered],
+                ['delete_selection', 'Delete Selection', 'Del', self._deleteSelectionActionTriggered],
+                ['enter_node', 'Enter', 'Ctrl+Return', self._enterActionTriggered],
+            ]]
+        ]
+        return actions
+
+    def _addSubMenus(self, menu, menus):
+        for menu_l in menus:
+            name = menu_l[0]
+
+            if isinstance(menu_l[1], list):
+                sub_menu = QtWidgets.QMenu(name, menu)
+                menu.addMenu(sub_menu)
+                self._addSubMenus(sub_menu, menu_l[1])
+            else:
+                label = menu_l[1]
+                short_cut = menu_l[2]
+                func = menu_l[3]
+                self._addAction(name, label, menu, shortCut=short_cut, triggerFunc=func)
+
     def _setMenus(self):
-        self.fileMenu = QtWidgets.QMenu('File', self)
-        self.menuBar().addMenu(self.fileMenu)
-        self._addAction('open_file', 'Open', self.fileMenu, shortCut='Ctrl+O', triggerFunc=self._openActionTriggered)
-        self._addAction('reload_stage', 'Reload Stage', self.fileMenu, shortCut='Alt+Shift+R', triggerFunc=self._reloadStageActionTriggered)
-        self._addAction('reload_layer', 'Reload Layer', self.fileMenu, shortCut='Alt+R', triggerFunc=self._reloadLayerActionTriggered)
-
-        self._addAction('show_edit_text', 'Show Edit Text', self.fileMenu, shortCut=None, triggerFunc=self._showEditTextActionTriggered)
-        self._addAction('apply_changes', 'Apply', self.fileMenu, shortCut='Ctrl+Shift+A', triggerFunc=self._applyActionTriggered)
-        self._addAction('export_file', 'Export', self.fileMenu, shortCut='Ctrl+E', triggerFunc=self._exportActionTriggered)
-
-        self.editMenu = QtWidgets.QMenu('Edit', self)
-        self.menuBar().addMenu(self.editMenu)
-        self._addAction('create_node', 'Create New', self.editMenu, shortCut='Tab', triggerFunc=self._createNodeActionTriggered)
-        self._addAction('select_all_node', 'Select All', self.editMenu, shortCut='Ctrl+A', triggerFunc=self._selectAllActionTriggered)
-        self._addAction('copy_node', 'Copy', self.editMenu, shortCut='Ctrl+C', triggerFunc=self._copyActionTriggered)
-        self._addAction('cut_node', 'Cut', self.editMenu, shortCut='Ctrl+X', triggerFunc=self._cutActionTriggered)
-        self._addAction('paste_node', 'Paste', self.editMenu, shortCut='Ctrl+V', triggerFunc=self._pasteActionTriggered)
-        self._addAction('frame_selection', 'Frame Selection', self.editMenu, triggerFunc=self._frameSelectionActionTriggered)
-        self._addAction('disable_selection', 'Disable Selection', self.editMenu, shortCut='D', triggerFunc=self._disableSelectionActionTriggered)
-        self._addAction('delete_selection', 'Delete Selection', self.editMenu, shortCut='Del', triggerFunc=self._deleteSelectionActionTriggered)
-        self._addAction('enter_node', 'Enter', self.editMenu, shortCut='Ctrl+Return', triggerFunc=self._enterActionTriggered)
+        self._addSubMenus(self.menuBar(), self._getMenuActions())
 
     def _addAction(self, name, label, menu, shortCut=None, triggerFunc=None):
         action = QtWidgets.QAction(label, menu)
@@ -263,6 +280,9 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
     def _exportActionTriggered(self):
         self.currentScene.exportToFile()
 
+    def _saveLayerActionTriggered(self):
+        self.currentScene.saveFile()
+
     def _applyActionTriggered(self):
         self.currentScene.applyChanges()
 
@@ -319,6 +339,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         super(UsdNodeGraph, self).closeEvent(event)
         write_setting(User_Setting, 'nodegraph_geo', value=self.saveGeometry())
         write_setting(User_Setting, 'nodegraph_state', value=self.saveState())
+        self.mainWindowClosed.emit()
 
     def _getUiPref(self):
         geo = read_setting(

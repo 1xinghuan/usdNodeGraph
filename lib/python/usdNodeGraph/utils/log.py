@@ -7,7 +7,7 @@ import time
 import sys
 import os
 
-LOG_LEVEL_ENV = os.environ.get('USD_NODEGRAPH_DEBUG_LEVEL', 'DEBUG').upper()  # DEBUG/WARNING/ERROR
+LOG_LEVEL_ENV = os.environ.get('USD_NODEGRAPH_DEBUG_LEVEL', 'WARNING').upper()  # DEBUG/WARNING/ERROR
 LOG_LEVEL = getattr(logging, LOG_LEVEL_ENV)
 LOG_FORMATS = [
     '[%(levelname)s]:%(name)s: %(asctime)s %(pathname)s[line:%(lineno)d] %(funcName)s: %(message)s',

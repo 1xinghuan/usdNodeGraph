@@ -13,6 +13,8 @@ class LogWindow(QtWidgets.QWidget):
         global LOG_WINDOW
         LOG_WINDOW = self
 
+        self.setWindowTitle('Usd Node Graph Log')
+
         self.masterLayout = QtWidgets.QVBoxLayout()
         self.setLayout(self.masterLayout)
 
@@ -57,8 +59,10 @@ class LogWindow(QtWidgets.QWidget):
 
 
 def getLogWindow():
+    from usdNodeGraph.ui.nodeGraph import USD_NODE_GRAPH_WINDOW
     if not LOG_WINDOW:
         logWindow = LogWindow()
+        USD_NODE_GRAPH_WINDOW.mainWindowClosed.connect(logWindow.close)
     return LOG_WINDOW
 
 

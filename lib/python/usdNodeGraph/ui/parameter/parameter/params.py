@@ -3,7 +3,7 @@ from pxr import Vt, Gf, Sdf
 
 
 class _StringParameter(Parameter):
-    pass
+    valueDefault = ''
 
 
 class StringParameter(_StringParameter):
@@ -60,25 +60,33 @@ class ChooseParameter(_StringParameter):
 class BoolParameter(Parameter):
     parameterTypeString = 'bool'
     valueTypeName = Sdf.ValueTypeNames.Bool
+    valueDefault = False
 
 
 class IntParameter(Parameter):
     parameterTypeString = 'int'
     valueTypeName = Sdf.ValueTypeNames.Int
+    valueDefault = 0
 
 
 class FloatParameter(Parameter):
     parameterTypeString = 'float'
     valueTypeName = Sdf.ValueTypeNames.Float
+    valueDefault = 0
 
 
 class DoubleParameter(Parameter):
     parameterTypeString = 'double'
     valueTypeName = Sdf.ValueTypeNames.Double
+    valueDefault = 0
 
 
 class _VecParamter(Parameter):
     _usdValueClass = None
+
+    @classmethod
+    def getValueDefault(cls):
+        return cls._usdValueClass()
 
     @classmethod
     def convertValueToPy(cls, usdValue):
@@ -139,10 +147,78 @@ class Point3fParameter(_VecParamter):
     _usdValueClass = Gf.Vec3f
 
 
+class Normal3fParameter(_VecParamter):
+    parameterTypeString = 'normal3f'
+    valueTypeName = Sdf.ValueTypeNames.Normal3f
+    _usdValueClass = Gf.Vec3f
+
+
+class QuatParameter(_VecParamter):
+    @classmethod
+    def convertValueToPy(cls, usdValue):
+        if usdValue is not None:
+            pyValue = []
+            pyValue.append(usdValue.GetReal())
+            pyValue.extend([i for i in usdValue.GetImaginary()])
+            return pyValue
+
+
+class QuatdParameter(QuatParameter):
+    parameterTypeString = 'quatd'
+    valueTypeName = Sdf.ValueTypeNames.Quatd
+    _usdValueClass = Gf.Quatd
+    valueDefault = Gf.Quatd()
+
+
+class QuatfParameter(QuatParameter):
+    parameterTypeString = 'quatf'
+    valueTypeName = Sdf.ValueTypeNames.Quatf
+    _usdValueClass = Gf.Quatf
+
+
+class QuathParameter(QuatParameter):
+    parameterTypeString = 'quath'
+    valueTypeName = Sdf.ValueTypeNames.Quath
+    _usdValueClass = Gf.Quath
+
+
+class _MatrixParamter(_VecParamter):
+    @classmethod
+    def convertValueToPy(cls, usdValue):
+        if usdValue is not None:
+            return [[i for i in vec] for vec in usdValue]
+
+    @classmethod
+    def convertValueFromPy(cls, pyValue):
+        if pyValue is not None:
+            return cls._usdValueClass(pyValue)
+
+
+class Matrix2dParameter(_MatrixParamter):
+    parameterTypeString = 'matrix2d'
+    valueTypeName = Sdf.ValueTypeNames.Matrix2d
+    _usdValueClass = Gf.Matrix2d
+
+
+class Matrix3dParameter(_MatrixParamter):
+    parameterTypeString = 'matrix3d'
+    valueTypeName = Sdf.ValueTypeNames.Matrix3d
+    _usdValueClass = Gf.Matrix3d
+
+
+class Matrix4dParameter(_MatrixParamter):
+    parameterTypeString = 'matrix4d'
+    valueTypeName = Sdf.ValueTypeNames.Matrix4d
+    _usdValueClass = Gf.Matrix4d
+
 
 # --------------------------------------- array ----------------------------------
 class _ArrayParameter(Parameter):
     _usdValueClass = None
+
+    @classmethod
+    def getValueDefault(cls):
+        return cls._usdValueClass()
 
     @classmethod
     def getChildParamType(cls):
@@ -242,4 +318,28 @@ class Point3fArrayParameter(_ArrayParameter):
     parameterTypeString = 'point3f[]'
     valueTypeName = Sdf.ValueTypeNames.Point3fArray
     _usdValueClass = Vt.Vec3fArray
+
+
+class Normal3fArrayParameter(_ArrayParameter):
+    parameterTypeString = 'normal3f[]'
+    valueTypeName = Sdf.ValueTypeNames.Normal3fArray
+    _usdValueClass = Vt.Vec3fArray
+
+
+class QuatdArrayParameter(_ArrayParameter):
+    parameterTypeString = 'quatd[]'
+    valueTypeName = Sdf.ValueTypeNames.QuatdArray
+    _usdValueClass = Vt.QuatdArray
+
+
+class QuatfArrayParameter(_ArrayParameter):
+    parameterTypeString = 'quatf[]'
+    valueTypeName = Sdf.ValueTypeNames.QuatfArray
+    _usdValueClass = Vt.QuatfArray
+
+
+class QuathArrayParameter(_ArrayParameter):
+    parameterTypeString = 'quath[]'
+    valueTypeName = Sdf.ValueTypeNames.QuathArray
+    _usdValueClass = Vt.QuathArray
 

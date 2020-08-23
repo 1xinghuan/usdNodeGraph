@@ -47,6 +47,15 @@ ParameterRegister.registerParameter(Vec4dParameter, Vec4fParameterWidget)
 
 ParameterRegister.registerParameter(Color3fParameter, Vec3fParameterWidget)
 ParameterRegister.registerParameter(Point3fParameter, Vec3fParameterWidget)
+ParameterRegister.registerParameter(Normal3fParameter, Vec3fParameterWidget)
+
+ParameterRegister.registerParameter(QuatdParameter, Vec4fParameterWidget)
+ParameterRegister.registerParameter(QuatfParameter, Vec4fParameterWidget)
+ParameterRegister.registerParameter(QuathParameter, Vec4fParameterWidget)
+
+ParameterRegister.registerParameter(Matrix2dParameter, Matrix2dParameterWidget)
+ParameterRegister.registerParameter(Matrix3dParameter, Matrix3dParameterWidget)
+ParameterRegister.registerParameter(Matrix4dParameter, Matrix4dParameterWidget)
 
 
 ParameterRegister.registerParameter(StringArrayParameter, TokenArrayParameterWidget)
@@ -62,3 +71,7 @@ ParameterRegister.registerParameter(Vec3dArrayParameter, Vec3fArrayParameterWidg
 ParameterRegister.registerParameter(Vec4dArrayParameter, Vec4fArrayParameterWidget)
 ParameterRegister.registerParameter(Color3fArrayParameter, Vec3fArrayParameterWidget)
 ParameterRegister.registerParameter(Point3fArrayParameter, Vec3fArrayParameterWidget)
+ParameterRegister.registerParameter(Normal3fArrayParameter, Vec3fArrayParameterWidget)
+ParameterRegister.registerParameter(QuatdArrayParameter, Vec4fArrayParameterWidget)
+ParameterRegister.registerParameter(QuatfArrayParameter, Vec4fArrayParameterWidget)
+ParameterRegister.registerParameter(QuathArrayParameter, Vec4fArrayParameterWidget)

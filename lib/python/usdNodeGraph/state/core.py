@@ -4,6 +4,8 @@ from usdNodeGraph.module.sqt import QtCore
 class GraphState(QtCore.QObject):
     currentTimeChanged = QtCore.Signal(float)
 
+    callbacks = {}
+
     _state = None
     _times = {}
 
@@ -27,6 +29,10 @@ class GraphState(QtCore.QObject):
     def setCurrentTime(cls, time, stage):
         cls.getTimeState(stage)['time'] = float(time)
         cls.getState().currentTimeChanged.emit(float(time))
+        cls.executeCallbacks(
+            'stageTimeChanged',
+            time=float(time), stage=stage
+        )
 
     @classmethod
     def getCurrentTime(cls, stage):
@@ -47,4 +53,17 @@ class GraphState(QtCore.QObject):
     @classmethod
     def getTimeOut(cls, stage):
         return cls.getTimeState(stage)['timeOut']
+
+    @classmethod
+    def addCallback(cls, callbackType, func):
+        if callbackType not in cls.callbacks:
+            cls.callbacks[callbackType] = []
+        cls.callbacks[callbackType].append(func)
+
+    @classmethod
+    def executeCallbacks(cls, callbackType, **kwargs):
+        funcs = cls.callbacks.get(callbackType, [])
+        kwargs.update({'type': callbackType})
+        for func in funcs:
+            func(**kwargs)
 

@@ -332,6 +332,7 @@ class AttributeSetNode(UsdNode):
                 elif i[0] == 'start':
                     if attrName.startswith(i[1]):
                         return True
+            return False
         for i in cls.ignoreAttrList:
             if i[0] == 'exact':
                 if i[1] == attrName:
@@ -343,10 +344,10 @@ class AttributeSetNode(UsdNode):
 
     @classmethod
     def _checkIsNodeNeeded(cls, attrs):
-        result = False
         for attrName in attrs:
             if cls._checkIsAttrNeeded(attrName):
                 return True
+        return False
 
     def __init__(self, primSpec=None, *args, **kwargs):
         self._primSpec = primSpec
@@ -358,6 +359,9 @@ class AttributeSetNode(UsdNode):
             for name, attribute in self._primSpec.attributes.items():
                 self._addAttributeParameter(attribute)
 
+    def _generateParamLabel(self, name):
+        return name
+
     def _addAttributeParameter(self, attribute):
         attributeName = attribute.name
         attributeType = str(attribute.typeName)
@@ -368,7 +372,10 @@ class AttributeSetNode(UsdNode):
         if not needed:
             return
 
-        param = self.addParameter(attributeName, attributeType, custom=True)
+        param = self.addParameter(
+            attributeName, attributeType,
+            custom=True, label=self._generateParamLabel(attributeName)
+        )
         if param is not None:
             if attribute.HasInfo('connectionPaths'):
                 connectionPathList = attribute.connectionPathList.GetAddedOrExplicitItems()
@@ -453,12 +460,15 @@ class TransformNode(AttributeSetNode):
             ]),label='Order'
         )
 
+    def _generateParamLabel(self, name):
+        return name.replace('xformOp:', '')
+
     def _syncParameters(self):
         super(TransformNode, self)._syncParameters()
         for primPath in self._primPaths:
             prim = self._stage.GetPrimAtPath(primPath)
-            for attr in prim.GetAttributes():
-                print attr, type(attr)
+            # for attr in prim.GetAttributes():
+            #     print attr, type(attr)
 
 
 class RelationshipSetNode(UsdNode):

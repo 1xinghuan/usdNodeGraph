@@ -1,11 +1,11 @@
 from usdNodeGraph.module.sqt import *
-from ..parameter import Parameter, Vec3fParameter
-from usdNodeGraph.ui.utils.state import GraphState
+from ..parameter import Parameter
+from usdNodeGraph.utils.res import resource
+from usdNodeGraph.state.core import GraphState
 from usdNodeGraph.ui.utils.layout import clearLayout
 from usdNodeGraph.utils.log import get_logger
 from usdNodeGraph.ui.utils.log import LogWindow
-from ..param_edit.number_edit import IntEditWidget, FloatEditWidget, EDIT_LABEL_HEIGHT
-
+from ..param_edit.number_edit import IntEditWidget, FloatEditWidget
 
 logger = get_logger('usdNodeGraph.ParameterWidget')
 
@@ -156,10 +156,15 @@ class ArrayParameterWidget(QtWidgets.QWidget, ParameterWidget):
 
         self.masterLayout = QtWidgets.QVBoxLayout()
         self.masterLayout.setContentsMargins(0, 0, 0, 0)
+        self.masterLayout.setSpacing(0)
         self.setLayout(self.masterLayout)
 
         self.expandButton = QtWidgets.QPushButton('expand...')
         self.expandButton.setFixedHeight(20)
+        self.expandButton.setSizePolicy(QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Fixed
+        ))
 
         self.scrollArea = QtWidgets.QScrollArea()
         self.scrollArea.setWidgetResizable(True)
@@ -167,6 +172,7 @@ class ArrayParameterWidget(QtWidgets.QWidget, ParameterWidget):
         self.scrollArea.setVisible(0)
         self.areaWidget = None
         self.areaLayout = None
+        self.formLayout = None
 
         self.masterLayout.addWidget(self.expandButton)
         self.masterLayout.addWidget(self.scrollArea)
@@ -187,15 +193,32 @@ class ArrayParameterWidget(QtWidgets.QWidget, ParameterWidget):
     def _getChildParamterClass(self):
         return None
 
+    def _initArea(self):
+        self.addButton = QtWidgets.QPushButton()
+        self.addButton.setIcon(resource.get_qicon('btn', 'add_white.png'))
+        self.addButton.setFixedSize(20, 20)
+
+        self.areaWidget = QtWidgets.QWidget()
+        self.areaLayout = QtWidgets.QVBoxLayout()
+        self.buttonLayout = QtWidgets.QHBoxLayout()
+        self.buttonLayout.addWidget(self.addButton)
+        self.buttonLayout.setAlignment(QtCore.Qt.AlignRight)
+
+        self.formLayout = QtWidgets.QFormLayout()
+        self.areaLayout.addLayout(self.buttonLayout)
+        self.areaLayout.addLayout(self.formLayout)
+        self.areaWidget.setLayout(self.areaLayout)
+        self.scrollArea.setWidget(self.areaWidget)
+
+        self.addButton.clicked.connect(self._addClicked)
+
+    def _addClicked(self):
+        pass
+
     def _expandClicked(self):
         self.expanded = 1 - self.expanded
         if self.areaWidget is None:
-            self.areaWidget = QtWidgets.QWidget()
-            self.areaLayout = QtWidgets.QFormLayout()
-            self.areaWidget.setLayout(self.areaLayout)
-            self.scrollArea.setWidget(self.areaWidget)
-        if not self.expanded:
-            clearLayout(self.areaLayout)
+            self._initArea()
         self.scrollArea.setVisible(self.expanded)
         self.expandButton.setFixedHeight(7 if self.expanded else 20)
         self.updateUI()
@@ -213,13 +236,16 @@ class ArrayParameterWidget(QtWidgets.QWidget, ParameterWidget):
         editWidget.editValueChanged.connect(self._editValueChanged)
 
         self.editWidgets.append(editWidget)
-        self.areaLayout.addRow(str(index), editWidget)
+        self.formLayout.addRow(str(index), editWidget)
 
     def _updateUI(self):
         self.setToolTip(self._parameter.name())
+        text = 'expand...{}'.format(len(self._parameter.getValue()))
+        self.expandButton.setText(text)
+        self.expandButton.setToolTip(text)
 
-        if self.areaLayout is not None and self.scrollArea.isVisible():
-            clearLayout(self.areaLayout)
+        if self.formLayout is not None and self.scrollArea.isVisible():
+            clearLayout(self.formLayout)
             self.editWidgets = []
 
             timeSamples = self._parameter.getTimeSamples()
@@ -414,6 +440,9 @@ class VecWidget(QtWidgets.QWidget):
     def __init__(self):
         super(VecWidget, self).__init__()
 
+        self.initUI()
+
+    def initUI(self):
         self.masterLayout = QtWidgets.QHBoxLayout()
         self.masterLayout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.masterLayout)
@@ -467,16 +496,24 @@ class VecWidget(QtWidgets.QWidget):
             value = value[0]
         return value
 
-    def setPyTimeSamples(self, timeSamples):
+    def _beforeSetPyTimeSamples(self):
         for lineEdit in self.lineEdits:
             lineEdit.reset()
-        for time, values in timeSamples.items():
+
+    def setPyTimeSamples(self, timeSamples):
+        self._beforeSetPyTimeSamples()
+        self._setPyTimeSamples(timeSamples)
+        self._afterSetPyTimeSamples()
+
+    def _setPyTimeSamples(self, timeSamples):
+        for time, value in timeSamples.items():
             if self._valueSize == 1:
-                self.lineEdits[0].setKey(values, time)
+                self.lineEdits[0].setKey(value, time)
             else:
                 for index, lineEdit in enumerate(self.lineEdits):
-                    lineEdit.setKey(values[index], time)
+                    lineEdit.setKey(value[index], time)
 
+    def _afterSetPyTimeSamples(self):
         if hasattr(self, '_getCurrentTime'):
             time = self._getCurrentTime()
         else:
@@ -491,4 +528,53 @@ class VecWidget(QtWidgets.QWidget):
     def updateLineEditsUI(self, time=0):
         for lineEdit in self.lineEdits:
             lineEdit.updateUI(time=time)
+
+
+class MatrixWidget(VecWidget):
+    def initUI(self):
+        self.masterLayout = QtWidgets.QVBoxLayout()
+        self.masterLayout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(self.masterLayout)
+
+        self.lineEdits = []
+        for i in range(self._valueSize):
+            layout = QtWidgets.QHBoxLayout()
+            for j in range(self._valueSize):
+                lineEdit = self._lineEdit()
+                lineEdit.editingFinished.connect(self._editTextChanged)
+                self.lineEdits.append(lineEdit)
+
+                layout.addWidget(lineEdit)
+
+            self.masterLayout.addLayout(layout)
+
+        GraphState.getState().currentTimeChanged.connect(self.updateLineEditsUI)
+
+    def setPyValue(self, value):
+        if not isinstance(value, list):
+            value = [value]
+        for i, vec in enumerate(value):
+            for j, v in enumerate(vec):
+                index = i * self._valueSize + j
+                lineEdit = self.lineEdits[index]
+                lineEdit.setValue(v)
+
+    def getPyValue(self):
+        value = [[] for i in range(self._valueSize)]
+        for index, edit in enumerate(self.lineEdits):
+            i = index / self._valueSize
+            j = index % self._valueSize
+
+            num = edit.getRealValue()
+            value[i].append(num)
+
+        return value
+
+    def _setPyTimeSamples(self, timeSamples):
+        for time, value in timeSamples.items():
+            for i, vec in enumerate(value):
+                for j, v in enumerate(vec):
+                    index = i * self._valueSize + j
+                    lineEdit = self.lineEdits[index]
+                    lineEdit.setKey(v, time)
 
