@@ -3,8 +3,9 @@
 
 
 import copy
+import json
 from pxr import Gf
-from usdNodeGraph.module.sqt import *
+from usdNodeGraph.module.sqt import QtCore
 
 
 class Parameter(QtCore.QObject):
@@ -12,6 +13,30 @@ class Parameter(QtCore.QObject):
     valueTypeName = None
     valueDefault = None
     valueChanged = QtCore.Signal(object)
+
+    _parametersMap = {}
+
+    @classmethod
+    def registerParameter(cls, parameterClass, parameterWidget):
+        typeName = parameterClass.parameterTypeString
+        cls._parametersMap.update({
+            typeName: {
+                'parameterClass': parameterClass,
+                'parameterWidget': parameterWidget
+            }
+        })
+
+    @classmethod
+    def getParameterTypes(cls):
+        return cls._parametersMap.keys()
+
+    @classmethod
+    def getParameter(cls, typeName):
+        return cls._parametersMap.get(typeName, {}).get('parameterClass')
+
+    @classmethod
+    def getParameterWidget(cls, typeName):
+        return cls._parametersMap.get(typeName, {}).get('parameterWidget')
 
     @classmethod
     def getValueDefault(cls):
@@ -101,6 +126,8 @@ class Parameter(QtCore.QObject):
         self._inheritTimeSamples = None
         self._inheritConnect = None
 
+        self._customDatas = {}
+
         self._builtIn = builtIn
         self._visible = visible
         self._isCustom = custom
@@ -172,7 +199,19 @@ class Parameter(QtCore.QObject):
     def getTimeSamples(self):
         return self._timeSamples
 
+    def hasCustomData(self):
+        return self._customDatas != {}
+
+    def getCustomData(self, key, default=None):
+        return self._customDatas.get(key, default)
+
+    def getCustomDataAsString(self):
+        return json.dumps(self._customDatas, indent=4)
+
     # --------------------set value--------------------
+    def setCustomData(self, key, value):
+        self._customDatas[key] = value
+
     def _beforeSetValue(self):
         for w in self._paramWidgets:
             w._breakEditSignal()

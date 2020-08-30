@@ -2,36 +2,34 @@
 # __author__ = 'XingHuan'
 
 
-from pxr import Usd, Sdf, Kind, UsdGeom, UsdShade
-from usdNodeGraph.module.sqt import *
-from .node import Node, registerNode, setParamDefault
-from .nodeItem import NodeItem
-from .tag import PixmapTag
-from usdNodeGraph.ui.parameter.parameter import (
-    Parameter, StringParameter, Vec3fParameter, TokenArrayParameter)
+from pxr import Usd, Sdf, Kind, UsdGeom
+from .node import Node
+from usdNodeGraph.ui.graph.other.tag import PixmapTag
+from usdNodeGraph.core.parameter import (
+    Vec3fParameter, TokenArrayParameter)
 from usdNodeGraph.utils.const import consts
 
 
 ATTR_CHECK_OP = consts(
-    EXACT = 'exact',
-    START = 'start',
+    EXACT='exact',
+    START='start',
 )
-
-
-class UsdNodeItem(NodeItem):
-    def execute(self, stage, prim):
-        return self.nodeObject.execute(stage, prim)
 
 
 class UsdNode(Node):
     nodeType = 'Usd'
-    nodeItem = UsdNodeItem
+    nodeItemType = 'UsdNodeItem'
 
-    def __init__(self, stage=None, layer=None, name='', primPath=None, *args, **kwargs):
+    def __init__(
+            self,
+            stage=None, layer=None,
+            name='', primPath=None,
+            *args, **kwargs
+    ):
         self._stage = stage
         self._layer = layer
         self._name = name
-        self._primPaths=[]
+        self._primPaths = []
         if primPath is not None:
             self._primPaths.append(primPath)
 
@@ -104,8 +102,8 @@ class _PrimNode(UsdNode):
 
 class LayerNode(UsdNode):
     nodeType = 'Layer'
-    fillNormalColor = QtGui.QColor(50, 60, 70, 150)
-    borderNormalColor = QtGui.QColor(250, 250, 250, 150)
+    fillNormalColor = (50, 60, 70, 150)
+    borderNormalColor = (250, 250, 250, 150)
 
     def __init__(self, layerPath='', layerOffset=None, *args, **kwargs):
         self._layerPath = layerPath
@@ -138,8 +136,8 @@ class LayerNode(UsdNode):
 
 class RootNode(UsdNode):
     nodeType = 'Root'
-    fillNormalColor = QtGui.QColor(50, 60, 70)
-    borderNormalColor = QtGui.QColor(250, 250, 250, 200)
+    fillNormalColor = (50, 60, 70)
+    borderNormalColor = (250, 250, 250, 200)
 
     def __init__(self, *args, **kwargs):
         super(RootNode, self).__init__(*args, **kwargs)
@@ -191,8 +189,8 @@ class RootNode(UsdNode):
 
 class PrimDefineNode(_PrimNode):
     nodeType = 'PrimDefine'
-    fillNormalColor = QtGui.QColor(50, 60, 70)
-    borderNormalColor = QtGui.QColor(200, 250, 200, 200)
+    fillNormalColor = (50, 60, 70)
+    borderNormalColor = (200, 250, 200, 200)
 
     def __init__(self, *args, **kwargs):
         super(PrimDefineNode, self).__init__(*args, **kwargs)
@@ -215,8 +213,8 @@ class PrimDefineNode(_PrimNode):
 
 class PrimOverrideNode(_PrimNode):
     nodeType = 'PrimOverride'
-    fillNormalColor = QtGui.QColor(50, 60, 70)
-    borderNormalColor = QtGui.QColor(200, 200, 250, 200)
+    fillNormalColor = (50, 60, 70)
+    borderNormalColor = (200, 200, 250, 200)
 
     def __init__(self, *args, **kwargs):
         super(PrimOverrideNode, self).__init__(*args, **kwargs)
@@ -239,8 +237,8 @@ class PrimOverrideNode(_PrimNode):
 
 class _RefNode(UsdNode):
     nodeType = '_Ref'
-    fillNormalColor = QtGui.QColor(50, 60, 70)
-    borderNormalColor = QtGui.QColor(200, 150, 150, 200)
+    fillNormalColor = (50, 60, 70)
+    borderNormalColor = (200, 150, 150, 200)
 
     def _initParameters(self):
         super(_RefNode, self)._initParameters()
@@ -315,8 +313,8 @@ class PayloadNode(_RefNode):
 
 class AttributeSetNode(UsdNode):
     nodeType = 'AttributeSet'
-    fillNormalColor = QtGui.QColor(50, 70, 60)
-    borderNormalColor = QtGui.QColor(250, 250, 250, 200)
+    fillNormalColor = (50, 70, 60)
+    borderNormalColor = (250, 250, 250, 200)
     onlyAttrList = []
     ignoreAttrList = [
         [ATTR_CHECK_OP.START, 'xformOp'],
@@ -366,7 +364,7 @@ class AttributeSetNode(UsdNode):
         attributeName = attribute.name
         attributeType = str(attribute.typeName)
         # attributeType = attribute.valueType.pythonClass
-        # print attributeName,attributeType
+        # print attributeName, attributeType
         # print attribute.valueType
         needed = self._checkIsAttrNeeded(attributeName)
         if not needed:
@@ -377,6 +375,12 @@ class AttributeSetNode(UsdNode):
             custom=True, label=self._generateParamLabel(attributeName)
         )
         if param is not None:
+            if attribute.custom:
+                param.setCustomData('custom', True)
+            interpolation = attribute.GetInfo('interpolation')
+            if interpolation != 'constant':
+                param.setCustomData('interpolation', interpolation)
+
             if attribute.HasInfo('connectionPaths'):
                 connectionPathList = attribute.connectionPathList.GetAddedOrExplicitItems()
                 connect = connectionPathList[0]
@@ -385,7 +389,13 @@ class AttributeSetNode(UsdNode):
                 param.setTimeSamplesQuietly(attribute.GetInfo('timeSamples'))
             else:
                 # print attribute.default, type(attribute.default)
-                param.setValueQuietly(attribute.default)
+                value = attribute.default
+                if value == Sdf.ValueBlock():
+                    param.setCustomData('valueBlock', True)
+                elif value is not None:
+                    param.setValueQuietly(value)
+                else:
+                    pass
 
     def _initParameters(self):
         super(AttributeSetNode, self)._initParameters()
@@ -403,9 +413,15 @@ class AttributeSetNode(UsdNode):
         attrName = parameter.name()
         if not prim.HasAttribute(attrName):
             attribute = prim.CreateAttribute(attrName, parameter.valueTypeName)
-            attribute.SetCustom(False)
+            attribute.SetCustom(parameter.getCustomData('custom', False))
         else:
             attribute = prim.GetAttribute(attrName)
+
+        interpolation = parameter.getCustomData('interpolation')
+        if interpolation is not None:
+            primvarsApi = UsdGeom.PrimvarsAPI(prim)
+            var = primvarsApi.GetPrimvar(attrName)
+            var.SetInterpolation(getattr(UsdGeom.Tokens, interpolation))
 
         if parameter.hasConnect():
             attribute.SetConnections([parameter.getConnect()])
@@ -413,11 +429,15 @@ class AttributeSetNode(UsdNode):
             for time, value in parameter.getTimeSamples().items():
                 attribute.Set(value, time)
         else:
-            if parameter.getValue() is not None:
+            if parameter.getCustomData('valueBlock'):
+                attribute.Set(Sdf.ValueBlock())
+            elif parameter.getValue() is not None:
                 attribute.Set(parameter.getValue())
 
     def _execute(self, stage, prim):
-        params = [param for param in self._parameters.values() if not param.isBuiltIn() and param.isOverride()]
+        parameters = self._parameters.values()
+        params = [
+            param for param in parameters if not param.isBuiltIn() and (param.isOverride() or param.hasCustomData())]
         for param in params:
             # print(param.name(), param.getValue(), param.hasKey())
             self._setPrimAttributeFromParameter(prim, param)
@@ -426,8 +446,8 @@ class AttributeSetNode(UsdNode):
 
 class TransformNode(AttributeSetNode):
     nodeType = 'Transform'
-    fillNormalColor = QtGui.QColor(60, 80, 70)
-    borderNormalColor = QtGui.QColor(250, 250, 250, 200)
+    fillNormalColor = (60, 80, 70)
+    borderNormalColor = (250, 250, 250, 200)
     onlyAttrList = [
         [ATTR_CHECK_OP.START, 'xformOp']
     ]
@@ -473,8 +493,8 @@ class TransformNode(AttributeSetNode):
 
 class RelationshipSetNode(UsdNode):
     nodeType = 'RelationshipSet'
-    fillNormalColor = QtGui.QColor(70, 60, 50)
-    borderNormalColor = QtGui.QColor(250, 250, 250, 200)
+    fillNormalColor = (70, 60, 50)
+    borderNormalColor = (250, 250, 250, 200)
 
     def __init__(self, primSpec=None, *args, **kwargs):
         super(RelationshipSetNode, self).__init__(*args, **kwargs)
@@ -513,8 +533,8 @@ class RelationshipSetNode(UsdNode):
 
 class _VariantNode(UsdNode):
     nodeType = '_Variant'
-    fillNormalColor = QtGui.QColor(50, 60, 70)
-    borderNormalColor = QtGui.QColor(200, 200, 150)
+    fillNormalColor = (50, 60, 70)
+    borderNormalColor = (200, 200, 150)
 
 
 class VariantSetNode(_VariantNode):
@@ -628,8 +648,8 @@ class VariantSwitchNode(_VariantNode):
 
 class MaterialAssignNode(UsdNode):
     nodeType = 'MaterialAssign'
-    fillNormalColor = QtGui.QColor(50, 60, 80)
-    borderNormalColor = QtGui.QColor(250, 250, 250, 200)
+    fillNormalColor = (50, 60, 80)
+    borderNormalColor = (250, 250, 250, 200)
 
     def __init__(self, material=None, *args, **kwargs):
         super(MaterialAssignNode, self).__init__(*args, **kwargs)
@@ -664,35 +684,35 @@ class MaterialAssignNode(UsdNode):
         return stage, prim
 
 
-registerNode(LayerNode)
-registerNode(RootNode)
-registerNode(PrimDefineNode)
-registerNode(PrimOverrideNode)
-registerNode(ReferenceNode)
-registerNode(PayloadNode)
+Node.registerNode(LayerNode)
+Node.registerNode(RootNode)
+Node.registerNode(PrimDefineNode)
+Node.registerNode(PrimOverrideNode)
+Node.registerNode(ReferenceNode)
+Node.registerNode(PayloadNode)
 
-registerNode(AttributeSetNode)
-registerNode(TransformNode)
-registerNode(RelationshipSetNode)
+Node.registerNode(AttributeSetNode)
+Node.registerNode(TransformNode)
+Node.registerNode(RelationshipSetNode)
 
-registerNode(VariantSetNode)
-registerNode(VariantSelectNode)
-registerNode(VariantSwitchNode)
+Node.registerNode(VariantSetNode)
+Node.registerNode(VariantSelectNode)
+Node.registerNode(VariantSwitchNode)
 
-registerNode(MaterialAssignNode)
+Node.registerNode(MaterialAssignNode)
 
 
-setParamDefault(LayerNode.nodeType, 'label', '[python os.path.basename("[value layerPath]")]')
-setParamDefault(RootNode.nodeType, 'label', '/')
-setParamDefault(PrimDefineNode.nodeType, 'label', '/[value primName]')
-setParamDefault(PrimOverrideNode.nodeType, 'label', '/[value primName]')
-setParamDefault(ReferenceNode.nodeType, 'label', '[python os.path.basename("[value assetPath]")]')
-setParamDefault(PayloadNode.nodeType, 'label', '[python os.path.basename("[value assetPath]")]')
+Node.setParamDefault(LayerNode.nodeType, 'label', '[python os.path.basename("[value layerPath]")]')
+Node.setParamDefault(RootNode.nodeType, 'label', '/')
+Node.setParamDefault(PrimDefineNode.nodeType, 'label', '/[value primName]')
+Node.setParamDefault(PrimOverrideNode.nodeType, 'label', '/[value primName]')
+Node.setParamDefault(ReferenceNode.nodeType, 'label', '[python os.path.basename("[value assetPath]")]')
+Node.setParamDefault(PayloadNode.nodeType, 'label', '[python os.path.basename("[value assetPath]")]')
 
-setParamDefault(MaterialAssignNode.nodeType, 'label', '[python os.path.basename("[value material]")]')
+Node.setParamDefault(MaterialAssignNode.nodeType, 'label', '[python os.path.basename("[value material]")]')
 
-setParamDefault(VariantSetNode.nodeType, 'label', '{[value variantSetName]:[value variantList]}')
-setParamDefault(VariantSelectNode.nodeType, 'label', '{[value variantSetName]=[value variantSelected]}')
-setParamDefault(VariantSwitchNode.nodeType, 'label', '{[value variantSetName]?=[value variantSelected]}')
+Node.setParamDefault(VariantSetNode.nodeType, 'label', '{[value variantSetName]:[value variantList]}')
+Node.setParamDefault(VariantSelectNode.nodeType, 'label', '{[value variantSetName]=[value variantSelected]}')
+Node.setParamDefault(VariantSwitchNode.nodeType, 'label', '{[value variantSetName]?=[value variantSelected]}')
 
 

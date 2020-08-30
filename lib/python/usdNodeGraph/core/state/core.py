@@ -4,7 +4,7 @@ from usdNodeGraph.module.sqt import QtCore
 class GraphState(QtCore.QObject):
     currentTimeChanged = QtCore.Signal(float)
 
-    callbacks = {}
+    _callbacks = {}
 
     _state = None
     _times = {}
@@ -56,13 +56,17 @@ class GraphState(QtCore.QObject):
 
     @classmethod
     def addCallback(cls, callbackType, func):
-        if callbackType not in cls.callbacks:
-            cls.callbacks[callbackType] = []
-        cls.callbacks[callbackType].append(func)
+        if callbackType not in cls._callbacks:
+            cls._callbacks[callbackType] = []
+        cls._callbacks[callbackType].append(func)
+    
+    @classmethod
+    def getAllCallbacks(cls):
+        return cls._callbacks
 
     @classmethod
     def executeCallbacks(cls, callbackType, **kwargs):
-        funcs = cls.callbacks.get(callbackType, [])
+        funcs = cls._callbacks.get(callbackType, [])
         kwargs.update({'type': callbackType})
         for func in funcs:
             func(**kwargs)

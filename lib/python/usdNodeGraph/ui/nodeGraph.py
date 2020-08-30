@@ -7,8 +7,8 @@ from pxr import Usd
 from usdNodeGraph.module.sqt import *
 from usdNodeGraph.ui.graph.view import GraphicsSceneWidget
 from usdNodeGraph.ui.parameter.param_panel import ParameterPanel
-from usdNodeGraph.state.core import GraphState
-from usdNodeGraph.ui.timeSlider import TimeSliderWidget
+from usdNodeGraph.core.state.core import GraphState
+from usdNodeGraph.ui.other.timeSlider import TimeSliderWidget
 from usdNodeGraph.utils.settings import User_Setting, read_setting, write_setting
 
 
@@ -44,12 +44,17 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
     currentSceneChanged = QtCore.Signal(object)
     mainWindowClosed = QtCore.Signal()
     _actionShortCutMap = {}
+    _addedActions = []
 
     @classmethod
     def registerActionShortCut(cls, actionName, shortCut):
         cls._actionShortCutMap.update({
             actionName: shortCut
         })
+
+    @classmethod
+    def registerActions(cls, actionList):
+        cls._addedActions = actionList
 
     def __init__(
             self,
@@ -98,20 +103,27 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
                 ['enter_node', 'Enter', 'Ctrl+Return', self._enterActionTriggered],
             ]]
         ]
+        actions.extend(self._addedActions)
         return actions
 
     def _addSubMenus(self, menu, menus):
-        for menu_l in menus:
-            name = menu_l[0]
+        for menuL in menus:
+            name = menuL[0]
 
-            if isinstance(menu_l[1], list):
-                sub_menu = QtWidgets.QMenu(name, menu)
-                menu.addMenu(sub_menu)
-                self._addSubMenus(sub_menu, menu_l[1])
+            if isinstance(menuL[1], list):
+                findMenus = menu.findChildren(QtWidgets.QMenu, name)
+                if len(findMenus) > 0:
+                    subMenu = findMenus[0]
+                else:
+                    subMenu = QtWidgets.QMenu(name, menu)
+                    subMenu.setObjectName(name)
+                    menu.addMenu(subMenu)
+
+                self._addSubMenus(subMenu, menuL[1])
             else:
-                label = menu_l[1]
-                short_cut = menu_l[2]
-                func = menu_l[3]
+                label = menuL[1]
+                short_cut = menuL[2]
+                func = menuL[3]
                 self._addAction(name, label, menu, shortCut=short_cut, triggerFunc=func)
 
     def _setMenus(self):
@@ -211,6 +223,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         newScene.itemDoubleClicked.connect(self._itemDoubleClicked)
         newScene.enterFileRequired.connect(self._enterFileRequired)
         newScene.enterLayerRequired.connect(self._enterLayerRequired)
+        newScene.scene.nodeDeleted.connect(self._nodeDeleted)
 
         self.nodeGraphTab.setCurrentWidget(newScene)
         # self._switchScene()
@@ -253,6 +266,9 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
 
     def _enterLayerRequired(self, stage, layer):
         self._addScene(stage, layer)
+
+    def _nodeDeleted(self, node):
+        self.parameterPanel.removeNode(node)
 
     def _openActionTriggered(self):
         usdFile = QFileDialog.getOpenFileName(None, 'Select File', filter='USD(*.usda *.usd *.usdc)')

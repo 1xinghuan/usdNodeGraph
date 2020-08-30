@@ -226,9 +226,7 @@ class _ArrayParameter(Parameter):
 
     @classmethod
     def getChildParamClass(cls):
-        from usdNodeGraph.ui.parameter.register import ParameterRegister
-
-        paramClass = ParameterRegister.getParameter(cls.getChildParamType())
+        paramClass = Parameter.getParameter(cls.getChildParamType())
         return paramClass
 
     @classmethod

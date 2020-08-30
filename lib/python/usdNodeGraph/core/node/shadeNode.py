@@ -2,16 +2,13 @@
 # __author__ = 'XingHuan'
 
 
-from pxr import Usd, Sdf, Kind, UsdGeom
+from pxr import Sdf
 from usdNodeGraph.module.sqt import *
-from .nodeItem import NodeItem
-from .node import registerNode, setParamDefault
-from usdNodeGraph.ui.parameter.parameter import Parameter, StringParameter
-from .usdNode import UsdNode, UsdNodeItem
-from .port import InputPort, OutputPort, ShaderInputPort, ShaderOutputPort
+from .node import Node
+from .usdNode import UsdNode
 from usdNodeGraph.utils.const import INPUT_ATTRIBUTE_PREFIX, OUTPUT_ATTRIBUTE_PREFIX
 from usdNodeGraph.utils.log import get_logger
-from .sdr import SdrRegistry
+from usdNodeGraph.core.node.sdr import SdrRegistry
 
 
 logger = get_logger('usdNodeGraph.shadeNode')
@@ -20,142 +17,25 @@ logger = get_logger('usdNodeGraph.shadeNode')
 PORT_SPACING = 20
 
 
-class _UsdShadeNodeItem(UsdNodeItem):
-    fillNormalColor = QtGui.QColor(50, 60, 80)
-    borderNormalColor = QtGui.QColor(200, 250, 200, 200)
-    reverse = False
-
-    def __init__(self, *args, **kwargs):
-        self.inputConnectionPorts = []
-        self.outputConnectionPorts = []
-
-        super(_UsdShadeNodeItem, self).__init__(*args, **kwargs)
-
-    def _updateNameText(self):
-        super(_UsdShadeNodeItem, self)._updateNameText()
-
-        if self.nameItem is not None:
-            self.nameItem.setY(10)
-
-    def _updateLabelText(self):
-        super(_UsdShadeNodeItem, self)._updateLabelText()
-
-        if self.labelItem is not None:
-            self.labelItem.setY(self.nameItem.pos().y() + self.nameItem.boundingRect().height())
-
-    def addShaderPort(self, port):
-        self.addPort(port)
-        self.h += PORT_SPACING
-
-        self.updatePortsPos()
-
-    def removePort(self, port):
-        if isinstance(port, ShaderInputPort):
-            self.inputConnectionPorts.remove(port)
-            self.h -= PORT_SPACING
-        if isinstance(port, ShaderOutputPort):
-            self.outputConnectionPorts.remove(port)
-            self.h -= PORT_SPACING
-
-        super(_UsdShadeNodeItem, self).removePort(port)
-
-        self.updatePortsPos()
-
-    def updatePortsPos(self):
-        super(_UsdShadeNodeItem, self).updatePortsPos()
-
-        bbox = self.boundingRect()
-
-        for index, port in enumerate(self.inputConnectionPorts):
-            port.setPos(
-                bbox.left() - port.w / 2.0,
-                30 + (index + 1) * PORT_SPACING
-            )
-        for index, port in enumerate(self.outputConnectionPorts):
-            port.setPos(
-                bbox.right() - port.w + port.w / 2.0,
-                bbox.height() - (index + 1) * PORT_SPACING
-            )
-
-    def addShaderInputPort(self, portName, label=None):
-        port = ShaderInputPort(name=portName, label=label)
-        self.inputConnectionPorts.append(port)
-
-        self.addShaderPort(port)
-
-    def addShaderOutputPort(self, portName, label=None):
-        port = ShaderOutputPort(name=portName, label=label)
-        self.outputConnectionPorts.append(port)
-
-        self.addShaderPort(port)
-
-    def getShaderInputPort(self, name):
-        for port in self.inputConnectionPorts:
-            if port.name == name:
-                return port
-
-    def getShaderOutputPort(self, name):
-        for port in self.outputConnectionPorts:
-            if port.name == name:
-                return port
-
-    def _portConnectionChanged(self, port):
-        if isinstance(port, ShaderInputPort):
-            parameter = self.parameter(port.name)
-            if parameter is None:
-                return
-            connections = port.getConnections()
-            if len(connections) == 0:
-                parameter.breakConnect()
-            elif len(connections) == 1:
-                connectPort = connections[0]
-                connectNode = connectPort.node()
-                nodePrimPath = connectNode.getCurrentNodeItemPrimPath()
-                connectPath = '{}.{}'.format(nodePrimPath, connectPort.name)
-                parameter.setConnect(connectPath)
-            else:
-                logger.warning('Input Port {}.{} has more than one connection!'.format(self.name(), port.name))
-
-    # def _addShaderPortFromParam(self, parameter, label):
-    #     parameterName = parameter.name()
-    #
-    #     if parameterName.startswith(INPUT_ATTRIBUTE_PREFIX):
-    #         self.addShaderInputPort(parameterName, label=label)
-    #     if parameterName.startswith(OUTPUT_ATTRIBUTE_PREFIX):
-    #         self.addShaderOutputPort(parameterName, label=label)
-
-    def getCurrentNodeItemPrimPath(self, prim=None):
-        if prim is None:
-            upPrimPath = self._getUpPrimPath('')
-            upPrimPath = upPrimPath.rstrip('/')
-            primPath = upPrimPath
-        else:
-            primPath = prim.GetPath().pathString
-        if primPath == '/':
-            primPath = ''
-        primName = self.parameter('primName').getValue()
-        primPath = '{}/{}'.format(primPath, primName)
-        return primPath
-
-
 class _UsdShadeNode(UsdNode):
     nodeType = '_UsdShade'
-    fillNormalColor = QtGui.QColor(30, 40, 70)
-    borderNormalColor = QtGui.QColor(170, 250, 170, 200)
+    fillNormalColor = (30, 40, 70)
+    borderNormalColor = (170, 250, 170, 200)
     reverse = False
 
-    def __init__(self, prim=None, **kwargs):
+    def __init__(self, primSpec=None, **kwargs):
+        self._primSpec = primSpec
         super(_UsdShadeNode, self).__init__(**kwargs)
 
         self.parameter('primName').setValueQuietly(self.name())
 
-        if prim is not None:
-            attrKeys = prim.attributes.keys()
+        if self._primSpec is not None:
+            attrKeys = self._primSpec.attributes.keys()
             attrKeys.sort()
             for index, name in enumerate(attrKeys):
-                attribute = prim.attributes[name]
+                attribute = self._primSpec.attributes[name]
                 self._addAttributeParameter(attribute)
-            self.parameter('primName').setValueQuietly(prim.name)
+            self.parameter('primName').setValueQuietly(self._primSpec.name)
 
     def _initParameters(self):
         super(_UsdShadeNode, self)._initParameters()
@@ -256,47 +136,26 @@ class _UsdShadeNode(UsdNode):
         return stage, prim
 
 
-class MaterialNodeItem(_UsdShadeNodeItem):
-    # inputs: -> as OutputPort
-    # outputs: -> as InputPort
-    def addShaderInputPort(self, portName, label=None):
-        port = ShaderOutputPort(name=portName, label=label)
-        self.outputConnectionPorts.append(port)
-
-        self.addShaderPort(port)
-
-    def addShaderOutputPort(self, portName, label=None):
-        port = ShaderInputPort(name=portName, label=label)
-        self.inputConnectionPorts.append(port)
-
-        self.addShaderPort(port)
-
-
-class ShaderNodeItem(_UsdShadeNodeItem):
-    def afterAddToScene(self):
-        self.nodeObject.resetParameters()
-
-
 class MaterialNode(_UsdShadeNode):
     nodeType = 'Material'
-    nodeItem = MaterialNodeItem
+    nodeItemType = 'MaterialNodeItem'
 
 
 class ShaderNode(_UsdShadeNode):
     nodeType = 'Shader'
-    nodeItem = ShaderNodeItem
-    borderNormalColor = QtGui.QColor(250, 250, 150, 200)
+    nodeItemType = 'ShaderNodeItem'
+    borderNormalColor = (250, 250, 150, 200)
 
-    def __init__(self, prim=None, **kwargs):
-        super(ShaderNode, self).__init__(prim=prim, **kwargs)
+    def __init__(self, primSpec=None, **kwargs):
+        super(ShaderNode, self).__init__(primSpec=primSpec, **kwargs)
 
         self._oldShaderParameters = {}
 
-        if prim is not None:
-            for name, attribute in prim.attributes.items():
+        if primSpec is not None:
+            for name, attribute in primSpec.attributes.items():
                 if name == 'info:id':
                     self.parameter('info:id').setValueQuietly(attribute.default)
-            self.parameter('primName').setValueQuietly(prim.name)
+            self.parameter('primName').setValueQuietly(primSpec.name)
 
             for name, param in self._parameters.items():
                 if name.startswith(INPUT_ATTRIBUTE_PREFIX) or name.startswith(OUTPUT_ATTRIBUTE_PREFIX):
@@ -308,12 +167,13 @@ class ShaderNode(_UsdShadeNode):
         # param.setOrder(0)
         param.addItems(SdrRegistry.getNodeNames())
 
-    def _paramterValueChanged(self, parameter, value):
-        super(ShaderNode, self)._paramterValueChanged(parameter, value)
+    def _paramterValueChanged(self, parameter):
+        super(ShaderNode, self)._paramterValueChanged(parameter)
 
         if parameter.name() == 'info:id':
             if self.item.scene() is not None:
                 self.resetParameters()
+                self.item.forceUpdatePanelUI()
 
     def _clearParameters(self):
         removeNames = [name for name in self._parameters.keys() if name.startswith(INPUT_ATTRIBUTE_PREFIX) or name.startswith(OUTPUT_ATTRIBUTE_PREFIX)]
@@ -331,6 +191,8 @@ class ShaderNode(_UsdShadeNode):
             defaultValue = None
         else:
             connectable = property.IsConnectable()
+            # sometimes this return False but the attribute has connect so always return True here
+            connectable = True
             paramType = str(property.GetTypeAsSdfType()[0])
             defaultValue = property.GetDefaultValue()
 
@@ -355,8 +217,8 @@ class ShaderNode(_UsdShadeNode):
 
     def _addParametersFromShaderNode(self, shaderNode):
         inputNames = shaderNode.GetInputNames()
-        inputNames.sort()
         outputNames = shaderNode.GetOutputNames()
+        inputNames.sort()
         outputNames.sort()
         if len(outputNames) == 0:
             outputNames.append('out')
@@ -380,13 +242,13 @@ class ShaderNode(_UsdShadeNode):
             self._clearParameters()
             self._addParametersFromShaderNode(shaderNode)
         else:
-            logger.warning('Can\'t get shader node information of {}'.format(shaderName))
+            logger.warning('Can\'t get shader nodeItem information of {}'.format(shaderName))
 
 
-registerNode(MaterialNode)
-registerNode(ShaderNode)
+Node.registerNode(MaterialNode)
+Node.registerNode(ShaderNode)
 
 
-setParamDefault(MaterialNode.nodeType, 'label', '/[value primName]')
-setParamDefault(ShaderNode.nodeType, 'label', '/[value primName]')
+Node.setParamDefault(MaterialNode.nodeType, 'label', '/[value primName]')
+Node.setParamDefault(ShaderNode.nodeType, 'label', '/[value primName]')
 

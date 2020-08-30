@@ -21,6 +21,7 @@ class Pipe(QtWidgets.QGraphicsPathItem):
 
         self.setFlag(QtWidgets.QGraphicsItem.ItemIsSelectable, False)
         self.setAcceptHoverEvents(True)
+        self.setAcceptDrops(True)
 
         self.lineColor = self.normalColor
         self.thickness = 1.5
@@ -175,7 +176,7 @@ class Pipe(QtWidgets.QGraphicsPathItem):
     def mouseMoveEvent(self, event):
         super(Pipe, self).mouseMoveEvent(event)
 
-        from usdNodeGraph.ui.graph.node.port import Port
+        from usdNodeGraph.ui.graph.other.port import Port
         currentPos = event.pos()
         if self.isFloat:
             if self.source is not None:
@@ -195,18 +196,21 @@ class Pipe(QtWidgets.QGraphicsPathItem):
     def mouseReleaseEvent(self, event):
         super(Pipe, self).mouseReleaseEvent(event)
         if self.isFloat:
-            from .node.port import Port, InputPort, OutputPort
+            from usdNodeGraph.ui.graph.other.port import Port, InputPort, OutputPort
 
             scenePos = event.pos()
             findPort = self.scene().itemAt(scenePos, QtGui.QTransform())
 
+            source = self.source
+            target = self.target
+
             self.breakConnection()
 
             if findPort is not None and isinstance(findPort, Port):
-                if (isinstance(findPort, InputPort) and self.source is not None):
-                    self.source.connectTo(findPort)
-                elif (isinstance(findPort, OutputPort) and self.target is not None):
-                    self.target.connectTo(findPort)
+                if (isinstance(findPort, InputPort) and source is not None):
+                    source.connectTo(findPort)
+                elif (isinstance(findPort, OutputPort) and target is not None):
+                    target.connectTo(findPort)
 
             self.isFloat = False
             if self.foundPort is not None:

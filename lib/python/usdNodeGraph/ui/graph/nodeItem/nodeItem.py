@@ -2,19 +2,14 @@
 # __author__ = 'XingHuan'
 # 8/29/2018
 
-
+import traceback
 from usdNodeGraph.module.sqt import *
-from .port import InputPort, OutputPort, Port
-from .tag import PixmapTag
+from usdNodeGraph.ui.graph.other.port import InputPort, OutputPort
+from usdNodeGraph.ui.graph.other.pipe import Pipe
 from ..const import *
-from usdNodeGraph.ui.parameter.parameter import (
-    Parameter, TextParameter, FloatParameter, StringParameter, BoolParameter
-)
 from usdNodeGraph.utils.log import get_logger
-import time
 import re
-import os
-
+from usdNodeGraph.core.node import Node
 
 logger = get_logger('usdNodeGraph.nodeItem')
 
@@ -47,6 +42,7 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
 
         self.pipes = []
         self.ports = []
+        self.panel = None
 
         self.margin = 6
         self.roundness = 10
@@ -55,8 +51,8 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
 
         self.nodeObject = nodeObjectClass(item=self, **kwargs)
 
-        self.fillColor = self.nodeObject.fillNormalColor
-        self.borderColor = self.nodeObject.borderNormalColor
+        self.fillColor = QtGui.QColor(*self.nodeObject.fillNormalColor)
+        self.borderColor = QtGui.QColor(*self.nodeObject.borderNormalColor)
 
         self.nodeObject.parameterValueChanged.connect(self._paramterValueChanged)
 
@@ -194,6 +190,10 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
     def _updateUI(self):
         pass
 
+    def forceUpdatePanelUI(self):
+        if self.panel is not None:
+            self.panel.updateUI()
+
     def _portConnectionChanged(self, port):
         pass
 
@@ -217,7 +217,7 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
 
         inputPort.connectTo(outputPort)
 
-    # def connectDestination(self, node, outputName='', inputName=''):
+    # def connectDestination(self, nodeItem, outputName='', inputName=''):
     #     pass
 
     def getInputPorts(self):
@@ -268,8 +268,8 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
         tagItem.setPos(x - tagItem.w / 2.0, y - tagItem.h / 2.0)
 
     def setHighlight(self, value=True):
-        self.fillColor = self.nodeObject.fillHighlightColor if value else self.nodeObject.fillNormalColor
-        self.borderColor = self.nodeObject.borderHighlightColor if value else self.nodeObject.borderNormalColor
+        self.fillColor = QtGui.QColor(*self.nodeObject.fillHighlightColor) if value else QtGui.QColor(*self.nodeObject.fillNormalColor)
+        self.borderColor = QtGui.QColor(*self.nodeObject.borderHighlightColor) if value else QtGui.QColor(*self.nodeObject.borderNormalColor)
         if self.nameItem is not None:
             self.nameItem.setBrush(self.labelHighlightColor if value else self.labelNormalColor)
 
@@ -346,9 +346,28 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
 
 
 class NodeItem(_BaseNodeItem):
+    _nodeItemsMap = {}
+    nodeItemType = 'NodeItem'
+
+    @classmethod
+    def createItem(cls, nodeType, **kwargs):
+        nodeClass = Node.getNodeClass(nodeType)
+        nodeItemClass = cls._nodeItemsMap.get(nodeClass.nodeItemType)
+        item = nodeItemClass(nodeClass, **kwargs)
+        return item
+
+    @classmethod
+    def registerNodeItem(cls, itemClass):
+        cls._nodeItemsMap.update(
+            {itemClass.nodeItemType: itemClass}
+        )
+
     def __init__(self, *args, **kwargs):
         self.inputPorts = []
         self.outputPorts = []
+
+        self.findPipe = None
+        self.findPos = None
 
         super(NodeItem, self).__init__(*args, **kwargs)
 
@@ -384,9 +403,9 @@ class NodeItem(_BaseNodeItem):
         for expString in expStrings:
             pyString = ' '.join(expString.split(' ')[1:]).replace(']', '')
             try:
-                result = eval(pyString)
-            except:
-                continue
+                result = eval(pyString, globals(), Node._expressionMap)
+            except Exception, e:
+                result = e
             label = label.replace(expString, str(result))
 
         self.labelItem.setHtml(label)
@@ -407,6 +426,7 @@ class NodeItem(_BaseNodeItem):
             self._updateLabelText()
 
     def _updateUI(self):
+        super(NodeItem, self)._updateUI()
         self._updateNameText()
         self._updateLabelText()
 
@@ -455,4 +475,47 @@ class NodeItem(_BaseNodeItem):
 
     def afterAddToScene(self):
         pass
+
+    def mousePressEvent(self, event):
+        if event.button() == QtCore.Qt.LeftButton:
+            self.findingPipe = True
+            self.startPos = self.mapToScene(self.boundingRect().center())
+
+    def mouseMoveEvent(self, event):
+        super(NodeItem, self).mouseMoveEvent(event)
+
+        connectedPipes = []
+        for port in self.ports:
+            connectedPipes.extend(port.pipes)
+
+        findPos = self.pos() + QtCore.QPointF(self.w / 2.0, -10)
+        findItem = self.scene().itemAt(findPos, QtGui.QTransform())
+
+        if isinstance(findItem, Pipe) and findItem not in connectedPipes:
+            self.findPipe = findItem
+            self.findPipe.setLineColor(highlight=True)
+            self.findPipe.update()
+
+            self.findPos = findPos
+        else:
+            if self.findPipe is not None:
+                line = QtCore.QLineF(findPos, self.findPos)
+                if line.length() > 10:
+                    self.findPipe.setLineColor(highlight=False)
+                    self.findPipe.update()
+                    self.findingPipe = None
+
+    def mouseReleaseEvent(self, event):
+        super(NodeItem, self).mouseReleaseEvent(event)
+
+        if self.findPipe is not None:
+            source = self.findPipe.source
+            target = self.findPipe.target
+
+            self.findPipe.breakConnection()
+
+            self.inputPort.connectTo(source)
+            self.outputPort.connectTo(target)
+
+            self.findPipe = None
 

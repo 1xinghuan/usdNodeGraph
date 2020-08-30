@@ -1,7 +1,7 @@
 from usdNodeGraph.module.sqt import *
-from ..parameter import Parameter
+from usdNodeGraph.core.parameter import Parameter
 from usdNodeGraph.utils.res import resource
-from usdNodeGraph.state.core import GraphState
+from usdNodeGraph.core.state.core import GraphState
 from usdNodeGraph.ui.utils.layout import clearLayout
 from usdNodeGraph.utils.log import get_logger
 from usdNodeGraph.ui.utils.log import LogWindow
@@ -16,10 +16,8 @@ class ParameterWidget(object):
 
     @classmethod
     def createParameterWidget(cls, parameter):
-        from usdNodeGraph.ui.parameter.register import ParameterRegister
-
         typeName = parameter.parameterTypeString
-        parameterWidgetClass = ParameterRegister.getParameterWidget(typeName)
+        parameterWidgetClass = Parameter.getParameterWidget(typeName)
 
         if parameterWidgetClass is None:
             message = 'Un-Support Attribute Type in createParameterWidget! {}'.format(typeName)
@@ -39,7 +37,7 @@ class ParameterWidget(object):
         self._signalBreaked = True
         self._editSignalBreaked = True
 
-        self.masterLayout = None
+        # self.masterLayout = None
         self._connectEdit = None
 
         self._editSignalBreaked = False
@@ -205,8 +203,8 @@ class ArrayParameterWidget(QtWidgets.QWidget, ParameterWidget):
         self.buttonLayout.setAlignment(QtCore.Qt.AlignRight)
 
         self.formLayout = QtWidgets.QFormLayout()
-        self.areaLayout.addLayout(self.buttonLayout)
         self.areaLayout.addLayout(self.formLayout)
+        self.areaLayout.addLayout(self.buttonLayout)
         self.areaWidget.setLayout(self.areaLayout)
         self.scrollArea.setWidget(self.areaWidget)
 

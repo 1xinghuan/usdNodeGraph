@@ -8,12 +8,12 @@ import json
 import time
 from pxr import Usd, Sdf, Ar
 from usdNodeGraph.module.sqt import *
-from usdNodeGraph.utils.const import INPUT_ATTRIBUTE_PREFIX, OUTPUT_ATTRIBUTE_PREFIX, VIEWPORT_FULL_UPDATE
-from .node import (
-    Node, NodeItem, LayerNode, ReferenceNode, PayloadNode,
-    TransformNode, AttributeSetNode)
-from .pipe import Pipe
-from .node.port import Port
+from usdNodeGraph.utils.const import VIEWPORT_FULL_UPDATE
+from usdNodeGraph.core.node import (
+    Node, TransformNode, AttributeSetNode)
+from .nodeItem import NodeItem
+from .other.pipe import Pipe
+from .other.port import Port
 from usdNodeGraph.utils.log import get_logger, log_cost_time
 
 
@@ -65,6 +65,7 @@ class FloatLineEdit(QtWidgets.QFrame):
         completer = QtWidgets.QCompleter(allNodeClass)
         completer.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
         self._edit.setCompleter(completer)
+        self._edit.setText('')
 
     def setVisible(self, bool):
         super(FloatLineEdit, self).setVisible(bool)
@@ -382,6 +383,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
     enterFileRequired = QtCore.Signal(str)
     enterLayerRequired = QtCore.Signal(str)
     nodeParameterChanged = QtCore.Signal(object)
+    nodeDeleted = QtCore.Signal(object)
 
     def __init__(self, view=None, **kwargs):
         super(GraphicsScene, self).__init__(**kwargs)
@@ -695,7 +697,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         self.frameSelection()
 
         # logger.debug('resetScene time: {}'.format(time.time() - t))
-        logger.debug('scene node number: {}'.format(len(self.allNodes())))
+        logger.debug('scene nodeItem number: {}'.format(len(self.allNodes())))
 
     def createNode(self, nodeClass, name=None, primPath=None, **kwargs):
         # QCoreApplication.processEvents()
@@ -704,7 +706,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             if name is None:
                 name = nodeClass
             nodeName, suffix, index = self._getUniqueName(name)
-            nodeItem = Node.createItem(
+            nodeItem = NodeItem.createItem(
                 nodeClass,
                 stage=self.stage, layer=self.layer,
                 name=nodeName, primPath=primPath,
@@ -740,12 +742,15 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             pipe.breakConnection()
 
         for node in selectedNodes:
-            for port in node.ports:
-                for pipe in port.pipes:
-                    pipe.breakConnection()
+            self.deleteNode(node)
 
-            self.removeItem(node)
-            self._allNodes.pop(node)
+    def deleteNode(self, node):
+        for port in node.ports:
+            for pipe in port.pipes:
+                pipe.breakConnection()
+        self.removeItem(node)
+        self._allNodes.pop(node)
+        self.nodeDeleted.emit(node)
 
     def frameSelection(self):
         self.view.fitTo(self.selectedItems())

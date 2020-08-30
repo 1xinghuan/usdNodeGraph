@@ -10,10 +10,18 @@ def whenStateTimeChanged(**kwargs):
 
 
 def openNodeGraph(usdviewApi):
-    from usdNodeGraph.ui.nodeGraph import UsdNodeGraph
-    from usdNodeGraph.api import GraphState
+    from usdNodeGraph.api import GraphState, Node, UsdNodeGraph
+
+    def test_func():
+        print Node.getAllNodeClassNames()
 
     GraphState.addCallback('stageTimeChanged', whenStateTimeChanged)
+
+    UsdNodeGraph.registerActions([
+        ['Test Menu', [
+            ['test_action', 'Test Action', None, test_func]
+        ]],
+    ])
 
     UsdNodeGraph.registerActionShortCut('open_file', None)
     # UsdNodeGraph.registerActionShortCut('reload_layer', None)

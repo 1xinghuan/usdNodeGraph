@@ -1,5 +1,5 @@
 from usdNodeGraph.module.sqt import *
-from usdNodeGraph.state.core import GraphState
+from usdNodeGraph.core.state.core import GraphState
 
 
 class LineEdit(QtWidgets.QLineEdit):

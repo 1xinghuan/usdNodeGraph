@@ -23,20 +23,7 @@ Node:
 + Material
 + Shader
 
-Parameter:
-+ Edit number parameter using Middle Key
-
-    ![screenshot01](screenshot/usdnodegraph01.gif)
-
-+ Show keyframe in different color
-
-    ![screenshot01](screenshot/usdnodegraph03.gif)
-
-+ Connect shader
-
-    ![screenshot01](screenshot/usdnodegraph02.gif)
-
-
+See more in [Supports](Supports.md)
 
 ## Dependence
 
@@ -72,31 +59,49 @@ from maya import cmds
 
 
 def whenParameterChanged(**kwargs):
-    cmds.refresh()
+    if kwargs.get('nodeItem').Class() == 'AttributeSet':
+        cmds.refresh()
+
+
+def whenStateFrameChanged(**kwargs):
+    cmds.currentTime(kwargs.get('time'))
 
 
 proxyShape = '|world|s00|s00Shape'
 stage = mayaUsd.ufe.getStage(proxyShape)
 
-import usdNodeGraph.ui.nodeGraph as usdNodeGraph
-from usdNodeGraph.api import addNodeCallback
+import usdNodeGraph.api as usdNodeGraphApi
 
-usdNodeGraph.UsdNodeGraph.registerActionShortCut('open_file', None)
-usdNodeGraph.UsdNodeGraph.registerActionShortCut('reload_layer', 'Ctrl+R')
-addNodeCallback('AttributeSet', 'parameterValueChanged', whenParameterChanged)
+usdNodeGraphApi.UsdNodeGraph.registerActionShortCut('open_file', None)
+usdNodeGraphApi.UsdNodeGraph.registerActionShortCut('save_file', None)
+usdNodeGraphApi.GraphState.addCallback('parameterValueChanged', whenParameterChanged)
+usdNodeGraphApi.GraphState.addCallback('stageTimeChanged', whenStateFrameChanged)
 
-nodeGraph = usdNodeGraph.UsdNodeGraph()
+nodeGraph = usdNodeGraphApi.UsdNodeGraph()
 
 nodeGraph.show()
 nodeGraph.setStage(stage)
 ```
 
 
+## Api
+```python
+import usdNodeGraph.api as usdNodeGraphApi
+
+usdNodeGraphApi.Node.setParamDefault('PrimDefine', 'label', '/[value primName]')
+usdNodeGraphApi.Node.registerActions([])  # see plugin/usdViewNodeGraph.py example
+usdNodeGraphApi.Parameter.getParameterTypes()  # support parameter types
+usdNodeGraphApi.GraphState.setCurrentTime(time, stage)
+usdNodeGraphApi.GraphState.addCallback(callbackType, func)
+
+```
+
+
 ## TODO
 + Support add custom parameter to node;
-+ Support add keyframe on parameter;
-+ Update stage when parameter get changed;
-+ Connect to other DCC's time state
++ ~~Support add keyframe on parameter;~~
++ Update stage when parameter get changed(Currently, the stage will only get updated when parameter changed in AttributeSet node);
++ ~~Connect to other DCC's time state;~~ See #5
 
 
 ## Known Issues
