@@ -81,7 +81,7 @@ class ParamLabelWidget(QtWidgets.QWidget):
             ['Add Keyframe', self._addKeyframeClicked],
             ['Remove Keyframe', self._removeKeyframeClicked],
             ['Remove All Keys', self._removeAllKeysClicked],
-            ['View Custom Data', self._viewCustomDataClicked],
+            ['View MetaData', self._viewMetaDataClicked],
         ]
 
     def _createContextMenu(self):
@@ -117,9 +117,9 @@ class ParamLabelWidget(QtWidgets.QWidget):
         self._parameter.removeAllKeys(emitSignal=False)
         self._parameter.setValue(currentValue)
 
-    def _viewCustomDataClicked(self):
-        customData = self._parameter.getCustomDataAsString()
-        print(customData)
+    def _viewMetaDataClicked(self):
+        metaData = self._parameter.getMetaDataAsString()
+        print(metaData)
 
 
 class NodeParameterWidget(QtWidgets.QFrame):
@@ -313,6 +313,7 @@ class NodeParameterWidget(QtWidgets.QFrame):
     def setContextMenu(self):
         self._context_menus = [
             ['Add Parameter', self._addParameterClicked],
+            ['View MetaData', self._viewMetaDataClicked],
         ]
 
     def _createContextMenu(self):
@@ -335,6 +336,10 @@ class NodeParameterWidget(QtWidgets.QFrame):
 
     def _addParameterClicked(self):
         pass
+
+    def _viewMetaDataClicked(self):
+        metaData = self._nodeItem.nodeObject.getMetaDataAsString()
+        print(metaData)
 
     def deleteLater(self):
         self._nodeItem.panel = None

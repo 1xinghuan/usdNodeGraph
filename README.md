@@ -101,12 +101,20 @@ usdNodeGraphApi.GraphState.addCallback(callbackType, func)
 + Support add custom parameter to node;
 + ~~Support add keyframe on parameter;~~
 + Update stage when parameter get changed(Currently, the stage will only get updated when parameter changed in AttributeSet node);
++ Update stage when node connected or deleted;
 + ~~Connect to other DCC's time state;~~ See #5
 
 
 ## Known Issues
 
 + **If there are some data which are unsupported by UsdNodeGraph in the usd file, they will not be displayed in the view, and the data will be lost when saved.**
+
+    How to know if there's data lost: 
+
+    1. Open the usd file by usdnodegraph;
+    2. Export the file by 'Export' button;
+    3. Compare two files.
+
 + The 'Export' menu actually export the usd file to another file except the opened one for now.(Because of data lost)
 + It will be very slow to open a usd file which has many prims.(I have test with a file with about 10000 prims and it will cost 35 seconds to load and create about 20000 nodes) You can set the environment 'USD_NODEGRAPH_DEBUG' to 'debug' and see the loading time and number of nodes.
 + The viewport update mode is set to 'SmartViewportUpdate' by default for performance. You can set it to 'FullViewportUpdate' by setting the environment 'USD_NODEGRAPH_FULL_VIEWPORT_UPDATE' to '1'.

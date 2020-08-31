@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # __author__ = 'XingHuan'
 
-
+import json
 from pxr import Usd, Sdf, Kind, UsdGeom
 from .node import Node
 from usdNodeGraph.ui.graph.other.tag import PixmapTag
@@ -29,11 +29,25 @@ class UsdNode(Node):
         self._stage = stage
         self._layer = layer
         self._name = name
+        self._metadata = {}
+
         self._primPaths = []
         if primPath is not None:
             self._primPaths.append(primPath)
 
         super(UsdNode, self).__init__(*args, **kwargs)
+
+    def setMetaData(self, key, value):
+        self._metadata[key] = value
+
+    def getMetaDataValue(self, key):
+        return self._metadata.get(key)
+
+    def getMetaDataKeys(self):
+        return self._metadata.keys()
+
+    def getMetaDataAsString(self):
+        return json.dumps(self._metadata, indent=4)
 
     def _syncParameters(self):
         super(UsdNode, self)._syncParameters()
@@ -80,10 +94,21 @@ class _PrimNode(UsdNode):
         super(_PrimNode, self)._syncParameters()
         if self._primSpec is not None:
             self.parameter('primName').setValueQuietly(self._primSpec.name)
-            if self._primSpec.typeName:
-                self.parameter('typeName').setValueQuietly(self._primSpec.typeName)
-            if self._primSpec.kind:
-                self.parameter('kind').setValueQuietly(self._primSpec.kind)
+
+            for key in self._primSpec.ListInfoKeys():
+                if key in [
+                    'variantSetNames',
+                    'variantSelection',
+                    'references',
+                ]:
+                    continue
+                # param = self.addParameter(key, )  # metadata value type?
+                param = self.parameter(key)
+                value = self._primSpec.GetInfo(key)
+                if param is not None:
+                    param.setValueQuietly(value)
+                else:
+                    self.setMetaData(key, value)
 
     def _initParameters(self):
         super(_PrimNode, self)._initParameters()
@@ -98,6 +123,24 @@ class _PrimNode(UsdNode):
         primName = self.parameter('primName').getValue()
         primPath = '{}/{}'.format(primPath, primName)
         return primPath
+
+    def _execute(self, stage, prim):
+        primPath = self._getCurrentExecutePrimPath(prim)
+        newPrim = stage.OverridePrim(primPath)
+
+        parameters = self._parameters.values()
+        params = [
+            param for param in parameters if not param.isBuiltIn() and (param.isOverride() or param.hasMetaData())
+        ]
+        for param in params:
+            paramName = param.name()
+            if paramName not in ['primName']:
+                newPrim.SetMetadata(paramName, param.getValue())
+
+        for key in self.getMetaDataKeys():
+            newPrim.SetMetadata(key, self.getMetaDataValue(key))
+
+        return stage, newPrim
 
 
 class LayerNode(UsdNode):
@@ -145,17 +188,20 @@ class RootNode(UsdNode):
     def _syncParameters(self):
         super(RootNode, self)._syncParameters()
         if self._layer is not None:
-            if self._layer.defaultPrim != '':
-                self.parameter('defaultPrim').setValueQuietly(self._layer.defaultPrim)
-            if self._layer.HasStartTimeCode():
-                self.parameter('startTimeCode').setValueQuietly(self._layer.startTimeCode)
-            if self._layer.HasEndTimeCode():
-                self.parameter('endTimeCode').setValueQuietly(self._layer.endTimeCode)
-
-        # todo: how to get layer's upAxis, not stage?
-        if self._stage is not None:
-            upAxis = UsdGeom.GetStageUpAxis(self._stage)
-            self.parameter('upAxis').setValueQuietly(upAxis)
+            rootPrim = self._layer.GetPrimAtPath('/')
+            for key in rootPrim.ListInfoKeys():
+                if key in [
+                    'subLayers',
+                    'subLayerOffsets',
+                ]:
+                    continue
+                # param = self.addParameter(key, )  # metadata value type?
+                param = self.parameter(key)
+                value = rootPrim.GetInfo(key)
+                if param is not None:
+                    param.setValueQuietly(value)
+                else:
+                    self.setMetaData(key, value)
 
     def _initParameters(self):
         super(RootNode, self)._initParameters()
@@ -167,24 +213,21 @@ class RootNode(UsdNode):
         self.parameter('upAxis').addItems(['X', 'Y', 'Z'])
 
     def _execute(self, stage, prim):
-        newPrim = stage.GetPrimAtPath('/')
-        rootLayer = stage.GetRootLayer()
+        rootPrim = stage.GetPrimAtPath('/')
+        # rootLayer = stage.GetRootLayer()
 
-        startTimeCode = self.parameter('startTimeCode').getValue()
-        endTimeCode = self.parameter('endTimeCode').getValue()
-        defaultPrim = self.parameter('defaultPrim').getValue()
-        upAxis = self.parameter('upAxis').getValue()
+        parameters = self._parameters.values()
+        params = [
+            param for param in parameters if not param.isBuiltIn() and (param.isOverride() or param.hasMetaData())
+        ]
+        for param in params:
+            paramName = param.name()
+            rootPrim.SetMetadata(paramName, param.getValue())
 
-        if startTimeCode is not None and startTimeCode != '':
-            rootLayer.startTimeCode = startTimeCode
-        if endTimeCode is not None and endTimeCode != '':
-            rootLayer.endTimeCode = endTimeCode
-        if defaultPrim != '':
-            rootLayer.defaultPrim = defaultPrim
-        if upAxis != '':
-            UsdGeom.SetStageUpAxis(stage, getattr(UsdGeom.Tokens, upAxis.lower()))
+        for key in self.getMetaDataKeys():
+            rootPrim.SetMetadata(key, self.getMetaDataValue(key))
 
-        return stage, newPrim
+        return stage, rootPrim
 
 
 class PrimDefineNode(_PrimNode):
@@ -192,47 +235,11 @@ class PrimDefineNode(_PrimNode):
     fillNormalColor = (50, 60, 70)
     borderNormalColor = (200, 250, 200, 200)
 
-    def __init__(self, *args, **kwargs):
-        super(PrimDefineNode, self).__init__(*args, **kwargs)
-
-    def _execute(self, stage, prim):
-        primPath = self._getCurrentExecutePrimPath(prim)
-        typeName = self.parameter('typeName').getValue()
-        kindStr = self.parameter('kind').getValue()
-
-        newPrim = stage.OverridePrim(primPath)
-        newPrim.SetSpecifier(Sdf.SpecifierDef)
-        newPrim.SetTypeName(typeName)
-
-        if kindStr != '':
-            modelAPI = Usd.ModelAPI(newPrim)
-            modelAPI.SetKind(getattr(Kind.Tokens, kindStr))
-
-        return stage, newPrim
-
 
 class PrimOverrideNode(_PrimNode):
     nodeType = 'PrimOverride'
     fillNormalColor = (50, 60, 70)
     borderNormalColor = (200, 200, 250, 200)
-
-    def __init__(self, *args, **kwargs):
-        super(PrimOverrideNode, self).__init__(*args, **kwargs)
-
-    def _execute(self, stage, prim):
-        primPath = self._getCurrentExecutePrimPath(prim)
-        typeName = self.parameter('typeName').getValue()
-        kindStr = self.parameter('kind').getValue()
-
-        newPrim = stage.OverridePrim(primPath)
-        # newPrim.SetSpecifier(Sdf.SpecifierDef)
-        newPrim.SetTypeName(typeName)
-
-        if kindStr != '':
-            modelAPI = Usd.ModelAPI(newPrim)
-            modelAPI.SetKind(getattr(Kind.Tokens, kindStr))
-
-        return stage, newPrim
 
 
 class _RefNode(UsdNode):
@@ -375,11 +382,14 @@ class AttributeSetNode(UsdNode):
             custom=True, label=self._generateParamLabel(attributeName)
         )
         if param is not None:
-            if attribute.custom:
-                param.setCustomData('custom', True)
-            interpolation = attribute.GetInfo('interpolation')
-            if interpolation != 'constant':
-                param.setCustomData('interpolation', interpolation)
+            for key in attribute.ListInfoKeys():
+                if key not in [
+                    'typeName',
+                    'default',
+                    'timeSamples',
+                    'connectionPaths',
+                ]:
+                    param.setMetaData(key, attribute.GetInfo(key))
 
             if attribute.HasInfo('connectionPaths'):
                 connectionPathList = attribute.connectionPathList.GetAddedOrExplicitItems()
@@ -390,12 +400,7 @@ class AttributeSetNode(UsdNode):
             else:
                 # print attribute.default, type(attribute.default)
                 value = attribute.default
-                if value == Sdf.ValueBlock():
-                    param.setCustomData('valueBlock', True)
-                elif value is not None:
-                    param.setValueQuietly(value)
-                else:
-                    pass
+                param.setValueQuietly(value)
 
     def _initParameters(self):
         super(AttributeSetNode, self)._initParameters()
@@ -413,15 +418,11 @@ class AttributeSetNode(UsdNode):
         attrName = parameter.name()
         if not prim.HasAttribute(attrName):
             attribute = prim.CreateAttribute(attrName, parameter.valueTypeName)
-            attribute.SetCustom(parameter.getCustomData('custom', False))
         else:
             attribute = prim.GetAttribute(attrName)
 
-        interpolation = parameter.getCustomData('interpolation')
-        if interpolation is not None:
-            primvarsApi = UsdGeom.PrimvarsAPI(prim)
-            var = primvarsApi.GetPrimvar(attrName)
-            var.SetInterpolation(getattr(UsdGeom.Tokens, interpolation))
+        for key in parameter.getMetaDataKyes():
+            attribute.SetMetadata(key, parameter.getMetaDataValue(key))
 
         if parameter.hasConnect():
             attribute.SetConnections([parameter.getConnect()])
@@ -429,15 +430,13 @@ class AttributeSetNode(UsdNode):
             for time, value in parameter.getTimeSamples().items():
                 attribute.Set(value, time)
         else:
-            if parameter.getCustomData('valueBlock'):
-                attribute.Set(Sdf.ValueBlock())
-            elif parameter.getValue() is not None:
-                attribute.Set(parameter.getValue())
+            attribute.Set(parameter.getValue())
 
     def _execute(self, stage, prim):
         parameters = self._parameters.values()
         params = [
-            param for param in parameters if not param.isBuiltIn() and (param.isOverride() or param.hasCustomData())]
+            param for param in parameters if not param.isBuiltIn() and (param.isOverride() or param.hasMetaData())
+        ]
         for param in params:
             # print(param.name(), param.getValue(), param.hasKey())
             self._setPrimAttributeFromParameter(prim, param)
