@@ -251,8 +251,6 @@ class NodeParameterWidget(QtWidgets.QFrame):
         if parameter.isVisible():
             parameterLabel = ParamLabelWidget()
             parameterLabel.setParameter(parameter)
-            # if len(parameterLabel) > 15:
-            #     parameterLabel = '{}...{}'.format(parameterLabel[:6], parameterLabel[-6:])
             parameterWidget = ParameterWidget.createParameterWidget(parameter)
 
             self._paramWidgets.update({parameter.name(): parameterWidget})
@@ -412,20 +410,19 @@ class ParameterPanel(QtWidgets.QWidget):
         self._nodes.remove(nodeWidget.getNode())
         nodeWidget.deleteLater()
 
-    def removeNode(self, node):
+    def removeNode(self, nodeName):
         for w in self._widgets:
-            if w.getNode() == node:
+            if w.getNode().name() == nodeName:
                 self._removeWidget(w)
 
     def clearAll(self):
-        for nodeWidget in self._widgets:
-            self._nodes.remove(nodeWidget.getNode())
-            nodeWidget.deleteLater()
-        self._widgets = []
+        nodes = [n.name() for n in self._nodes]
+        for node in nodes:
+            self.removeNode(node)
 
     def addNode(self, node):
-        if node in self._nodes:
-            self.removeNode(node)
+        if node.name() in self._nodes:
+            self.removeNode(node.name())
 
         nodeParameterWidget = NodeParameterWidget()
         nodeParameterWidget.setNode(node)

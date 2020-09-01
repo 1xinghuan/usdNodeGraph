@@ -342,7 +342,7 @@ class BasicLineEdit(QtWidgets.QLineEdit, BasicWidget):
             else:
                 self.setStyleSheet('QLineEdit{background: rgb(60, 60, 70)}')
         else:
-            self.setStyleSheet('QLineEdit{background: transparent}')
+            self.setStyleSheet('QLineEdit{background: rgb(40, 40, 40)}')
             self.setReadOnly(False)
 
     def getRealValue(self):

@@ -59,8 +59,13 @@ from maya import cmds
 
 
 def whenParameterChanged(**kwargs):
-    if kwargs.get('nodeItem').Class() == 'AttributeSet':
+    # proxy shape not update when stage changed, so use refresh() to force updating the view
+    if kwargs.get('node').Class() in ['AttributeSet', 'Transform']:
         cmds.refresh()
+
+
+def whenChangesApplied(**kwargs):
+    cmds.refresh()
 
 
 def whenStateFrameChanged(**kwargs):
@@ -74,6 +79,7 @@ import usdNodeGraph.api as usdNodeGraphApi
 
 usdNodeGraphApi.UsdNodeGraph.registerActionShortCut('open_file', None)
 usdNodeGraphApi.UsdNodeGraph.registerActionShortCut('save_file', None)
+usdNodeGraphApi.GraphState.addCallback('layerChangesApplied', whenChangesApplied)
 usdNodeGraphApi.GraphState.addCallback('parameterValueChanged', whenParameterChanged)
 usdNodeGraphApi.GraphState.addCallback('stageTimeChanged', whenStateFrameChanged)
 
@@ -109,13 +115,13 @@ usdNodeGraphApi.GraphState.addCallback(callbackType, func)
 
 + **If there are some data which are unsupported by UsdNodeGraph in the usd file, they will not be displayed in the view, and the data will be lost when saved.**
 
+    Please create a new issue if you see any data lost.
+
     How to know if there's data lost: 
 
     1. Open the usd file by usdnodegraph;
     2. Export the file by 'Export' button;
     3. Compare two files.
 
-+ The 'Export' menu actually export the usd file to another file except the opened one for now.(Because of data lost)
 + It will be very slow to open a usd file which has many prims.(I have test with a file with about 10000 prims and it will cost 35 seconds to load and create about 20000 nodes) You can set the environment 'USD_NODEGRAPH_DEBUG' to 'debug' and see the loading time and number of nodes.
 + The viewport update mode is set to 'SmartViewportUpdate' by default for performance. You can set it to 'FullViewportUpdate' by setting the environment 'USD_NODEGRAPH_FULL_VIEWPORT_UPDATE' to '1'.
-+ **This is still a very simple version, please don't use it in production.**

@@ -66,6 +66,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         USD_NODE_GRAPH_WINDOW = self
 
         self.currentScene = None
+        self._usdFile = None
         self.scenes = []
         self._docks = []
         self._maxDock = None
@@ -84,6 +85,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         actions = [
             ['File', [
                 ['open_file', 'Open', 'Ctrl+O', self._openActionTriggered],
+                ['reopen_file', 'ReOpen', None, self._reopenActionTriggered],
                 ['reload_stage', 'Reload Stage', 'Alt+Shift+R', self._reloadStageActionTriggered],
                 ['reload_layer', 'Reload Layer', 'Alt+R', self._reloadLayerActionTriggered],
                 ['show_edit_text', 'Show Edit Text', None, self._showEditTextActionTriggered],
@@ -92,15 +94,18 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
                 ['export_file', 'Export', 'Ctrl+E', self._exportActionTriggered],
             ]],
             ['Edit', [
-                ['create_node', 'Create New', 'Tab', self._createNodeActionTriggered],
+                ['create_node', 'Create Node', 'Tab', self._createNodeActionTriggered],
                 ['select_all_node', 'Select All', 'Ctrl+A', self._selectAllActionTriggered],
                 ['copy_node', 'Copy', 'Ctrl+C', self._copyActionTriggered],
                 ['cut_node', 'Cut', 'Ctrl+X', self._cutActionTriggered],
                 ['paste_node', 'Paste', 'Ctrl+V', self._pasteActionTriggered],
-                ['frame_selection', 'Frame Selection', None, self._frameSelectionActionTriggered],
                 ['disable_selection', 'Disable Selection', 'D', self._disableSelectionActionTriggered],
                 ['delete_selection', 'Delete Selection', 'Del', self._deleteSelectionActionTriggered],
                 ['enter_node', 'Enter', 'Ctrl+Return', self._enterActionTriggered],
+            ]],
+            ['View', [
+                ['layout_nodes', 'Layout Nodes', None, self._layoutActionTriggered],
+                ['frame_selection', 'Frame Selection', None, self._frameSelectionActionTriggered],
             ]]
         ]
         actions.extend(self._addedActions)
@@ -268,14 +273,18 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         self._addScene(stage, layer)
 
     def _nodeDeleted(self, node):
-        self.parameterPanel.removeNode(node)
+        self.parameterPanel.removeNode(node.name())
 
     def _openActionTriggered(self):
-        usdFile = QFileDialog.getOpenFileName(None, 'Select File', filter='USD(*.usda *.usd *.usdc)')
+        usdFile = QtWidgets.QFileDialog.getOpenFileName(None, 'Select File', filter='USD(*.usda *.usd *.usdc)')
         if isinstance(usdFile, tuple):
             usdFile = usdFile[0]
         if os.path.exists(usdFile):
             self.setUsdFile(usdFile)
+
+    def _reopenActionTriggered(self):
+        if self._usdFile is not None:
+            self.setUsdFile(self._usdFile)
 
     def _reloadStageActionTriggered(self):
         currentStage = self.currentScene.stage
@@ -291,6 +300,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
 
     def _showEditTextActionTriggered(self):
         self.textEditDock.setVisible(True)
+        self.textEditDock.resize(500, 500)
         self.editTextEdit.setText(self.currentScene.exportToString())
 
     def _exportActionTriggered(self):
@@ -327,6 +337,9 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
     def _frameSelectionActionTriggered(self):
         self.currentScene.scene.frameSelection()
 
+    def _layoutActionTriggered(self):
+        self.currentScene.scene.layoutNodes()
+
     def _disableSelectionActionTriggered(self):
         self.currentScene.scene.disableSelection()
 
@@ -338,6 +351,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
             self._tabCloseRequest(i)
 
     def setUsdFile(self, usdFile):
+        self._usdFile = usdFile
         self._clearScenes()
         self._addUsdFile(usdFile)
 

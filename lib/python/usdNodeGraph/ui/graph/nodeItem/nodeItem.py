@@ -331,7 +331,10 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
 
     def hoverEnterEvent(self, event):
         super(_BaseNodeItem, self).hoverEnterEvent(event)
-        self.setToolTip(self.parameter('name').getValue())
+        self.setToolTip(self.getToolTip())
+
+    def getToolTip(self):
+        return self.parameter('name').getValue()
 
     def _getInputsDict(self):
         inputs = {}
@@ -476,6 +479,36 @@ class NodeItem(_BaseNodeItem):
     def afterAddToScene(self):
         pass
 
+    def _findPipeToConnect(self):
+        findPos = self.pos() + QtCore.QPointF(self.w / 2.0, -10)
+        findItem = self.scene().itemAt(findPos, QtGui.QTransform())
+
+        if isinstance(findItem, Pipe):
+            self.findPipe = findItem
+            self.findPipe.setLineColor(highlight=True)
+            self.findPipe.update()
+
+            self.findPos = findPos
+        else:
+            if self.findPipe is not None:
+                line = QtCore.QLineF(findPos, self.findPos)
+                if line.length() > 20:
+                    self.findPipe.setLineColor(highlight=False)
+                    self.findPipe.update()
+                    self.findPipe = None
+
+    def _connectToFoundPipe(self):
+        if self.findPipe is not None:
+            source = self.findPipe.source
+            target = self.findPipe.target
+
+            self.findPipe.breakConnection()
+
+            self.inputPort.connectTo(source)
+            self.outputPort.connectTo(target)
+
+            self.findPipe = None
+
     def mousePressEvent(self, event):
         if event.button() == QtCore.Qt.LeftButton:
             self.findingPipe = True
@@ -488,34 +521,11 @@ class NodeItem(_BaseNodeItem):
         for port in self.ports:
             connectedPipes.extend(port.pipes)
 
-        findPos = self.pos() + QtCore.QPointF(self.w / 2.0, -10)
-        findItem = self.scene().itemAt(findPos, QtGui.QTransform())
-
-        if isinstance(findItem, Pipe) and findItem not in connectedPipes:
-            self.findPipe = findItem
-            self.findPipe.setLineColor(highlight=True)
-            self.findPipe.update()
-
-            self.findPos = findPos
-        else:
-            if self.findPipe is not None:
-                line = QtCore.QLineF(findPos, self.findPos)
-                if line.length() > 10:
-                    self.findPipe.setLineColor(highlight=False)
-                    self.findPipe.update()
-                    self.findingPipe = None
+        if len(connectedPipes) == 0:
+            # if already has connect, don't find other pipe
+            self._findPipeToConnect()
 
     def mouseReleaseEvent(self, event):
         super(NodeItem, self).mouseReleaseEvent(event)
-
-        if self.findPipe is not None:
-            source = self.findPipe.source
-            target = self.findPipe.target
-
-            self.findPipe.breakConnection()
-
-            self.inputPort.connectTo(source)
-            self.outputPort.connectTo(target)
-
-            self.findPipe = None
+        self._connectToFoundPipe()
 

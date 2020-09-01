@@ -59,6 +59,10 @@ class GraphState(QtCore.QObject):
         if callbackType not in cls._callbacks:
             cls._callbacks[callbackType] = []
         cls._callbacks[callbackType].append(func)
+
+    @classmethod
+    def clearAllCallbacks(cls):
+        cls._callbacks = {}
     
     @classmethod
     def getAllCallbacks(cls):

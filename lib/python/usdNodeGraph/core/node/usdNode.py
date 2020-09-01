@@ -58,9 +58,18 @@ class UsdNode(Node):
 
     def execute(self, stage, prim):
         if not self.parameter('disable').getValue():
-            return self._execute(stage, prim)
+            self._beforeExecute(stage, prim)
+            result = self._execute(stage, prim)
+            self._afterExecute(*result)
+            return result
         else:
             return stage, prim
+
+    def _beforeExecute(self, stage, prim):
+        self.clearPrimPath()
+
+    def _afterExecute(self, stage, prim):
+        self.addPrimPath(prim.GetPath().pathString)
     
     def _execute(self, stage, prim):
         return stage, prim
@@ -81,6 +90,9 @@ class UsdNode(Node):
 
     def clearPrimPath(self):
         self._primPaths = []
+
+    def getPrimPath(self):
+        return self._primPaths
 
 
 class _PrimNode(UsdNode):
@@ -412,6 +424,8 @@ class AttributeSetNode(UsdNode):
             attrName = parameter.name()
             for primPath in self._primPaths:
                 prim = self._stage.GetPrimAtPath(primPath)
+                if not prim.IsValid():
+                    continue
                 self._setPrimAttributeFromParameter(prim, parameter)
 
     def _setPrimAttributeFromParameter(self, prim, parameter):
@@ -539,14 +553,15 @@ class _VariantNode(UsdNode):
 class VariantSetNode(_VariantNode):
     nodeType = 'VariantSet'
 
-    def __init__(self, variantSet=None, *args, **kwargs):
+    def __init__(self, variantSet=None, variantSetName=None, variantList=None, *args, **kwargs):
         super(VariantSetNode, self).__init__(*args, **kwargs)
 
         self.item.addTag(PixmapTag('VariantSet.png'), position=0.25)
 
-        if variantSet is not None:
-            self.parameter('variantSetName').setValueQuietly(variantSet.name)
-            self.parameter('variantList').setValueQuietly([v.name for v in variantSet.variantList])
+        if variantSetName is not None:
+            self.parameter('variantSetName').setValueQuietly(variantSetName)
+        if variantList is not None:
+            self.parameter('variantList').setValueQuietly(variantList)
 
     def _initParameters(self):
         super(VariantSetNode, self)._initParameters()
@@ -567,41 +582,30 @@ class VariantSetNode(_VariantNode):
 class VariantSelectNode(_VariantNode):
     nodeType = 'VariantSelect'
 
-    def __init__(self, variantSetName='', variantSelected='', primSpec=None, *args, **kwargs):
+    def __init__(self, variantSetName='', variantSelected='', options=None, *args, **kwargs):
         super(VariantSelectNode, self).__init__(*args, **kwargs)
-
-        self._primSpec = primSpec
 
         self.item.addTag(PixmapTag('VariantSelect.png'), position=0.25)
 
         self.parameter('variantSetName').setValueQuietly(variantSetName)
         self.parameter('variantSelected').setValueQuietly(variantSelected)
-
-        if self._primSpec is not None:
-            stagePrim = self._getUsdPrim()
-            variantSet = stagePrim.GetVariantSet(variantSetName)
-            # variantNameList = [v.name for v in self._primSpec.variantSets.get(variantSetName).variantList]
-            variantNameList = variantSet.GetVariantNames()
-            self.parameter('variantSelected').addItems(variantNameList)
+        if options is not None:
+            self.parameter('variantSelected').addItems(options)
 
     def _initParameters(self):
         super(VariantSelectNode, self)._initParameters()
         self.addParameter('variantSetName', 'string', defaultValue='')
         self.addParameter('variantSelected', 'choose', defaultValue='')
 
-    def _getUsdPrim(self):
-        primPath = self._primSpec.path
-        stagePrim = self._stage.GetPrimAtPath(primPath)
-        return stagePrim
-
-    def _paramterValueChanged(self, parameter):
-        super(VariantSelectNode, self)._paramterValueChanged(parameter)
+    def _whenParamterValueChanged(self, parameter):
+        super(VariantSelectNode, self)._whenParamterValueChanged(parameter)
         if parameter.name() == 'variantSelected':
-            if self._primSpec is not None:
-                variantSetName = self.parameter('variantSetName').getValue()
-
-                stagePrim = self._getUsdPrim()
-                variantSet = stagePrim.GetVariantSet(variantSetName)
+            variantSetName = self.parameter('variantSetName').getValue()
+            for primPath in self._primPaths:
+                prim = self._stage.GetPrimAtPath(primPath)
+                if not prim.IsValid():
+                    continue
+                variantSet = prim.GetVariantSet(variantSetName)
                 variantSet.SetVariantSelection(parameter.getValue())
 
     def _execute(self, stage, prim):
@@ -631,11 +635,11 @@ class VariantSwitchNode(_VariantNode):
         self.addParameter('variantSelected', 'string', defaultValue='')
 
     def _execute(self, stage, prim):
-        variantSetName = self.parameter('variantSetName').getValue()
-        variantSelected = self.parameter('variantSelected').getValue()
-
-        variantSet = prim.GetVariantSet(variantSetName)
-        variantSet.SetVariantSelection(variantSelected)
+        # variantSetName = self.parameter('variantSetName').getValue()
+        # variantSelected = self.parameter('variantSelected').getValue()
+        #
+        # variantSet = prim.GetVariantSet(variantSetName)
+        # variantSet.SetVariantSelection(variantSelected)
 
         return stage, prim
 
@@ -643,6 +647,9 @@ class VariantSwitchNode(_VariantNode):
         variantSetName = self.parameter('variantSetName').getValue()
         variantSet = prim.GetVariantSet(variantSetName)
         return variantSet
+
+    def getVariantSelection(self):
+        return self.parameter('variantSelected').getValue()
 
 
 class MaterialAssignNode(UsdNode):

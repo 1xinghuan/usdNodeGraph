@@ -13,7 +13,8 @@ def openNodeGraph(usdviewApi):
     from usdNodeGraph.api import GraphState, Node, UsdNodeGraph
 
     def test_func():
-        print Node.getAllNodeClassNames()
+        print('Support Node Types:')
+        print(Node.getAllNodeClassNames())
 
     GraphState.addCallback('stageTimeChanged', whenStateTimeChanged)
 

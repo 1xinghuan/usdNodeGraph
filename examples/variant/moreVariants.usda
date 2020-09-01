@@ -1,0 +1,90 @@
+#usda 1.0
+(
+    defaultPrim = "world"
+)
+
+def Xform "world" (
+    kind = "group"
+)
+{
+    def Sphere "Sphere" (
+        variants = {
+            string color = "red"
+            string size = "small"
+        }
+        prepend variantSets = ["color", "size"]
+    )
+    {
+        variantSet "color" = {
+            "red"
+            {
+                color3f[] primvars:displayColor = [(0.53320851, 0.13320851, 0.13320851)]
+
+                def "xform"
+                {
+                    float3 xformOp:translate = (2, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    def Sphere "OtherSphere"(
+                        variants = {
+                            string color = "red"
+                            string size = "small"
+                        }
+                        prepend variantSets = ["color", "size"]
+                    )
+                    {
+                        variantSet "color" = {
+                            "red"
+                            {
+                                color3f[] primvars:displayColor = [(0.53320851, 0.13320851, 0.13320851)]
+
+                                def "xform"
+                                {
+                                }
+                                def "xform2"
+                                {
+                                }
+                            }
+                            "blue"
+                            {
+                                color3f[] primvars:displayColor = [(0.13320851, 0.13320851, 0.53320851)]
+                            }
+                        }
+                        variantSet "size" = {
+                            "small"
+                            {
+                                double radius = 1
+                            }
+                            "big"
+                            {
+                                double radius = 2
+                            }
+                        }
+                        def "xform3"
+                        {
+
+                        }
+                    }
+                }
+                def "xform2"
+                {
+                }
+            }
+            "blue"
+            {
+                color3f[] primvars:displayColor = [(0.13320851, 0.13320851, 0.53320851)]
+            }
+        }
+        variantSet "size" = {
+            "small"
+            {
+                double radius = 1
+            }
+            "big"
+            {
+                double radius = 2
+            }
+        }
+    }
+}
+
