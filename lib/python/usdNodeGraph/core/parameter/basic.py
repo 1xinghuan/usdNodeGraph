@@ -196,7 +196,7 @@ class Parameter(QtCore.QObject):
     def isVisible(self):
         return self._visible
     
-    def _getValue(self, _value, _timeSamples):
+    def _getValue(self, _value, _timeSamples, time):
         if _timeSamples is None:
             return _value
         else:
@@ -207,10 +207,10 @@ class Parameter(QtCore.QObject):
                 return value
     
     def getInheritValue(self, time=None):
-        return self._getValue(self._inheritValue, self._inheritTimeSamples)
+        return self._getValue(self._inheritValue, self._inheritTimeSamples, time)
 
     def getOverrideValue(self, time=None):
-        return self._getValue(self._overrideValue, self._overrideTimeSamples)
+        return self._getValue(self._overrideValue, self._overrideTimeSamples, time)
 
     def getValue(self, time=None):
         if self._node.hasProperty(self._name):
