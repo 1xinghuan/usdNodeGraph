@@ -444,6 +444,15 @@ class _AttributeNode(UsdNode):
             if value is not None:
                 attribute.Set(value)
 
+    def _attrParamChanged(self, parameter):
+        if not parameter.isBuiltIn():
+            attrName = parameter.name()
+            for primPath in self._primPaths:
+                prim = self._stage.GetPrimAtPath(primPath)
+                if not prim.IsValid():
+                    continue
+                self._setPrimAttributeFromParameter(prim, parameter)
+
     def _execute(self, stage, prim):
         params = self.getExecuteParams()
         for param in params:
@@ -492,13 +501,7 @@ class AttributeSetNode(_AttributeNode):
 
     def _whenParamterValueChanged(self, parameter):
         super(AttributeSetNode, self)._whenParamterValueChanged(parameter)
-        if not parameter.isBuiltIn():
-            attrName = parameter.name()
-            for primPath in self._primPaths:
-                prim = self._stage.GetPrimAtPath(primPath)
-                if not prim.IsValid():
-                    continue
-                self._setPrimAttributeFromParameter(prim, parameter)
+        self._attrParamChanged(parameter)
 
 
 class TransformNode(AttributeSetNode):

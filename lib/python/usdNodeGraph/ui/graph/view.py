@@ -192,7 +192,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         # self.clickedPos = event.pos()
 
         if self.panning:
-            if event.button() == QtCore.Qt.LeftButton:
+            if event.button() == QtCore.Qt.RightButton:
                 self.keyZooming = True
                 self.panning = False
                 self.setCursor(QtCore.Qt.ArrowCursor)
