@@ -7,15 +7,24 @@ class SdrRegistry(object):
     @classmethod
     def getRegistry(cls):
         if cls._reg is None:
-            cls._reg = Sdr.Registry()
+            try:
+                cls._reg = Sdr.Registry()
+            except:
+                pass
         return cls._reg
 
     @classmethod
     def getShaderNodeByName(cls, shaderName):
-        return cls.getRegistry().GetShaderNodeByName(shaderName)
+        if cls.getRegistry() is not None:
+            return cls.getRegistry().GetShaderNodeByName(shaderName)
+        else:
+            return None
 
     @classmethod
     def getNodeNames(cls):
-        return cls.getRegistry().GetNodeNames()
+        if cls.getRegistry() is not None:
+            return cls.getRegistry().GetNodeNames()
+        else:
+            return []
 
 

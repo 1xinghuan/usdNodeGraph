@@ -1,0 +1,10 @@
+#usda 1.0
+(
+    startTimeCode = 1
+    endTimeCode = 10
+    subLayers = [
+        @layout.usda@,
+        @set.usda@
+    ]
+)
+

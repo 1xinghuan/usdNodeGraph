@@ -26,11 +26,9 @@ QToolTip{
     border: palette(window) solid 1px
 }
 
-/*QLabel,*/
-/*QLineEdit,*/
-/*QTextEdit{*/
-/*    background: transparent;*/
-/*}*/
+QLabel{
+    background: transparent;
+}
 
 QLineEdit,
 QTextEdit{

@@ -14,11 +14,15 @@ def Xform "house" (
         {
             def Mesh "pCube1"
             {
+                custom int customAttr1 = None
+                custom int customAttr2
                 uniform bool doubleSided = 1
                 float3[] extent = [(-6.5129986, 0.09003973, -3.9615326), (6.5129986, 11.195148, 3.9615326)]
                 int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
                 int[] faceVertexIndices = [0, 1, 3, 2, 2, 3, 5, 4, 4, 5, 7, 6, 6, 7, 1, 0, 1, 7, 5, 3, 6, 0, 2, 4]
                 rel material:binding = </house/Looks/initialShadingGroup>
+                rel material:binding:full = </house/Looks/initialShadingGroup>
+                rel material:binding:preview = </house/Looks/initialShadingGroup>
                 point3f[] points = [(-6.5129986, 0.09003973, 3.9615326), (6.5129986, 0.09003973, 3.9615326), (-6.5129986, 11.195148, 3.9615326), (6.5129986, 11.195148, 3.9615326), (-6.5129986, 11.195148, -3.9615326), (6.5129986, 11.195148, -3.9615326), (-6.5129986, 0.09003973, -3.9615326), (6.5129986, 0.09003973, -3.9615326)]
                 color3f[] primvars:displayColor = [(0.13320851, 0.13320851, 0.13320851)] (
                     customData = {

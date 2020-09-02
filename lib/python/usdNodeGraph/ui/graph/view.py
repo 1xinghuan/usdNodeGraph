@@ -10,7 +10,9 @@ from pxr import Usd, Sdf, Ar
 from usdNodeGraph.module.sqt import *
 from usdNodeGraph.utils.const import VIEWPORT_FULL_UPDATE
 from usdNodeGraph.core.node import (
-    Node, TransformNode, AttributeSetNode)
+    Node, TransformNode, AttributeSetNode,
+    RelationshipSetNode, MaterialAssignNode
+)
 from .nodeItem import NodeItem
 from .other.pipe import Pipe
 from .other.port import Port
@@ -214,11 +216,11 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if self.keyZooming:
             mouseMove = event.pos() - self.prevPos
             mouseMoveY = mouseMove.y()
-            if mouseMoveY < 0: #  zoom in
-                zoom = -mouseMoveY * 0.01 + 1
+            if mouseMoveY > 0: #  zoom in
+                zoom = mouseMoveY * 0.01 + 1
                 self._zoom(zoom)
-            elif mouseMoveY > 0:
-                zoom = 1.0 / (mouseMoveY * 0.01 + 1)
+            elif mouseMoveY < 0:
+                zoom = 1.0 / (-mouseMoveY * 0.01 + 1)
                 self._zoom(zoom)
 
             self.prevPos = event.pos()
@@ -483,7 +485,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
                     'VariantSet',
                     primPath=primPath,
                     variantSetName=variantSetSpec.name,
-                    variantList=[v.name for v in variantSetSpec.variantList]
+                    options=[v.name for v in variantSetSpec.variantList]
                 )
                 self._addChildNode(variantSetNode, upNode)
 
@@ -492,7 +494,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
                     'VariantSelect', primPath=primPath,
                     variantSetName=variantSetName,
                     variantSelected=variantSelected,
-                    options=variantSetSpec.variantList
+                    options=[v.name for v in variantSetSpec.variantList]
                 )
                 self._addChildNode(variantSelectNode, variantSetNode)
                 selectedVariantDict.update({variantSetName: variantSelected})
@@ -551,22 +553,21 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         return upNode
 
     def _getPrimRelationships(self, primSpec, upNode):
-        if len(primSpec.relationships.keys()) == 0:
+        attrs = primSpec.relationships.keys()
+        if len(attrs) == 0:
             return upNode
 
-        if 'material:binding' in primSpec.relationships.keys():
-            relationship = primSpec.relationships.get('material:binding')
-            material = relationship.targetPathList.GetAddedOrExplicitItems()[0].pathString
-            materialAssignNode = self.createNode('MaterialAssign', primPath=primSpec.path.pathString, material=material)
+        addMaterialAssign = MaterialAssignNode._checkIsNodeNeeded(attrs)
+        if addMaterialAssign:
+            materialAssignNode = self.createNode('MaterialAssign', primPath=primSpec.path.pathString, primSpec=primSpec)
             self._addChildNode(materialAssignNode, upNode)
             upNode = materialAssignNode
 
-            if len(primSpec.relationships.keys()) == 1:  # only material:binding
-                return upNode
-
-        relationshipSetNode = self.createNode('RelationshipSet', primPath=primSpec.path.pathString, primSpec=primSpec)
-        self._addChildNode(relationshipSetNode, upNode)
-        upNode = relationshipSetNode
+        addRelationshipSet = RelationshipSetNode._checkIsNodeNeeded(attrs)
+        if addRelationshipSet:
+            relationshipSetNode = self.createNode('RelationshipSet', primPath=primSpec.path.pathString, primSpec=primSpec)
+            self._addChildNode(relationshipSetNode, upNode)
+            upNode = relationshipSetNode
 
         return upNode
 
@@ -922,7 +923,6 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
     def _exportToFile(self, exportFile):
         stage = self._executeAllToStage()
         print exportFile
-        print stage.GetRootLayer().ExportToString()
         stage.GetRootLayer().Export(exportFile)
 
     def exportToFile(self):

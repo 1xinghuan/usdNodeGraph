@@ -4,7 +4,7 @@
 
 import copy
 import json
-from pxr import Gf
+from pxr import Gf, Sdf
 from usdNodeGraph.module.sqt import QtCore
 
 
@@ -44,10 +44,22 @@ class Parameter(QtCore.QObject):
 
     @classmethod
     def convertValueFromPy(cls, pyValue):
+        if pyValue == 'Sdf.ValueBlock':
+            return Sdf.ValueBlock()
+        return cls._convertValueFromPy(pyValue)
+
+    @classmethod
+    def _convertValueFromPy(cls, pyValue):
         return pyValue
 
     @classmethod
     def convertValueToPy(cls, usdValue):
+        if usdValue == Sdf.ValueBlock():
+            return 'Sdf.ValueBlock'
+        return cls._convertValueToPy(usdValue)
+
+    @classmethod
+    def _convertValueToPy(cls, usdValue):
         return usdValue
 
     @classmethod
@@ -198,12 +210,11 @@ class Parameter(QtCore.QObject):
         return self._getValue(self._inheritValue, self._inheritTimeSamples)
 
     def getOverrideValue(self, time=None):
-        if self._node.hasProperty(self._name):
-            return self._node.getProperty(self._name)
-
         return self._getValue(self._overrideValue, self._overrideTimeSamples)
 
     def getValue(self, time=None):
+        if self._node.hasProperty(self._name):
+            return self._node.getProperty(self._name)
         if self.isOverride():
             return self.getOverrideValue(time)
         else:

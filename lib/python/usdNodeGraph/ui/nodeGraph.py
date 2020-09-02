@@ -205,6 +205,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
 
     def _addUsdFile(self, usdFile):
         stage = Usd.Stage.Open(usdFile)
+        stage.Reload()
         self._addStage(stage)
 
     def _addStage(self, stage, layer=None):

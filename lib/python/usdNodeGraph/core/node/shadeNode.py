@@ -5,7 +5,8 @@
 from pxr import Sdf
 from usdNodeGraph.module.sqt import *
 from .node import Node
-from .usdNode import UsdNode
+from .usdNode import UsdNode, _AttributeNode, _PrimAttributeNode
+from ..parameter.params import TokenParameter
 from usdNodeGraph.utils.const import INPUT_ATTRIBUTE_PREFIX, OUTPUT_ATTRIBUTE_PREFIX
 from usdNodeGraph.utils.log import get_logger
 from usdNodeGraph.core.node.sdr import SdrRegistry
@@ -17,48 +18,11 @@ logger = get_logger('usdNodeGraph.shadeNode')
 PORT_SPACING = 20
 
 
-class _UsdShadeNode(UsdNode):
+class _UsdShadeNode(_PrimAttributeNode):
     nodeType = '_UsdShade'
     fillNormalColor = (30, 40, 70)
     borderNormalColor = (170, 250, 170, 200)
     reverse = False
-
-    def __init__(self, primSpec=None, **kwargs):
-        self._primSpec = primSpec
-        super(_UsdShadeNode, self).__init__(**kwargs)
-
-        self.parameter('primName').setValueQuietly(self.name())
-
-        if self._primSpec is not None:
-            attrKeys = self._primSpec.attributes.keys()
-            attrKeys.sort()
-            for index, name in enumerate(attrKeys):
-                attribute = self._primSpec.attributes[name]
-                self._addAttributeParameter(attribute)
-            self.parameter('primName').setValueQuietly(self._primSpec.name)
-
-    def _initParameters(self):
-        super(_UsdShadeNode, self)._initParameters()
-        param = self.addParameter('primName', 'string', defaultValue='')
-        # param.setOrder(-1)
-
-    def _addAttributeParameter(self, attribute):
-        attributeName = attribute.name
-        attributeType = str(attribute.typeName)
-        # attributeType = attribute.valueType.pythonClass
-        # print attributeName,
-        # print attribute.valueType
-
-        param = self.addParameter(attributeName, attributeType, custom=True, connectable=True)
-        if param is not None:
-            if attribute.HasInfo('connectionPaths'):
-                connectionPathList = attribute.connectionPathList.GetAddedOrExplicitItems()
-                connect = connectionPathList[0]
-                param.setConnectQuietly(connect.pathString)
-            if attribute.HasInfo('timeSamples'):
-                param.setTimeSamples(attribute.GetInfo('timeSamples'))
-            else:
-                param.setValueQuietly(attribute.default)
 
     def addParameter(self, *args, **kwargs):
         parameterName = args[0]
@@ -74,7 +38,9 @@ class _UsdShadeNode(UsdNode):
             label = parameterName.replace(OUTPUT_ATTRIBUTE_PREFIX, '')
             order = len(self.item.outputConnectionPorts) + 1 + 1000
 
-        parameter = super(_UsdShadeNode, self).addParameter(label=label, order=order, *args, **kwargs)
+        kwargs['label'] = label
+        kwargs['order'] = order
+        parameter = super(_UsdShadeNode, self).addParameter(*args, **kwargs)
 
         if parameter is not None and connectable:
             if parameterName.startswith(INPUT_ATTRIBUTE_PREFIX):
@@ -84,8 +50,8 @@ class _UsdShadeNode(UsdNode):
 
         return parameter
 
-    def _paramterValueChanged(self, parameter):
-        super(_UsdShadeNode, self)._paramterValueChanged(parameter)
+    def _whenParamterValueChanged(self, parameter):
+        super(_UsdShadeNode, self)._whenParamterValueChanged(parameter)
 
         self.connectShader(parameter)
 
@@ -105,58 +71,28 @@ class _UsdShadeNode(UsdNode):
                 if outputPort is not None:
                     inputPort.connectTo(outputPort, emitSignal=emitSignal)
 
-    def _execute(self, stage, prim):
-        primPath = self.item.getCurrentNodeItemPrimPath(prim)
-
-        prim = stage.OverridePrim(primPath)
-        prim.SetSpecifier(Sdf.SpecifierDef)
-        prim.SetTypeName(self.nodeType)
-
-        params = [param for param in self._parameters.values() if (not param.isBuiltIn() and param.name() not in ['primName'])]
-        for param in params:
-            # print(param.name(), param.getValue(), param.hasKey())
-            if not param.hasConnect() and not param.hasKey():
-                if param.getValue() == param.getDefaultValue():
-                    continue
-            attrName = param.name()
-            if not prim.HasAttribute(attrName):
-                attribute = prim.CreateAttribute(attrName, param.valueTypeName)
-                attribute.SetCustom(False)
-            else:
-                attribute = prim.GetAttribute(attrName)
-
-            if param.hasConnect():
-                attribute.SetConnections([param.getConnect()])
-            elif param.hasKey():
-                for time, value in param.getTimeSamples().items():
-                    attribute.Set(value, time)
-            else:
-                if param.getValue() is not None:
-                    attribute.Set(param.getValue())
-        return stage, prim
-
 
 class MaterialNode(_UsdShadeNode):
     nodeType = 'Material'
     nodeItemType = 'MaterialNodeItem'
+    typeName = 'Material'
 
 
 class ShaderNode(_UsdShadeNode):
     nodeType = 'Shader'
     nodeItemType = 'ShaderNodeItem'
     borderNormalColor = (250, 250, 150, 200)
+    typeName = 'Shader'
 
-    def __init__(self, primSpec=None, **kwargs):
-        super(ShaderNode, self).__init__(primSpec=primSpec, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super(ShaderNode, self).__init__(*args, **kwargs)
+
+    def _syncParameters(self):
+        super(ShaderNode, self)._syncParameters()
 
         self._oldShaderParameters = {}
 
-        if primSpec is not None:
-            for name, attribute in primSpec.attributes.items():
-                if name == 'info:id':
-                    self.parameter('info:id').setValueQuietly(attribute.default)
-            self.parameter('primName').setValueQuietly(primSpec.name)
-
+        if self._primSpec is not None:
             for name, param in self._parameters.items():
                 if name.startswith(INPUT_ATTRIBUTE_PREFIX) or name.startswith(OUTPUT_ATTRIBUTE_PREFIX):
                     self._oldShaderParameters[name] = param
@@ -164,11 +100,11 @@ class ShaderNode(_UsdShadeNode):
     def _initParameters(self):
         super(ShaderNode, self)._initParameters()
         param = self.addParameter('info:id', 'choose', defaultValue='')
-        # param.setOrder(0)
+        param.valueTypeName = TokenParameter.valueTypeName
         param.addItems(SdrRegistry.getNodeNames())
 
-    def _paramterValueChanged(self, parameter):
-        super(ShaderNode, self)._paramterValueChanged(parameter)
+    def _whenParamterValueChanged(self, parameter):
+        super(ShaderNode, self)._whenParamterValueChanged(parameter)
 
         if parameter.name() == 'info:id':
             if self.item.scene() is not None:
@@ -205,9 +141,13 @@ class ShaderNode(_UsdShadeNode):
         if param is not None:
             oldParam = self._oldShaderParameters.get(paramName)
             if oldParam is not None:
+                param._metadata = oldParam._metadata
                 if oldParam.hasConnect():
                     param.setConnectQuietly(oldParam.getConnect())
-                elif param.parameterTypeString == oldParam.parameterTypeString:
+                elif (
+                        (param.parameterTypeString == oldParam.parameterTypeString)
+                        or (param.getValueDefault() == oldParam.getValueDefault())
+                ):
                     if oldParam.hasKey():
                         param.setTimeSamples(oldParam.getTimeSamples())
                     else:

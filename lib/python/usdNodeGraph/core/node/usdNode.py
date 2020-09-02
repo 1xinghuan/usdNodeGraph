@@ -2,7 +2,7 @@
 # __author__ = 'XingHuan'
 
 import json
-from pxr import Usd, Sdf, Kind, UsdGeom
+from pxr import Usd, Sdf, Kind, UsdGeom, Vt
 from .node import Node
 from usdNodeGraph.ui.graph.other.tag import PixmapTag
 from usdNodeGraph.core.parameter import (
@@ -19,15 +19,17 @@ ATTR_CHECK_OP = consts(
 class UsdNode(Node):
     nodeType = 'Usd'
     nodeItemType = 'UsdNodeItem'
+    _ignoreExecuteParamNames = []
 
     def __init__(
             self,
             stage=None, layer=None,
-            name='', primPath=None,
+            name='', primPath=None, primSpec=None,
             *args, **kwargs
     ):
         self._stage = stage
         self._layer = layer
+        self._primSpec = primSpec
         self._name = name
         self._metadata = {}
 
@@ -59,9 +61,9 @@ class UsdNode(Node):
     def execute(self, stage, prim):
         if not self.parameter('disable').getValue():
             self._beforeExecute(stage, prim)
-            result = self._execute(stage, prim)
-            self._afterExecute(*result)
-            return result
+            stage, prim = self._execute(stage, prim)
+            self._afterExecute(stage, prim)
+            return stage, prim
         else:
             return stage, prim
 
@@ -69,15 +71,18 @@ class UsdNode(Node):
         self.clearPrimPath()
 
     def _afterExecute(self, stage, prim):
-        self.addPrimPath(prim.GetPath().pathString)
+        if prim is not None:
+            self.addPrimPath(prim.GetPath().pathString)
     
     def _execute(self, stage, prim):
         return stage, prim
 
     def applyChanges(self):
-        if self._stage is not None:
-            for primPath in self._primPaths:
-                prim = self._stage.GetPrimAtPath(primPath)
+        if self._stage is None:
+            return
+        for primPath in self._primPaths:
+            prim = self._stage.GetPrimAtPath(primPath)
+            if prim.IsValid():
                 self.execute(self._stage, prim)
 
     def addPrimPath(self, primPath):
@@ -94,13 +99,25 @@ class UsdNode(Node):
     def getPrimPath(self):
         return self._primPaths
 
+    def getExecuteParams(self):
+        parameters = self._parameters.values()
+        params = [
+            param for param in parameters if (
+                    not param.isBuiltIn()
+                    and (param.isOverride() or param.hasMetaData())
+                    and param.name() not in self._ignoreExecuteParamNames
+            )
+        ]
+        return params
+
 
 class _PrimNode(UsdNode):
     nodeType = 'Prim'
+    _ignorePrimInfoKeys = []
 
-    def __init__(self, primSpec=None, *args, **kwargs):
-        self._primSpec = primSpec
-        super(_PrimNode, self).__init__(*args, **kwargs)
+    def _initParameters(self):
+        super(_PrimNode, self)._initParameters()
+        self.addParameter('primName', 'string', defaultValue='')
 
     def _syncParameters(self):
         super(_PrimNode, self)._syncParameters()
@@ -108,11 +125,7 @@ class _PrimNode(UsdNode):
             self.parameter('primName').setValueQuietly(self._primSpec.name)
 
             for key in self._primSpec.ListInfoKeys():
-                if key in [
-                    'variantSetNames',
-                    'variantSelection',
-                    'references',
-                ]:
+                if key in self._ignorePrimInfoKeys:
                     continue
                 # param = self.addParameter(key, )  # metadata value type?
                 param = self.parameter(key)
@@ -121,12 +134,6 @@ class _PrimNode(UsdNode):
                     param.setValueQuietly(value)
                 else:
                     self.setMetaData(key, value)
-
-    def _initParameters(self):
-        super(_PrimNode, self)._initParameters()
-        self.addParameter('primName', 'string', defaultValue='')
-        self.addParameter('typeName', 'string', defaultValue='')
-        self.addParameter('kind', 'string', defaultValue='')
 
     def _getCurrentExecutePrimPath(self, prim):
         primPath = prim.GetPath().pathString
@@ -140,17 +147,32 @@ class _PrimNode(UsdNode):
         primPath = self._getCurrentExecutePrimPath(prim)
         newPrim = stage.OverridePrim(primPath)
 
-        parameters = self._parameters.values()
-        params = [
-            param for param in parameters if not param.isBuiltIn() and (param.isOverride() or param.hasMetaData())
-        ]
-        for param in params:
-            paramName = param.name()
-            if paramName not in ['primName']:
-                newPrim.SetMetadata(paramName, param.getValue())
-
         for key in self.getMetaDataKeys():
             newPrim.SetMetadata(key, self.getMetaDataValue(key))
+
+        return stage, newPrim
+
+
+class _PrimOnlyNode(_PrimNode):
+    _ignorePrimInfoKeys = [
+        'variantSetNames',
+        'variantSelection',
+        'references',
+    ]
+    _ignoreExecuteParamNames = ['primName']
+
+    def _initParameters(self):
+        super(_PrimOnlyNode, self)._initParameters()
+        self.addParameter('typeName', 'string', defaultValue='')
+        self.addParameter('kind', 'string', defaultValue='')
+
+    def _execute(self, stage, prim):
+        stage, newPrim = super(_PrimOnlyNode, self)._execute(stage, prim)
+
+        params = self.getExecuteParams()
+        for param in params:
+            paramName = param.name()
+            newPrim.SetMetadata(paramName, param.getValue())
 
         return stage, newPrim
 
@@ -242,13 +264,20 @@ class RootNode(UsdNode):
         return stage, rootPrim
 
 
-class PrimDefineNode(_PrimNode):
+class PrimDefineNode(_PrimOnlyNode):
     nodeType = 'PrimDefine'
     fillNormalColor = (50, 60, 70)
     borderNormalColor = (200, 250, 200, 200)
 
+    def _execute(self, stage, prim):
+        stage, prim = super(PrimDefineNode, self)._execute(stage, prim)
 
-class PrimOverrideNode(_PrimNode):
+        prim.SetMetadata('specifier', Sdf.SpecifierDef)
+
+        return stage, prim
+
+
+class PrimOverrideNode(_PrimOnlyNode):
     nodeType = 'PrimOverride'
     fillNormalColor = (50, 60, 70)
     borderNormalColor = (200, 200, 250, 200)
@@ -330,14 +359,9 @@ class PayloadNode(_RefNode):
         return stage, prim
 
 
-class AttributeSetNode(UsdNode):
-    nodeType = 'AttributeSet'
-    fillNormalColor = (50, 70, 60)
-    borderNormalColor = (250, 250, 250, 200)
+class _AttributeNode(UsdNode):
     onlyAttrList = []
-    ignoreAttrList = [
-        [ATTR_CHECK_OP.START, 'xformOp'],
-    ]
+    ignoreAttrList = []
 
     @classmethod
     def _checkIsAttrNeeded(cls, attrName):
@@ -366,25 +390,12 @@ class AttributeSetNode(UsdNode):
                 return True
         return False
 
-    def __init__(self, primSpec=None, *args, **kwargs):
-        self._primSpec = primSpec
-        super(AttributeSetNode, self).__init__(*args, **kwargs)
-
-    def _syncParameters(self):
-        super(AttributeSetNode, self)._syncParameters()
-        if self._primSpec is not None:
-            for name, attribute in self._primSpec.attributes.items():
-                self._addAttributeParameter(attribute)
-
     def _generateParamLabel(self, name):
         return name
 
     def _addAttributeParameter(self, attribute):
         attributeName = attribute.name
         attributeType = str(attribute.typeName)
-        # attributeType = attribute.valueType.pythonClass
-        # print attributeName, attributeType
-        # print attribute.valueType
         needed = self._checkIsAttrNeeded(attributeName)
         if not needed:
             return
@@ -407,26 +418,11 @@ class AttributeSetNode(UsdNode):
                 connectionPathList = attribute.connectionPathList.GetAddedOrExplicitItems()
                 connect = connectionPathList[0]
                 param.setConnectQuietly(connect.pathString)
-            if attribute.HasInfo('timeSamples'):
+            elif attribute.HasInfo('timeSamples'):
                 param.setTimeSamplesQuietly(attribute.GetInfo('timeSamples'))
             else:
-                # print attribute.default, type(attribute.default)
                 value = attribute.default
                 param.setValueQuietly(value)
-
-    def _initParameters(self):
-        super(AttributeSetNode, self)._initParameters()
-        pass
-
-    def _whenParamterValueChanged(self, parameter):
-        super(AttributeSetNode, self)._whenParamterValueChanged(parameter)
-        if not parameter.isBuiltIn():
-            attrName = parameter.name()
-            for primPath in self._primPaths:
-                prim = self._stage.GetPrimAtPath(primPath)
-                if not prim.IsValid():
-                    continue
-                self._setPrimAttributeFromParameter(prim, parameter)
 
     def _setPrimAttributeFromParameter(self, prim, parameter):
         attrName = parameter.name()
@@ -444,17 +440,65 @@ class AttributeSetNode(UsdNode):
             for time, value in parameter.getTimeSamples().items():
                 attribute.Set(value, time)
         else:
-            attribute.Set(parameter.getValue())
+            value = parameter.getValue()
+            if value is not None:
+                attribute.Set(value)
 
     def _execute(self, stage, prim):
-        parameters = self._parameters.values()
-        params = [
-            param for param in parameters if not param.isBuiltIn() and (param.isOverride() or param.hasMetaData())
-        ]
+        params = self.getExecuteParams()
         for param in params:
-            # print(param.name(), param.getValue(), param.hasKey())
             self._setPrimAttributeFromParameter(prim, param)
         return stage, prim
+
+
+class _PrimAttributeNode(_PrimNode, _AttributeNode):
+    _ignorePrimInfoKeys = [
+        'typeName',
+        'variantSetNames',
+        'variantSelection',
+        'references',
+    ]
+    _ignoreExecuteParamNames = ['primName']
+    typeName = None
+
+    def _syncParameters(self):
+        super(_PrimAttributeNode, self)._syncParameters()
+        if self._primSpec is not None:
+            for name, attribute in self._primSpec.attributes.items():
+                self._addAttributeParameter(attribute)
+
+    def _execute(self, stage, prim):
+        stage, newPrim = super(_PrimAttributeNode, self)._execute(stage, prim)
+        stage, newPrim = _AttributeNode._execute(self, stage, newPrim)
+        newPrim.SetMetadata('typeName', self.typeName)
+
+        return stage, newPrim
+
+
+class AttributeSetNode(_AttributeNode):
+    nodeType = 'AttributeSet'
+    fillNormalColor = (50, 70, 60)
+    borderNormalColor = (250, 250, 250, 200)
+    onlyAttrList = []
+    ignoreAttrList = [
+        [ATTR_CHECK_OP.START, 'xformOp'],
+    ]
+
+    def _syncParameters(self):
+        super(AttributeSetNode, self)._syncParameters()
+        if self._primSpec is not None:
+            for name, attribute in self._primSpec.attributes.items():
+                self._addAttributeParameter(attribute)
+
+    def _whenParamterValueChanged(self, parameter):
+        super(AttributeSetNode, self)._whenParamterValueChanged(parameter)
+        if not parameter.isBuiltIn():
+            attrName = parameter.name()
+            for primPath in self._primPaths:
+                prim = self._stage.GetPrimAtPath(primPath)
+                if not prim.IsValid():
+                    continue
+                self._setPrimAttributeFromParameter(prim, parameter)
 
 
 class TransformNode(AttributeSetNode):
@@ -465,9 +509,6 @@ class TransformNode(AttributeSetNode):
         [ATTR_CHECK_OP.START, 'xformOp']
     ]
     ignoreAttrList = []
-
-    def __init__(self, *args, **kwargs):
-        super(TransformNode, self).__init__(*args, **kwargs)
 
     def _initParameters(self):
         super(TransformNode, self)._initParameters()
@@ -504,33 +545,38 @@ class TransformNode(AttributeSetNode):
             #     print attr, type(attr)
 
 
-class RelationshipSetNode(UsdNode):
+class RelationshipSetNode(_AttributeNode):
     nodeType = 'RelationshipSet'
     fillNormalColor = (70, 60, 50)
     borderNormalColor = (250, 250, 250, 200)
+    onlyAttrList = []
+    ignoreAttrList = [
+        [ATTR_CHECK_OP.START, 'material:binding'],
+    ]
 
-    def __init__(self, primSpec=None, *args, **kwargs):
-        super(RelationshipSetNode, self).__init__(*args, **kwargs)
-
-        if primSpec is not None:
-            for key, relationship in primSpec.relationships.items():
-                if key not in ['material:binding']:
-                    self._addRelationshipParameter(relationship)
+    def _syncParameters(self):
+        super(RelationshipSetNode, self)._syncParameters()
+        if self._primSpec is not None:
+            for key, relationship in self._primSpec.relationships.items():
+                self._addRelationshipParameter(relationship)
 
     def _addRelationshipParameter(self, relationship):
         relationshipName = relationship.name
+        needed = self._checkIsAttrNeeded(relationshipName)
+        if not needed:
+            return
+
         targetPathList = [i.pathString for i in relationship.targetPathList.GetAddedOrExplicitItems()]
 
         param = self.addParameter(relationshipName, 'string[]', custom=True)
         if param is not None:
-            param.setValueQuietly(targetPathList)
-
-    def _initParameters(self):
-        super(RelationshipSetNode, self)._initParameters()
-        pass
+            if param.parameterTypeString == 'string':
+                param.setValueQuietly(targetPathList[0])
+            else:
+                param.setValueQuietly(targetPathList)
 
     def _execute(self, stage, prim):
-        params = [param for param in self._parameters.values() if not param.isBuiltIn()]
+        params = self.getExecuteParams()
         for param in params:
             # print(param.name(), param.getValue(), param.hasKey())
             relationshipName = param.name()
@@ -540,8 +586,42 @@ class RelationshipSetNode(UsdNode):
             else:
                 relationship = prim.GetRelationship(relationshipName)
 
-            relationship.SetTargets(param.getValue())
+            value = param.getValue()
+            if isinstance(value, basestring):
+                value = [value]
+            relationship.SetTargets(value)
         return stage, prim
+
+
+class MaterialAssignNode(RelationshipSetNode):
+    nodeType = 'MaterialAssign'
+    fillNormalColor = (50, 60, 80)
+    borderNormalColor = (250, 250, 250, 200)
+    onlyAttrList = [
+        [ATTR_CHECK_OP.START, 'material:binding'],
+    ]
+    ignoreAttrList = []
+
+    def _initParameters(self):
+        super(MaterialAssignNode, self)._initParameters()
+        self.addParameter(
+            'material:binding', 'string',
+            defaultValue='',
+            label='Material'
+        )
+        self.addParameter(
+            'material:binding:preview', 'string',
+            defaultValue='',
+            label='Preview'
+        )
+        self.addParameter(
+            'material:binding:full', 'string',
+            defaultValue='',
+            label='Full'
+        )
+
+    def _generateParamLabel(self, name):
+        return name.replace('material:', '')
 
 
 class _VariantNode(UsdNode):
@@ -553,15 +633,15 @@ class _VariantNode(UsdNode):
 class VariantSetNode(_VariantNode):
     nodeType = 'VariantSet'
 
-    def __init__(self, variantSet=None, variantSetName=None, variantList=None, *args, **kwargs):
+    def __init__(self, variantSetName=None, options=None, *args, **kwargs):
         super(VariantSetNode, self).__init__(*args, **kwargs)
 
         self.item.addTag(PixmapTag('VariantSet.png'), position=0.25)
 
         if variantSetName is not None:
             self.parameter('variantSetName').setValueQuietly(variantSetName)
-        if variantList is not None:
-            self.parameter('variantList').setValueQuietly(variantList)
+        if options is not None:
+            self.parameter('variantList').setValueQuietly(options)
 
     def _initParameters(self):
         super(VariantSetNode, self)._initParameters()
@@ -652,44 +732,6 @@ class VariantSwitchNode(_VariantNode):
         return self.parameter('variantSelected').getValue()
 
 
-class MaterialAssignNode(UsdNode):
-    nodeType = 'MaterialAssign'
-    fillNormalColor = (50, 60, 80)
-    borderNormalColor = (250, 250, 250, 200)
-
-    def __init__(self, material=None, *args, **kwargs):
-        super(MaterialAssignNode, self).__init__(*args, **kwargs)
-
-        if material is not None:
-            self.parameter('material').setValueQuietly(material)
-
-    def _initParameters(self):
-        super(MaterialAssignNode, self)._initParameters()
-        self.addParameter('material', 'string', defaultValue='')
-
-    def _execute(self, stage, prim):
-        materialPath = self.parameter('material').getValue()
-
-        # material prim may not exist
-        # materialPrim = stage.GetPrimAtPath(materialPath)
-        # material = UsdShade.Material(materialPrim)
-        #
-        # mesh = UsdGeom.Mesh(prim)
-        # UsdShade.MaterialBindingAPI(mesh).Bind(material)
-
-        relationshipName = 'material:binding'
-
-        if not prim.HasRelationship(relationshipName):
-            relationship = prim.CreateRelationship(relationshipName)
-            relationship.SetCustom(False)
-        else:
-            relationship = prim.GetRelationship(relationshipName)
-
-        relationship.SetTargets([materialPath])
-
-        return stage, prim
-
-
 Node.registerNode(LayerNode)
 Node.registerNode(RootNode)
 Node.registerNode(PrimDefineNode)
@@ -700,12 +742,11 @@ Node.registerNode(PayloadNode)
 Node.registerNode(AttributeSetNode)
 Node.registerNode(TransformNode)
 Node.registerNode(RelationshipSetNode)
+Node.registerNode(MaterialAssignNode)
 
 Node.registerNode(VariantSetNode)
 Node.registerNode(VariantSelectNode)
 Node.registerNode(VariantSwitchNode)
-
-Node.registerNode(MaterialAssignNode)
 
 
 Node.setParamDefault(LayerNode.nodeType, 'label', '[python os.path.basename("[value layerPath]")]')
@@ -715,7 +756,7 @@ Node.setParamDefault(PrimOverrideNode.nodeType, 'label', '/[value primName]')
 Node.setParamDefault(ReferenceNode.nodeType, 'label', '[python os.path.basename("[value assetPath]")]')
 Node.setParamDefault(PayloadNode.nodeType, 'label', '[python os.path.basename("[value assetPath]")]')
 
-Node.setParamDefault(MaterialAssignNode.nodeType, 'label', '[python os.path.basename("[value material]")]')
+Node.setParamDefault(MaterialAssignNode.nodeType, 'label', '[python os.path.basename("[value material:binding]")]')
 
 Node.setParamDefault(VariantSetNode.nodeType, 'label', '{[value variantSetName]:[value variantList]}')
 Node.setParamDefault(VariantSelectNode.nodeType, 'label', '{[value variantSetName]=[value variantSelected]}')

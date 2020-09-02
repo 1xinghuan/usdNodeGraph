@@ -193,7 +193,7 @@ class NodeParameterWidget(QtWidgets.QFrame):
         self.topLayout.addWidget(self.nodeNameEdit)
         self.topLayout.addWidget(self.nodeTypeLabel)
         self.topLayout.addStretch()
-        self.topLayout.addWidget(self.syncButton)
+        # self.topLayout.addWidget(self.syncButton)
         self.topLayout.addWidget(self.pushButton)
         self.topLayout.addWidget(self.closeButton)
 
@@ -310,7 +310,7 @@ class NodeParameterWidget(QtWidgets.QFrame):
 
     def setContextMenu(self):
         self._context_menus = [
-            ['Add Parameter', self._addParameterClicked],
+            # ['Add Parameter', self._addParameterClicked],
             ['View MetaData', self._viewMetaDataClicked],
         ]
 
@@ -421,7 +421,7 @@ class ParameterPanel(QtWidgets.QWidget):
             self.removeNode(node)
 
     def addNode(self, node):
-        if node.name() in self._nodes:
+        if node.name() in [n.name() for n in self._nodes]:
             self.removeNode(node.name())
 
         nodeParameterWidget = NodeParameterWidget()
