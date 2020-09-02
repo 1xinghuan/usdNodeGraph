@@ -16,9 +16,6 @@ LOG_FORMATS = [
 ]
 LOGGERS = {}
 
-# logging.basicConfig(level=LOG_LEVEL)
-# logging.basicConfig(stream=sys.stdout)
-
 
 def get_fomatter(format=0):
     dateFmt = '%d %b %Y %H:%M:%S'

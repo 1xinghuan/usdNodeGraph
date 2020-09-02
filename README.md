@@ -23,20 +23,7 @@ Node:
 + Material
 + Shader
 
-Parameter:
-+ Edit number parameter using Middle Key
-
-    ![screenshot01](screenshot/usdnodegraph01.gif)
-
-+ Show keyframe in different color
-
-    ![screenshot01](screenshot/usdnodegraph03.gif)
-
-+ Connect shader
-
-    ![screenshot01](screenshot/usdnodegraph02.gif)
-
-
+See more in [Supports](Supports.md)
 
 ## Dependence
 
@@ -72,37 +59,69 @@ from maya import cmds
 
 
 def whenParameterChanged(**kwargs):
+    # proxy shape not update when stage changed, so use refresh() to force updating the view
+    if kwargs.get('node').Class() in ['AttributeSet', 'Transform']:
+        cmds.refresh()
+
+
+def whenChangesApplied(**kwargs):
     cmds.refresh()
+
+
+def whenStateFrameChanged(**kwargs):
+    cmds.currentTime(kwargs.get('time'))
 
 
 proxyShape = '|world|s00|s00Shape'
 stage = mayaUsd.ufe.getStage(proxyShape)
 
-import usdNodeGraph.ui.nodeGraph as usdNodeGraph
-from usdNodeGraph.api import addNodeCallback
+import usdNodeGraph.api as usdNodeGraphApi
 
-usdNodeGraph.UsdNodeGraph.registerActionShortCut('open_file', None)
-usdNodeGraph.UsdNodeGraph.registerActionShortCut('reload_layer', 'Ctrl+R')
-addNodeCallback('AttributeSet', 'parameterValueChanged', whenParameterChanged)
+usdNodeGraphApi.UsdNodeGraph.registerActionShortCut('open_file', None)
+usdNodeGraphApi.UsdNodeGraph.registerActionShortCut('save_file', None)
+usdNodeGraphApi.GraphState.addCallback('layerChangesApplied', whenChangesApplied)
+usdNodeGraphApi.GraphState.addCallback('parameterValueChanged', whenParameterChanged)
+usdNodeGraphApi.GraphState.addCallback('stageTimeChanged', whenStateFrameChanged)
 
-nodeGraph = usdNodeGraph.UsdNodeGraph()
+nodeGraph = usdNodeGraphApi.UsdNodeGraph()
 
 nodeGraph.show()
 nodeGraph.setStage(stage)
 ```
 
 
+## Api
+```python
+import usdNodeGraph.api as usdNodeGraphApi
+
+usdNodeGraphApi.Node.setParamDefault('PrimDefine', 'label', '/[value primName]')
+usdNodeGraphApi.Node.registerActions([])  # see plugin/usdViewNodeGraph.py example
+usdNodeGraphApi.Parameter.getParameterTypes()  # support parameter types
+usdNodeGraphApi.GraphState.setCurrentTime(time, stage)
+usdNodeGraphApi.GraphState.addCallback(callbackType, func)
+
+```
+
+
 ## TODO
 + Support add custom parameter to node;
-+ Support add keyframe on parameter;
-+ Update stage when parameter get changed;
-+ Connect to other DCC's time state
++ ~~Support add keyframe on parameter;~~
++ Update stage when parameter get changed(Currently, the stage will only get updated when parameter changed in AttributeSet node);
++ Update stage when node connected or deleted;
++ ~~Connect to other DCC's time state;~~ See #5
 
 
 ## Known Issues
 
 + **If there are some data which are unsupported by UsdNodeGraph in the usd file, they will not be displayed in the view, and the data will be lost when saved.**
-+ The 'Export' menu actually export the usd file to another file except the opened one for now.(Because of data lost)
+
+    Please create a new issue if you see any data lost.
+
+    How to know if there's data lost: 
+
+    1. Open the usd file by usdnodegraph;
+    2. Export the file by 'Export' button;
+    3. Compare two files.
+
 + It will be very slow to open a usd file which has many prims.(I have test with a file with about 10000 prims and it will cost 35 seconds to load and create about 20000 nodes) You can set the environment 'USD_NODEGRAPH_DEBUG' to 'debug' and see the loading time and number of nodes.
 + The viewport update mode is set to 'SmartViewportUpdate' by default for performance. You can set it to 'FullViewportUpdate' by setting the environment 'USD_NODEGRAPH_FULL_VIEWPORT_UPDATE' to '1'.
-+ **This is still a very simple version, please don't use it in production.**

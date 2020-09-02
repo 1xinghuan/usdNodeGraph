@@ -2,22 +2,14 @@
 # __author__ = 'XingHuan'
 # 8/29/2018
 
-
 from usdNodeGraph.module.sqt import *
-from .port import InputPort, OutputPort, Port
-from .tag import PixmapTag
-from ..const import *
-from usdNodeGraph.ui.parameter.parameter import (
-    Parameter, TextParameter, FloatParameter, StringParameter, BoolParameter
+from usdNodeGraph.ui.graph.const import *
+from usdNodeGraph.core.parameter import (
+    Parameter, TextParameter, FloatParameter, BoolParameter
 )
 from usdNodeGraph.utils.log import get_logger
-from .nodeItem import NodeItem
 from usdNodeGraph.ui.utils.log import LogWindow
-from usdNodeGraph.state.core import GraphState
-import time
-import re
-import os
-
+from usdNodeGraph.core.state.core import GraphState
 
 logger = get_logger('usdNodeGraph.node')
 
@@ -28,20 +20,32 @@ class Node(QtCore.QObject):
     parameterRemoved = QtCore.Signal(object)
 
     _nodeTypes = {}
-    nodeType = 'Node'
-    nodeItem = NodeItem
 
-    fillNormalColor = QtGui.QColor(50, 60, 70)
-    fillHighlightColor = QtGui.QColor(230, 230, 100)
-    borderNormalColor = QtGui.QColor(50, 60, 70)
-    borderHighlightColor = QtGui.QColor(180, 180, 250)
+    nodeType = 'Node'
+    nodeItemType = 'NodeItem'
+
+    fillNormalColor = (50, 60, 70)
+    fillHighlightColor = (230, 230, 100)
+    borderNormalColor = (50, 60, 70)
+    borderHighlightColor = (180, 180, 250)
+
+    _expressionMap = {}
 
     @classmethod
-    def createItem(cls, nodeType, **kwargs):
-        nodeClass = cls._nodeTypes.get(nodeType, Node)
-        nodeItemClass = nodeClass.nodeItem
-        item = nodeItemClass(nodeClass, **kwargs)
-        return item
+    def registerExpressionString(cls, string, object):
+        cls._expressionMap[string] = object
+
+    @classmethod
+    def registerNode(cls, nodeObjectClass):
+        nodeType = nodeObjectClass.nodeType
+        cls._nodeTypes[nodeType] = nodeObjectClass
+        nodeObjectClass.parameterDefaults = {}
+
+    @classmethod
+    def setParamDefault(cls, nodeType, paramName, value):
+        nodeClass = cls._nodeTypes.get(nodeType)
+        if nodeClass is not None:
+            nodeClass.setParameterDefault(paramName, value)
 
     @classmethod
     def getAllNodeClassNames(cls):
@@ -54,6 +58,10 @@ class Node(QtCore.QObject):
     @classmethod
     def setParameterDefault(cls, parameterName, value):
         cls.parameterDefaults.update({parameterName: value})
+
+    @classmethod
+    def getNodeClass(cls, nodeType):
+        return cls._nodeTypes.get(nodeType, cls)
 
     def __init__(self, item=None):
         super(Node, self).__init__()
@@ -135,12 +143,11 @@ class Node(QtCore.QObject):
         :param custom:
         :return:
         """
-        from usdNodeGraph.ui.parameter.register import ParameterRegister
 
         if self.hasParameter(parameterName):
             return self.parameter(parameterName)
 
-        parameterClass = ParameterRegister.getParameter(parameterType)
+        parameterClass = Parameter.getParameter(parameterType)
         if parameterClass is None:
             message = 'Un-Support Parameter Type in addParameter! {}: {}'.format(parameterName, parameterType)
             LogWindow.warning(message)
@@ -168,14 +175,7 @@ class Node(QtCore.QObject):
             self.parameterRemoved.emit(parameterName)
 
 
-def registerNode(nodeObjectClass):
-    nodeType = nodeObjectClass.nodeType
-    Node._nodeTypes[nodeType] = nodeObjectClass
-    nodeObjectClass.parameterDefaults = {}
+import os
 
-
-def setParamDefault(nodeType, paramName, value):
-    nodeClass = Node._nodeTypes.get(nodeType)
-    if nodeClass is not None:
-        nodeClass.setParameterDefault(paramName, value)
+Node.registerExpressionString('os', os)
 

@@ -3,8 +3,7 @@
 # 8/29/2018
 
 
-import os
-from usdNodeGraph.module.sqt import *
+from usdNodeGraph.module.sqt import QtWidgets, QtCore
 from usdNodeGraph.utils.res import resource
 
 TAG_W = 20
@@ -12,16 +11,17 @@ TAG_H = 20
 
 
 class PixmapTag(QtWidgets.QGraphicsPixmapItem):
+    w = TAG_W
+    h = TAG_H
+
     def __init__(self, icon=None, **kwargs):
         super(PixmapTag, self).__init__(**kwargs)
 
         self.setAcceptHoverEvents(True)
 
-        self.w = TAG_W
-        self.h = TAG_H
-        self.scale_factor = 10
+        self.scaleFactor = 10
         self.icon = icon
-        self.auto_hide = True
+        self.autoHide = True
 
         self._setPixmap()
 
@@ -30,7 +30,7 @@ class PixmapTag(QtWidgets.QGraphicsPixmapItem):
             'icon',
             self.icon,
             color=color,
-            scale=QtCore.QSize(TAG_W * self.scale_factor, TAG_H * self.scale_factor)
+            scale=QtCore.QSize(TAG_W * self.scaleFactor, TAG_H * self.scaleFactor)
         ))
-        self.setScale(1.0 / self.scale_factor)
+        self.setScale(1.0 / self.scaleFactor)
 

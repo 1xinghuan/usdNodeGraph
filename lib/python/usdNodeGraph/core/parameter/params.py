@@ -29,12 +29,12 @@ class AssetParameter(_StringParameter):
     valueTypeName = Sdf.ValueTypeNames.Asset
 
     @classmethod
-    def convertValueToPy(cls, usdValue):
+    def _convertValueToPy(cls, usdValue):
         if usdValue is not None:
             return usdValue.path
 
     @classmethod
-    def convertValueFromPy(cls, pyValue):
+    def _convertValueFromPy(cls, pyValue):
         if pyValue is not None:
             return Sdf.AssetPath(pyValue)
 
@@ -89,12 +89,12 @@ class _VecParamter(Parameter):
         return cls._usdValueClass()
 
     @classmethod
-    def convertValueToPy(cls, usdValue):
+    def _convertValueToPy(cls, usdValue):
         if usdValue is not None:
             return [i for i in usdValue]
 
     @classmethod
-    def convertValueFromPy(cls, pyValue):
+    def _convertValueFromPy(cls, pyValue):
         if pyValue is not None:
             return cls._usdValueClass(*pyValue)
 
@@ -155,7 +155,7 @@ class Normal3fParameter(_VecParamter):
 
 class QuatParameter(_VecParamter):
     @classmethod
-    def convertValueToPy(cls, usdValue):
+    def _convertValueToPy(cls, usdValue):
         if usdValue is not None:
             pyValue = []
             pyValue.append(usdValue.GetReal())
@@ -184,12 +184,12 @@ class QuathParameter(QuatParameter):
 
 class _MatrixParamter(_VecParamter):
     @classmethod
-    def convertValueToPy(cls, usdValue):
+    def _convertValueToPy(cls, usdValue):
         if usdValue is not None:
             return [[i for i in vec] for vec in usdValue]
 
     @classmethod
-    def convertValueFromPy(cls, pyValue):
+    def _convertValueFromPy(cls, pyValue):
         if pyValue is not None:
             return cls._usdValueClass(pyValue)
 
@@ -226,18 +226,16 @@ class _ArrayParameter(Parameter):
 
     @classmethod
     def getChildParamClass(cls):
-        from usdNodeGraph.ui.parameter.register import ParameterRegister
-
-        paramClass = ParameterRegister.getParameter(cls.getChildParamType())
+        paramClass = Parameter.getParameter(cls.getChildParamType())
         return paramClass
 
     @classmethod
-    def convertValueToPy(cls, usdValue):
+    def _convertValueToPy(cls, usdValue):
         childParamClass = cls.getChildParamClass()
         return [childParamClass.convertValueToPy(i) for i in usdValue]
 
     @classmethod
-    def convertValueFromPy(cls, pyValue):
+    def _convertValueFromPy(cls, pyValue):
         childParamClass = cls.getChildParamClass()
         return cls._usdValueClass([childParamClass.convertValueFromPy(i) for i in pyValue])
 

@@ -1,0 +1,19 @@
+#usda 1.0
+(
+    defaultPrim = "world"
+)
+
+def Xform "world" (
+    kind = "group"
+)
+{
+    def Sphere "Sphere" (
+    )
+    {
+    }
+    over "xform"
+    {
+
+    }
+}
+

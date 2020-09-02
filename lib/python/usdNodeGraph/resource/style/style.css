@@ -26,9 +26,7 @@ QToolTip{
     border: palette(window) solid 1px
 }
 
-QLabel,
-QLineEdit,
-QTextEdit{
+QLabel{
     background: transparent;
 }
 

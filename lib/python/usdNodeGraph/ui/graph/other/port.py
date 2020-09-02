@@ -4,8 +4,7 @@
 
 
 from usdNodeGraph.module.sqt import *
-from ..pipe import Pipe, ConnectionPipe
-from ..const import Const
+from usdNodeGraph.ui.graph.other.pipe import Pipe, ConnectionPipe
 
 PORT_SIZE = 10
 PORT_LABEL_COLOR = QtGui.QColor(200, 200, 200)

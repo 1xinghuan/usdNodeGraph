@@ -3,8 +3,9 @@
 
 
 import copy
-from pxr import Gf
-from usdNodeGraph.module.sqt import *
+import json
+from pxr import Gf, Sdf
+from usdNodeGraph.module.sqt import QtCore
 
 
 class Parameter(QtCore.QObject):
@@ -13,16 +14,52 @@ class Parameter(QtCore.QObject):
     valueDefault = None
     valueChanged = QtCore.Signal(object)
 
+    _parametersMap = {}
+
+    @classmethod
+    def registerParameter(cls, parameterClass, parameterWidget):
+        typeName = parameterClass.parameterTypeString
+        cls._parametersMap.update({
+            typeName: {
+                'parameterClass': parameterClass,
+                'parameterWidget': parameterWidget
+            }
+        })
+
+    @classmethod
+    def getParameterTypes(cls):
+        return cls._parametersMap.keys()
+
+    @classmethod
+    def getParameter(cls, typeName):
+        return cls._parametersMap.get(typeName, {}).get('parameterClass')
+
+    @classmethod
+    def getParameterWidget(cls, typeName):
+        return cls._parametersMap.get(typeName, {}).get('parameterWidget')
+
     @classmethod
     def getValueDefault(cls):
         return cls.valueDefault
 
     @classmethod
     def convertValueFromPy(cls, pyValue):
+        if pyValue == 'Sdf.ValueBlock':
+            return Sdf.ValueBlock()
+        return cls._convertValueFromPy(pyValue)
+
+    @classmethod
+    def _convertValueFromPy(cls, pyValue):
         return pyValue
 
     @classmethod
     def convertValueToPy(cls, usdValue):
+        if usdValue == Sdf.ValueBlock():
+            return 'Sdf.ValueBlock'
+        return cls._convertValueToPy(usdValue)
+
+    @classmethod
+    def _convertValueToPy(cls, usdValue):
         return usdValue
 
     @classmethod
@@ -92,14 +129,16 @@ class Parameter(QtCore.QObject):
         defaultValue = defaultValue if defaultValue is not None else self.getValueDefault()
 
         self._defaultValue = defaultValue
-        self._value = defaultValue
-        self._timeSamples = None
-        self._connect = None
+        self._overrideValue = defaultValue
+        self._overrideTimeSamples = None
+        self._overrideConnect = None
 
         self._valueOverride = False
         self._inheritValue = defaultValue
         self._inheritTimeSamples = None
         self._inheritConnect = None
+
+        self._metadata = {}
 
         self._builtIn = builtIn
         self._visible = visible
@@ -131,10 +170,10 @@ class Parameter(QtCore.QObject):
         self._node._paramterValueChanged(param)
 
     def hasKey(self):
-        return self._timeSamples is not None
+        return self.getTimeSamples() is not None
 
     def hasConnect(self):
-        return self._connect is not None
+        return self.getConnect() is not None
 
     def getDefaultValue(self):
         return self._defaultValue
@@ -156,23 +195,65 @@ class Parameter(QtCore.QObject):
 
     def isVisible(self):
         return self._visible
+    
+    def _getValue(self, _value, _timeSamples, time):
+        if _timeSamples is None:
+            return _value
+        else:
+            if time is None:
+                return _timeSamples.values()[0]
+            else:
+                value = self.getIntervalValue(_timeSamples, time)
+                return value
+    
+    def getInheritValue(self, time=None):
+        return self._getValue(self._inheritValue, self._inheritTimeSamples, time)
+
+    def getOverrideValue(self, time=None):
+        return self._getValue(self._overrideValue, self._overrideTimeSamples, time)
 
     def getValue(self, time=None):
         if self._node.hasProperty(self._name):
             return self._node.getProperty(self._name)
-        if not self.hasKey():
-            return self._value
+        if self.isOverride():
+            return self.getOverrideValue(time)
         else:
-            if time is None:
-                return self._timeSamples.values()[0]
-            else:
-                value = self.getIntervalValue(self._timeSamples, time)
-                return value
+            return self.getInheritValue(time)
     
+    def getInheritTimeSamples(self):
+        return self._inheritTimeSamples
+    
+    def getOverrideTimeSamples(self):
+        return self._overrideTimeSamples
+
     def getTimeSamples(self):
-        return self._timeSamples
+        return self._overrideTimeSamples if self.isOverride() else self._inheritTimeSamples
+
+    def getInheritConnect(self):
+        return self._inheritConnect
+
+    def getOverrideConnect(self):
+        return self._overrideConnect
+
+    def getConnect(self):
+        return self._overrideConnect if self.isOverride() else self._inheritConnect
+
+    def hasMetaData(self):
+        return self._metadata != {}
+
+    def getMetaDataKyes(self):
+        return self._metadata.keys()
+
+    def getMetaDataValue(self, key, default=None):
+        return self._metadata.get(key, default)
+
+    def getMetaDataAsString(self):
+        return json.dumps(self._metadata, indent=4)
 
     # --------------------set value--------------------
+    def setMetaData(self, key, value):
+        self._metadata[key] = value
+
     def _beforeSetValue(self):
         for w in self._paramWidgets:
             w._breakEditSignal()
@@ -183,18 +264,18 @@ class Parameter(QtCore.QObject):
 
     def setHasKey(self, hasKey):
         if hasKey:
-            if self._timeSamples is None:
-                self._timeSamples = {}
+            if self._overrideTimeSamples is None:
+                self._overrideTimeSamples = {}
         else:
-            self._timeSamples = None
+            self._overrideTimeSamples = None
 
     def removeKey(self, time, emitSignal=True):
         self._beforeSetValue()
         time = float(time)
-        if self.hasKey() and time in self._timeSamples.keys():
-            self._timeSamples.pop(time)
-            if len(self._timeSamples.keys()) == 0:
-                self._timeSamples = None
+        if self.hasKey() and time in self._overrideTimeSamples.keys():
+            self._overrideTimeSamples.pop(time)
+            if len(self._overrideTimeSamples.keys()) == 0:
+                self._overrideTimeSamples = None
             if emitSignal:
                 self.valueChanged.emit(self)
         self._afterSetValue()
@@ -205,19 +286,19 @@ class Parameter(QtCore.QObject):
     def setValue(self, value, emitSignal=True, override=True):
         self._beforeSetValue()
         self._valueOverride = override
-        self._value = value
+        self._overrideValue = value
         if emitSignal:
             self.valueChanged.emit(self)
         self._afterSetValue()
 
     def setValueAt(self, value, time=None, emitSignal=True, override=True):
         self._valueOverride = override
-        if self._timeSamples is None:
+        if self._overrideTimeSamples is None:
             self.setValue(value, emitSignal, override=override)
             return
 
         self._beforeSetValue()
-        self._timeSamples.update({time: value})
+        self._overrideTimeSamples.update({time: value})
         if emitSignal:
             self.valueChanged.emit(self)
         self._afterSetValue()
@@ -225,7 +306,7 @@ class Parameter(QtCore.QObject):
     def setTimeSamples(self, timeSamples, emitSignal=True, override=True):
         self._beforeSetValue()
         self._valueOverride = override
-        self._timeSamples = timeSamples
+        self._overrideTimeSamples = timeSamples
         if emitSignal:
             self.valueChanged.emit(self)
         self._afterSetValue()
@@ -233,7 +314,7 @@ class Parameter(QtCore.QObject):
     def setConnect(self, connect, emitSignal=True, override=True):
         self._beforeSetValue()
         self._valueOverride = override
-        self._connect = connect
+        self._overrideConnect = connect
         if emitSignal:
             self.valueChanged.emit(self)
         self._afterSetValue()
@@ -257,7 +338,7 @@ class Parameter(QtCore.QObject):
         self.setConnect(connect, emitSignal=False, **kwargs)
 
     def breakConnect(self):
-        self._connect = None
+        self._overrideConnect = None
         self.valueChanged.emit(self)
 
     def getShowValues(self):
@@ -268,9 +349,6 @@ class Parameter(QtCore.QObject):
 
     def isCustom(self):
         return self._isCustom
-
-    def getConnect(self):
-        return self._connect
 
     def setLabel(self, label):
         self._label = label
