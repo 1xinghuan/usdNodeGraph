@@ -45,6 +45,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
     mainWindowClosed = QtCore.Signal()
     _actionShortCutMap = {}
     _addedActions = []
+    _addedWidgetClasses = []
 
     @classmethod
     def registerActionShortCut(cls, actionName, shortCut):
@@ -56,6 +57,12 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
     def registerActions(cls, actionList):
         cls._addedActions = actionList
 
+    @classmethod
+    def registerDockWidget(cls, widgetClass, name, label):
+        cls._addedWidgetClasses.append([
+            widgetClass, name, label
+        ])
+
     def __init__(
             self,
             parent=None
@@ -64,6 +71,9 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
 
         global USD_NODE_GRAPH_WINDOW
         USD_NODE_GRAPH_WINDOW = self
+
+        from usdNodeGraph.ui.plugin import loadPlugins
+        loadPlugins()
 
         self.currentScene = None
         self._usdFile = None
@@ -178,6 +188,14 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         self._docks.append(self.timeSliderDock)
         self._docks.append(self.textEditDock)
 
+        for widgetClass, name, label in self._addedWidgetClasses:
+            dock = DockWidget(title=label, objName=name)
+            widget = widgetClass()
+            dock.setWidget(widget)
+
+            self.addDockWidget(QtCore.Qt.RightDockWidgetArea, dock)
+            self._docks.append(dock)
+
         self._getUiPref()
 
     def _dockMaxRequired(self):
@@ -212,6 +230,10 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         if layer is None:
             layer = stage.GetRootLayer()
         self._addScene(stage, layer)
+        GraphState.executeCallbacks(
+            'stageAdded',
+            stage=stage, layer=layer
+        )
 
     def _addNewScene(self, stage=None, layer=None):
         newScene = GraphicsSceneWidget(
@@ -365,6 +387,9 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
 
     def addStage(self, stage, layer=None):
         self._addStage(stage, layer)
+
+    def findNodeAtPath(self, path):
+        self.currentScene.scene.findNodeAtPath(path)
 
     def closeEvent(self, event):
         super(UsdNodeGraph, self).closeEvent(event)

@@ -158,6 +158,7 @@ class _PrimOnlyNode(_PrimNode):
         'variantSetNames',
         'variantSelection',
         'references',
+        'specifier',
     ]
     _ignoreExecuteParamNames = ['primName']
 
