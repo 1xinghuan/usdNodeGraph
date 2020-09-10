@@ -447,7 +447,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
                 return upNode
 
             self._addChildNode(primNode, upNode)
-            self._primNodes.update({primPath: primNode})
+            self._addNodeToPrimPath(primNode, primPath)
             upNode = primNode
 
         # reference
@@ -578,7 +578,9 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             node.nodeObject.connectShader(param)
 
     def getPrimNode(self, primPath):
-        return self._primNodes.get(primPath)
+        nodes = self._primNodes.get(primPath)
+        if nodes is not None:
+            return nodes[0]
 
     def _connectShadeNodes(self):
         for node in self.getNodes(type=['Shader', 'Material']):
@@ -703,6 +705,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         primSpec = self.layer.GetPrimAtPath('/')
 
         self.rootNode = self.createNode('Root')
+        self._addNodeToPrimPath(self.rootNode, '/')
 
         self._addLayerNodes(self.layer)
         self._getIntoPrim(primSpec, self.rootNode)
@@ -953,3 +956,100 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
     def setAsEditTarget(self):
         if self.stage is not None:
             self.stage.SetEditTarget(self.layer)
+
+    def _addNodeToPrimPath(self, nodeItem, path):
+        if path not in self._primNodes:
+            self._primNodes[path] = []
+        self._primNodes[path].append(nodeItem)
+
+    def _combinePaths(self, parentPath, path):
+        if parentPath[-1] == '}' and path[0] == '{':
+            last_variant_set_name = parentPath.split('{')[-1].split('=')[0]
+            current_variant_set_name = path.split('{')[-1].split('=')[0]
+            if last_variant_set_name == current_variant_set_name:
+                return '{'.join(parentPath.split('{')[:-1]) + '{' + path[1:]
+            else:
+                return parentPath + path
+        elif parentPath[-1] in ['/', '}'] or path[0] == '{':
+            return parentPath + path
+        else:
+            return parentPath + '/' + path
+
+    def reSyncPath(self, node, parentPaths=None):
+        if node.Class() == 'Root':
+            syncPaths = ['/']
+        else:
+            node.clearPrimPath()
+
+            if node.NodeTypes().isSubType('Prim'):
+                for parentPath in parentPaths:
+                    node.addPrimPath(self._combinePaths(parentPath, node.parameter('primName').getValue()))
+            elif node.Class() in ['VariantSelect', 'VariantSwitch']:
+                for parentPath in parentPaths:
+                    variantSetName = node.parameter('variantSetName').getValue()
+                    variantSelected = node.parameter('variantSelected').getValue()
+                    current = '{%s=%s}' % (variantSetName, variantSelected)
+                    if parentPath.endswith(current):
+                        node.addPrimPath(parentPath)
+                    else:
+                        node.addPrimPath(self._combinePaths(parentPath, current))
+            else:
+                for parentPath in parentPaths:
+                    node.addPrimPath(parentPath)
+
+            syncPaths = node.getPrimPath()
+            for syncPath in syncPaths:
+                self._addNodeToPrimPath(node.item, syncPath)
+
+        for n in [i.nodeObject for i in node.item.getDestinations()]:
+            self.reSyncPath(n, syncPaths)
+
+    def reSyncPaths(self):
+        self._primNodes = {}
+        self.reSyncPath(self.rootNode.nodeObject)
+
+    def findNodeAtPath(self, path):
+        self.reSyncPaths()
+
+        find = False
+        findPath = path
+        findNodes = []
+        while not find:
+            for key, nodes in self._primNodes.items():
+                node = nodes[0]
+                sdfPath = Sdf.Path(key)
+                composedPath = sdfPath.StripAllVariantSelections()
+                # print key, composedPath
+                if composedPath == findPath:
+                    findNodes.append(node)
+                    find = True
+            if not find:
+                findPath = '/'.join(findPath.split('/')[:-1])
+                if findPath == '':
+                    findPath = '/'
+
+        self.clearSelection()
+
+        primPath = findPath
+        addPath = path.replace(findPath, '')
+        addPrimNames = addPath.split('/')
+        for findNode in findNodes:
+            currentNode = findNode
+            for addPrimName in addPrimNames:
+                if addPrimName == '':
+                    continue
+
+                primPath += '/' + addPrimName
+
+                node = self.createNode('PrimOverride')
+                node.parameter('primName').setValue(addPrimName)
+                self._addChildNode(node, currentNode)
+                self._addNodeToPrimPath(node, primPath)
+                currentNode = node
+
+            currentNode.setSelected(True)
+
+        self.layoutNodes()
+        self._layoutNode(findNode)
+
+        self.frameSelection()

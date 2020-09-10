@@ -14,6 +14,16 @@ from usdNodeGraph.core.state.core import GraphState
 logger = get_logger('usdNodeGraph.node')
 
 
+class NodeTypes(object):
+    def __init__(self, nodeClass):
+        self.nodeClass = nodeClass
+        self.parentNodeClass = [n for n in nodeClass.__mro__ if hasattr(n, 'nodeType')]
+        self.parentNodeTypes = [n.nodeType for n in self.parentNodeClass]
+
+    def isSubType(self, nodeType):
+        return nodeType in self.parentNodeTypes
+
+
 class Node(QtCore.QObject):
     parameterValueChanged = QtCore.Signal(object)
     parameterAdded = QtCore.Signal(object)
@@ -63,6 +73,14 @@ class Node(QtCore.QObject):
     def getNodeClass(cls, nodeType):
         return cls._nodeTypes.get(nodeType, cls)
 
+    @classmethod
+    def Class(cls):
+        return cls.nodeType
+
+    @classmethod
+    def NodeTypes(cls):
+        return NodeTypes(cls)
+
     def __init__(self, item=None):
         super(Node, self).__init__()
 
@@ -104,9 +122,6 @@ class Node(QtCore.QObject):
 
     def parameters(self):
         return [self._parameters.get(n) for n in self._parametersName]
-
-    def Class(self):
-        return self.nodeType
 
     def name(self):
         return self.parameter('name').getValue()
