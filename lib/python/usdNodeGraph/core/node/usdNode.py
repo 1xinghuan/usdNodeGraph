@@ -8,6 +8,7 @@ from usdNodeGraph.ui.graph.other.tag import PixmapTag
 from usdNodeGraph.core.parameter import (
     Vec3fParameter, TokenArrayParameter)
 from usdNodeGraph.utils.const import consts
+from usdNodeGraph.core.state.core import GraphState
 
 
 ATTR_CHECK_OP = consts(
@@ -131,7 +132,8 @@ class _PrimNode(UsdNode):
                 param = self.parameter(key)
                 value = self._primSpec.GetInfo(key)
                 if param is not None:
-                    param.setValueQuietly(value)
+                    if value != param.getInheritValue():
+                        param.setValueQuietly(value)
                 else:
                     self.setMetaData(key, value)
 
@@ -295,6 +297,26 @@ class _RefNode(UsdNode):
         self.addParameter('layerOffset', 'float', defaultValue=0.0)
         self.addParameter('layerScale', 'float', defaultValue=1.0)
 
+    def __init__(self, reference=None, *args, **kwargs):
+        self._reference = reference
+        super(_RefNode, self).__init__(*args, **kwargs)
+
+    def _syncParameters(self):
+        super(_RefNode, self)._syncParameters()
+        if self._reference is not None:
+            self._setParametersFromRef(self._reference)
+
+    def _setTags(self):
+        super(_RefNode, self)._setTags()
+        self.item.addTag(self.nodeType, PixmapTag('{}.png'.format(self.nodeType)), position=0.25)
+
+    def _setParametersFromRef(self, reference):
+        self.parameter('assetPath').setValueQuietly(reference.assetPath)
+        if reference.layerOffset.offset != 0:
+            self.parameter('layerOffset').setValueQuietly(reference.layerOffset.offset)
+        if reference.layerOffset.scale != 1:
+            self.parameter('layerScale').setValueQuietly(reference.layerOffset.scale)
+
     def _getLayerOffset(self):
         layerOffset = self.parameter('layerOffset').getValue()
         layerScale = self.parameter('layerScale').getValue()
@@ -306,18 +328,6 @@ class _RefNode(UsdNode):
 
 class ReferenceNode(_RefNode):
     nodeType = 'Reference'
-
-    def __init__(self, reference=None, *args, **kwargs):
-        super(ReferenceNode, self).__init__(*args, **kwargs)
-
-        self.item.addTag(PixmapTag('Reference.png'), position=0.25)
-
-        if reference is not None:
-            self.parameter('assetPath').setValueQuietly(reference.assetPath)
-            if reference.layerOffset.offset != 0:
-                self.parameter('layerOffset').setValueQuietly(reference.layerOffset.offset)
-            if reference.layerOffset.scale != 1:
-                self.parameter('layerScale').setValueQuietly(reference.layerOffset.scale)
 
     def _execute(self, stage, prim):
         assetPath = self.parameter('assetPath').getValue()
@@ -332,19 +342,10 @@ class ReferenceNode(_RefNode):
 class PayloadNode(_RefNode):
     nodeType = 'Payload'
 
-    def __init__(self, payload=None, *args, **kwargs):
-        super(PayloadNode, self).__init__(*args, **kwargs)
-
-        self.item.addTag(PixmapTag('Payload.png'), position=0.25)
-
-        if payload is not None:
-            self.parameter('assetPath').setValueQuietly(payload.assetPath)
-            if payload.primPath.pathString != '':
-                self.parameter('primPath').setValueQuietly(payload.primPath.pathString)
-            if payload.layerOffset.offset != 0:
-                self.parameter('layerOffset').setValueQuietly(payload.layerOffset.offset)
-            if payload.layerOffset.scale != 1:
-                self.parameter('layerScale').setValueQuietly(payload.layerOffset.scale)
+    def _setParametersFromRef(self, reference):
+        super(PayloadNode, self)._setParametersFromRef(reference)
+        if reference.primPath.pathString != '':
+            self.parameter('primPath').setValueQuietly(reference.primPath.pathString)
 
     def _initParameters(self):
         super(PayloadNode, self)._initParameters()
@@ -640,7 +641,7 @@ class VariantSetNode(_VariantNode):
     def __init__(self, variantSetName=None, options=None, *args, **kwargs):
         super(VariantSetNode, self).__init__(*args, **kwargs)
 
-        self.item.addTag(PixmapTag('VariantSet.png'), position=0.25)
+        self.item.addTag('VariantSet', PixmapTag('VariantSet.png'), position=0.25)
 
         if variantSetName is not None:
             self.parameter('variantSetName').setValueQuietly(variantSetName)
@@ -669,7 +670,7 @@ class VariantSelectNode(_VariantNode):
     def __init__(self, variantSetName='', variantSelected='', options=None, *args, **kwargs):
         super(VariantSelectNode, self).__init__(*args, **kwargs)
 
-        self.item.addTag(PixmapTag('VariantSelect.png'), position=0.25)
+        self.item.addTag('VariantSelect', PixmapTag('VariantSelect.png'), position=0.25)
 
         self.parameter('variantSetName').setValueQuietly(variantSetName)
         self.parameter('variantSelected').setValueQuietly(variantSelected)
@@ -708,7 +709,7 @@ class VariantSwitchNode(_VariantNode):
     def __init__(self, variantSetName='', variantSelected='', *args, **kwargs):
         super(VariantSwitchNode, self).__init__(*args, **kwargs)
 
-        self.item.addTag(PixmapTag('VariantSwitch.png'), position=0.25)
+        self.item.addTag('VariantSwitch', PixmapTag('VariantSwitch.png'), position=0.25)
 
         self.parameter('variantSetName').setValueQuietly(variantSetName)
         self.parameter('variantSelected').setValueQuietly(variantSelected)

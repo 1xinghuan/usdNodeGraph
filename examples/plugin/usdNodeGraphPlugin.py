@@ -4,6 +4,15 @@ import usdNodeGraph.api as usdNodeGraphApi
 from pxr.Usdviewq.qt import QtWidgets, QtCore
 
 
+def isFileEditable(path):
+    if 'lay' in path:
+        return False
+    return True
+
+
+usdNodeGraphApi.GraphState.setFunction('isFileEditable', isFileEditable)
+
+
 class TestWidget(QtWidgets.QTextEdit):
     def __init__(self):
         super(TestWidget, self).__init__()

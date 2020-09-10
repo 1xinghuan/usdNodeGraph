@@ -195,6 +195,9 @@ class Parameter(QtCore.QObject):
 
     def isVisible(self):
         return self._visible
+
+    def setVisible(self, visible):
+        self._visible = visible
     
     def _getValue(self, _value, _timeSamples, time):
         if _timeSamples is None:

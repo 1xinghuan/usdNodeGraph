@@ -5,6 +5,7 @@ class GraphState(QtCore.QObject):
     currentTimeChanged = QtCore.Signal(float)
 
     _callbacks = {}
+    _functions = {}
 
     _state = None
     _times = {}
@@ -74,4 +75,18 @@ class GraphState(QtCore.QObject):
         kwargs.update({'type': callbackType})
         for func in funcs:
             func(**kwargs)
+
+    @classmethod
+    def setFunction(cls, funcName, func):
+        cls._functions[funcName] = func
+
+    @classmethod
+    def hasFunction(cls, funcName):
+        return funcName in cls._functions
+
+    @classmethod
+    def executeFunction(cls, funcName, *args, **kwargs):
+        func = cls._functions.get(funcName)
+        if func is not None:
+            return func(*args, **kwargs)
 

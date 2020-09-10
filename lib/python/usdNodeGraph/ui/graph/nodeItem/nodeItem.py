@@ -10,6 +10,7 @@ from ..const import *
 from usdNodeGraph.utils.log import get_logger
 import re
 from usdNodeGraph.core.node import Node
+from usdNodeGraph.ui.graph.other.tag import LockTag
 
 logger = get_logger('usdNodeGraph.nodeItem')
 
@@ -42,6 +43,7 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
 
         self.pipes = []
         self.ports = []
+        self.tags = {}
         self.panel = None
 
         self.margin = 6
@@ -163,6 +165,12 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
         ))
         self.disableItem.setVisible(disable)
 
+    def _updateLockTag(self):
+        if self.nodeObject.isNodeLocked():
+            self.addTag('lock', LockTag(), position=0.5)
+        else:
+            self.removeTag('lock')
+
     def _paramterValueChanged(self, parameter):
         if parameter.name() == 'x':
             self.setX(parameter.getValue())
@@ -170,7 +178,11 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
             self.setY(parameter.getValue())
         if parameter.name() == 'disable':
             self._updateDisableItem()
-        self._updateUI()
+        if parameter.name() == 'locked':
+            self._updateLockTag()
+        if parameter.name() == 'name':
+            self._updateNameText()
+        # self._updateUI()
 
     def setLabelVisible(self, visible):
         if not visible and self.nameItem is None:
@@ -187,8 +199,12 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
         for port in self.ports:
             port.setLabelVisible(visible)
 
+    def updateUI(self):
+        self._updateUI()
+
     def _updateUI(self):
-        pass
+        self._updateLockTag()
+        self._updateNameText()
 
     def forceUpdatePanelUI(self):
         if self.panel is not None:
@@ -249,7 +265,13 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
     def removePort(self, port):
         self.ports.remove(port)
 
-    def addTag(self, tagItem, position=0.0):
+    def addTag(self, name, tagItem, position=0.0):
+        if name not in self.tags:
+            self._addTag(name, tagItem, position=position)
+        else:
+            self.tags[name].setVisible(True)
+
+    def _addTag(self, name, tagItem, position=0.0):
         tagItem.setParentItem(self)
         margin_x = tagItem.w / 2.0 + TAG_MARGIN
         margin_y = tagItem.h / 2.0 + TAG_MARGIN
@@ -266,6 +288,12 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
             x = 0 - margin_x
             y = (position - 0.75) * (-2.0 * margin_y - self.h) / 0.25 + (self.h + margin_y)
         tagItem.setPos(x - tagItem.w / 2.0, y - tagItem.h / 2.0)
+        self.tags[name] = tagItem
+
+    def removeTag(self, name):
+        if name in self.tags:
+            tag = self.tags[name]
+            tag.setVisible(False)
 
     def setHighlight(self, value=True):
         self.fillColor = QtGui.QColor(*self.nodeObject.fillHighlightColor) if value else QtGui.QColor(*self.nodeObject.fillNormalColor)
@@ -428,8 +456,14 @@ class NodeItem(_BaseNodeItem):
         if visible:
             self._updateLabelText()
 
+    def _paramterValueChanged(self, parameter):
+        super(NodeItem, self)._paramterValueChanged(parameter)
+        if parameter.name() == 'label':
+            self._updateLabelText()
+
     def _updateUI(self):
         super(NodeItem, self)._updateUI()
+        self._updateLockTag()
         self._updateNameText()
         self._updateLabelText()
 

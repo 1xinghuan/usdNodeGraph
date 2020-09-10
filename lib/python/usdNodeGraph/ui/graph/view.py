@@ -28,11 +28,19 @@ VARIANT_PRIM_PATH_PATTERN = re.compile('.*{(?P<variantSet>.+)=(?P<variant>.+)}$'
 
 VIEW_FILL_COLOR = QtGui.QColor(38, 38, 38)
 VIEW_LINE_COLOR = QtGui.QColor(55, 55, 55)
+DISABLE_LINE_COLOR = QtGui.QColor(95, 75, 75)
 VIEW_CENTER_LINE_COLOR = QtGui.QColor(80, 80, 60, 50)
 VIEW_GRID_WIDTH = 200
 VIEW_GRID_HEIGHT = 100
 
 VIEW_ZOOM_STEP = 1.1
+
+
+def isEditable(assetPath):
+    if GraphState.hasFunction('isFileEditable') and assetPath is not None:
+        editAble = GraphState.executeFunction('isFileEditable', assetPath)
+        return editAble
+    return True
 
 
 class FloatLineEdit(QtWidgets.QFrame):
@@ -253,9 +261,42 @@ class GraphicsView(QtWidgets.QGraphicsView):
         zoom = VIEW_ZOOM_STEP if positive else 1.0 / VIEW_ZOOM_STEP
         self._zoom(zoom)
 
+    def drawForeground(self, painter, rect):
+        editAble = self.scene().editable
+        if not editAble:
+            self.drawDisableLines(painter, rect)
+
+    def drawDisableLines(self, painter, rect):
+        pen = QtGui.QPen(DISABLE_LINE_COLOR)
+        pen.setCosmetic(True)
+        pen.setWidth(1)
+        painter.setPen(pen)
+
+        lines = []
+        lw = 50
+
+        w = self.viewport().width()
+        h = self.viewport().height()
+
+        for i in range(int(w / lw)):
+            point1 = self.mapToScene(QtCore.QPoint(i * lw, 0))
+            point2 = self.mapToScene(QtCore.QPoint(0, i * lw))
+
+            lines.append(QtCore.QLineF(point1, point2))
+
+        for i in range(int(h / lw)):
+            point1 = self.mapToScene(QtCore.QPoint(w, i * lw))
+            point2 = self.mapToScene(QtCore.QPoint(w - (h - i * lw), h))
+
+            lines.append(QtCore.QLineF(point1, point2))
+
+        painter.drawLines(lines)
+
     def drawBackground(self, painter, rect):
+        pen = QtGui.QPen(VIEW_LINE_COLOR)
+        pen.setCosmetic(True)
+        painter.setPen(pen)
         painter.setBrush(QtGui.QBrush(VIEW_FILL_COLOR))
-        painter.setPen(QtGui.QPen(VIEW_LINE_COLOR))
 
         painter.drawRect(rect)
         lines = []
@@ -266,16 +307,17 @@ class GraphicsView(QtWidgets.QGraphicsView):
         point1 = self.mapToScene(QtCore.QPoint(0, 0))
         point2 = self.mapToScene(QtCore.QPoint(self.viewport().width(), self.viewport().height()))
 
-        # for i in range(int(point1.y() / line_h), int(self.scene().height() / line_h)):
         for i in range(int(point1.y() / line_h), int(point2.y() / line_h) + 1):
             lines.append(QtCore.QLineF(
                 QtCore.QPoint(rect.x(), i * line_h),
-                QtCore.QPoint(rect.x() + rect.width(), i * line_h)))
-        # for i in range(int(self.scene().sceneRect().x()), int(self.scene().width() / line_w)):
+                QtCore.QPoint(rect.x() + rect.width(), i * line_h)
+            ))
+
         for i in range(int(point1.x() / line_w), int(point2.x() / line_w) + 1):
             lines.append(QtCore.QLineF(
                 QtCore.QPoint(i * line_w, rect.y()),
-                QtCore.QPoint(i * line_w, rect.y() + rect.height())))
+                QtCore.QPoint(i * line_w, rect.y() + rect.height())
+            ))
         painter.drawLines(lines)
 
         painter.setPen(QtGui.QPen(VIEW_CENTER_LINE_COLOR))
@@ -312,14 +354,15 @@ class GraphicsView(QtWidgets.QGraphicsView):
 class GraphicsSceneWidget(QtWidgets.QWidget):
     itemDoubleClicked = QtCore.Signal(object)
     showWidgetSignal = QtCore.Signal(int)
-    enterFileRequired = QtCore.Signal(str)
-    enterLayerRequired = QtCore.Signal(object, object)
+    enterFileRequired = QtCore.Signal(str, str, bool)
+    enterLayerRequired = QtCore.Signal(object, object, str, bool)
 
     def __init__(self, parent=None):
         super(GraphicsSceneWidget, self).__init__(parent=parent)
 
         self.stage = None
         self.layer = None
+        self.assetPath = None
 
         self._initUI()
 
@@ -351,23 +394,24 @@ class GraphicsSceneWidget(QtWidgets.QWidget):
         absLayerPath = resolver.AnchorRelativePath(self.layer.realPath, path)
         return absLayerPath
 
-    def _enterFileRequired(self, usdFile):
+    def _enterFileRequired(self, usdFile, force=False):
         # for Reference and Payload
         absLayerPath = self._getAbsPath(usdFile)
-        self.enterFileRequired.emit(absLayerPath)
+        self.enterFileRequired.emit(absLayerPath, usdFile, force)
 
-    def _enterLayerRequired(self, layerPath):
+    def _enterLayerRequired(self, layerPath, force=False):
         # for sublayer
         absLayerPath = self._getAbsPath(layerPath)
         layer = Sdf.Layer.FindOrOpen(absLayerPath)
-        self.enterLayerRequired.emit(self.stage, layer)
+        self.enterLayerRequired.emit(self.stage, layer, layerPath, force)
 
-    def setStage(self, stage, layer=None, reset=True):
+    def setStage(self, stage, layer=None, assetPath=None, reset=True):
         self.stage = stage
         if layer is None:
             layer = stage.GetRootLayer()
         self.layer = layer
-        self.scene.setStage(self.stage, self.layer, reset=reset)
+        self.assetPath = assetPath
+        self.scene.setStage(self.stage, self.layer, assetPath, reset=reset)
 
     def exportToString(self):
         return self.scene.exportToString()
@@ -383,8 +427,8 @@ class GraphicsSceneWidget(QtWidgets.QWidget):
 
 
 class GraphicsScene(QtWidgets.QGraphicsScene):
-    enterFileRequired = QtCore.Signal(str)
-    enterLayerRequired = QtCore.Signal(str)
+    enterFileRequired = QtCore.Signal(str, bool)
+    enterLayerRequired = QtCore.Signal(str, bool)
     nodeParameterChanged = QtCore.Signal(object)
     nodeDeleted = QtCore.Signal(object)
 
@@ -395,6 +439,8 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
 
         self.stage = None
         self.layer = None
+        self.assetPath = None
+        self.editable = True
 
         self._allNodes = {}
         self._nodesSuffix = {}
@@ -439,6 +485,8 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
                         primSpec=primSpec
                     )
                     skipAttribute = True
+                elif typeName in Node.getAllNodeClassNames():
+                    primNode = self.createNode(typeName, primPath=primPath, primSpec=primSpec)
                 else:
                     primNode = self.createNode('PrimDefine', primPath=primPath, primSpec=primSpec)
             elif specifier == Sdf.SpecifierOver:
@@ -461,7 +509,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         # payload
         payloadList = primSpec.payloadList.GetAddedOrExplicitItems()
         for payload in payloadList:
-            payloadNode = self.createNode('Payload', primPath=primPath, payload=payload)
+            payloadNode = self.createNode('Payload', primPath=primPath, reference=payload)
             self._addChildNode(payloadNode, upNode)
 
             upNode = payloadNode
@@ -676,11 +724,13 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
 
         return stage
 
-    def setStage(self, stage, layer=None, reset=True):
+    def setStage(self, stage, layer=None, assetPath=None, reset=True):
         self.stage = stage
         if layer is None:
             layer = stage.GetRootLayer()
         self.layer = layer
+        self.assetPath = assetPath
+        self.editable = isEditable(self.assetPath)
 
         if reset:
             self.resetScene()
@@ -734,7 +784,6 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
                 name=nodeName, primPath=primPath,
                 **kwargs
             )
-            # nodeItem.nodeObject.addPrimPath(primPath)
 
             self.addItem(nodeItem)
             nodeItem.afterAddToScene()
@@ -781,14 +830,17 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         for node in self.getSelectedNodes():
             node.parameter('disable').setValue(1 - node.parameter('disable').getValue())
 
-    def enterSelection(self):
+    def enterSelection(self, force=False):
         for item in self.selectedItems():
             if item.nodeObject.Class() == 'Layer':
-                self.enterLayerRequired.emit(item.parameter('layerPath').getValue())
+                self.enterLayerRequired.emit(item.parameter('layerPath').getValue(), force)
                 return
             elif item.nodeObject.Class() in ['Reference', 'Payload']:
-                self.enterFileRequired.emit(item.parameter('assetPath').getValue())
+                self.enterFileRequired.emit(item.parameter('assetPath').getValue(), force)
                 return
+
+    def forceEnterSelection(self):
+        self.enterSelection(force=True)
 
     def updateSelectedNodesPipe(self):
         pipes = []
@@ -924,6 +976,9 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         return stage.GetRootLayer().ExportToString()
 
     def _exportToFile(self, exportFile):
+        if not self.editable:
+            QtWidgets.QMessageBox.warning(None, 'Warning', 'This layer can\'t be exported!')
+            return
         stage = self._executeAllToStage()
         print exportFile
         stage.GetRootLayer().Export(exportFile)
@@ -1053,3 +1108,4 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         self._layoutNode(findNode)
 
         self.frameSelection()
+

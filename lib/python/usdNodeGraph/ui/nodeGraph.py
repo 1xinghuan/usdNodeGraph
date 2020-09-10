@@ -5,7 +5,7 @@
 import os
 from pxr import Usd
 from usdNodeGraph.module.sqt import *
-from usdNodeGraph.ui.graph.view import GraphicsSceneWidget
+from usdNodeGraph.ui.graph.view import GraphicsSceneWidget, isEditable
 from usdNodeGraph.ui.parameter.param_panel import ParameterPanel
 from usdNodeGraph.core.state.core import GraphState
 from usdNodeGraph.ui.other.timeSlider import TimeSliderWidget
@@ -63,6 +63,10 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
             widgetClass, name, label
         ])
 
+    @classmethod
+    def getInstance(cls):
+        return USD_NODE_GRAPH_WINDOW
+
     def __init__(
             self,
             parent=None
@@ -112,6 +116,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
                 ['disable_selection', 'Disable Selection', 'D', self._disableSelectionActionTriggered],
                 ['delete_selection', 'Delete Selection', 'Del', self._deleteSelectionActionTriggered],
                 ['enter_node', 'Enter', 'Ctrl+Return', self._enterActionTriggered],
+                ['force_enter_node', 'Force Enter', 'Ctrl+Shift+Return', self._forceEnterActionTriggered],
             ]],
             ['View', [
                 ['layout_nodes', 'Layout Nodes', None, self._layoutActionTriggered],
@@ -221,26 +226,29 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
             stage = self.currentScene.scene.stage
             self.timeSlider.setStage(stage)
 
-    def _addUsdFile(self, usdFile):
+    def _addUsdFile(self, usdFile, assetPath=None):
+        if assetPath is None:
+            assetPath = usdFile
         stage = Usd.Stage.Open(usdFile)
         stage.Reload()
-        self._addStage(stage)
+        self._addStage(stage, assetPath=assetPath)
 
-    def _addStage(self, stage, layer=None):
+    def _addStage(self, stage, layer=None, assetPath=None):
         if layer is None:
             layer = stage.GetRootLayer()
-        self._addScene(stage, layer)
+
+        self._addScene(stage, layer, assetPath)
         GraphState.executeCallbacks(
             'stageAdded',
             stage=stage, layer=layer
         )
 
-    def _addNewScene(self, stage=None, layer=None):
+    def _addNewScene(self, stage=None, layer=None, assetPath=None):
         newScene = GraphicsSceneWidget(
             parent=self
         )
         if stage is not None:
-            newScene.setStage(stage, layer, reset=False)
+            newScene.setStage(stage, layer, assetPath, reset=False)
             GraphState.setTimeIn(stage.GetStartTimeCode(), stage)
             GraphState.setTimeOut(stage.GetEndTimeCode(), stage)
             GraphState.setCurrentTime(stage.GetStartTimeCode(), stage)
@@ -258,7 +266,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
 
         return newScene
 
-    def _addScene(self, stage, layer):
+    def _addScene(self, stage, layer, assetPath):
         newScene = None
         for scene in self.scenes:
             if scene.stage == stage and scene.layer == layer:
@@ -266,7 +274,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
                 return
 
         if newScene is None:
-            newScene = self._addNewScene(stage, layer)
+            newScene = self._addNewScene(stage, layer, assetPath)
             newScene.scene.resetScene()
 
         # newScene.setStage(stage, layer)
@@ -288,12 +296,18 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         self.parameterPanel.addNode(item)
         self.entityItemDoubleClicked.emit(item)
 
-    def _enterFileRequired(self, usdFile):
+    def _enterFileRequired(self, usdFile, assetPath, force=False):
+        if not force and not isEditable(assetPath):
+            QtWidgets.QMessageBox.warning(None, 'Warning', 'The file:\n{}\ncan\'t be accessed'.format(assetPath))
+            return
         usdFile = str(usdFile)
-        self._addUsdFile(usdFile)
+        self._addUsdFile(usdFile, assetPath)
 
-    def _enterLayerRequired(self, stage, layer):
-        self._addScene(stage, layer)
+    def _enterLayerRequired(self, stage, layer, assetPath, force=False):
+        if not force and not isEditable(assetPath):
+            QtWidgets.QMessageBox.warning(None, 'Warning', 'The layer:\n{}\ncan\'t be accessed'.format(assetPath))
+            return
+        self._addScene(stage, layer, assetPath)
 
     def _nodeDeleted(self, node):
         self.parameterPanel.removeNode(node.name())
@@ -356,6 +370,9 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
 
     def _enterActionTriggered(self):
         self.currentScene.scene.enterSelection()
+
+    def _forceEnterActionTriggered(self):
+        self.currentScene.scene.forceEnterSelection()
 
     def _frameSelectionActionTriggered(self):
         self.currentScene.scene.frameSelection()

@@ -34,3 +34,8 @@ class PixmapTag(QtWidgets.QGraphicsPixmapItem):
         ))
         self.setScale(1.0 / self.scaleFactor)
 
+
+class LockTag(PixmapTag):
+    def __init__(self, **kwargs):
+        super(LockTag, self).__init__(icon='Lock.png', **kwargs)
+

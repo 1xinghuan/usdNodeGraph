@@ -92,6 +92,7 @@ class Node(QtCore.QObject):
         self._initParameters()
         self._initDefaults()
         self._syncParameters()
+        self._setTags()
 
     def _initParameters(self):
         self._parameters = {
@@ -100,6 +101,7 @@ class Node(QtCore.QObject):
             'label': TextParameter(name='label', defaultValue='', parent=self, builtIn=True),
             'x': FloatParameter(name='x', defaultValue=None, parent=self, builtIn=True, visible=False),
             'y': FloatParameter(name='y', defaultValue=None, parent=self, builtIn=True, visible=False),
+            'locked': BoolParameter(name='locked', defaultValue=False, parent=self, builtIn=True, visible=False),
             'disable': BoolParameter(name='disable', defaultValue=0, parent=self, builtIn=True),
         }
         self._parametersName = self._parameters.keys()
@@ -112,6 +114,9 @@ class Node(QtCore.QObject):
             self.parameter(name).setInheritValue(defaultValue)
 
     def _syncParameters(self):
+        pass
+
+    def _setTags(self):
         pass
 
     def parameter(self, parameterName):
@@ -188,6 +193,9 @@ class Node(QtCore.QObject):
             self._parameters.pop(parameterName)
             self._parametersName.remove(parameterName)
             self.parameterRemoved.emit(parameterName)
+
+    def isNodeLocked(self):
+        return self.parameter('locked').getValue()
 
 
 import os

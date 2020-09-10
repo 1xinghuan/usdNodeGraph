@@ -5,4 +5,5 @@
 from .node import Node
 from .usdNode import *
 from .shadeNode import *
+from .primNode import *
 
