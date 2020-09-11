@@ -406,7 +406,12 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         self._addStage(stage, layer)
 
     def findNodeAtPath(self, path):
-        self.currentScene.scene.findNodeAtPath(path)
+        nodes = self.currentScene.scene.findNodeAtPath(path)
+        return nodes
+
+    def createNode(self, nodeType):
+        node = self.currentScene.scene.createNode(nodeType)
+        return node
 
     def closeEvent(self, event):
         super(UsdNodeGraph, self).closeEvent(event)

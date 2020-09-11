@@ -118,4 +118,5 @@ for node in [
 ]:
     Node.registerNode(node)
     Node.setParamDefault(node.nodeType, 'typeName', node.nodeType)
+    Node.setParamDefault(node.nodeType, 'label', '/[value primName]')
 

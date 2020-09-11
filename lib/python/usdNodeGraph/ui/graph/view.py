@@ -1109,3 +1109,6 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
 
         self.frameSelection()
 
+        selected = self.selectedItems()
+        return selected
+

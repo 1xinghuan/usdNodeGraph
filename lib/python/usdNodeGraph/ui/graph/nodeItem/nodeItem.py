@@ -544,6 +544,7 @@ class NodeItem(_BaseNodeItem):
             self.findPipe = None
 
     def mousePressEvent(self, event):
+        super(NodeItem, self).mousePressEvent(event)
         if event.button() == QtCore.Qt.LeftButton:
             self.findingPipe = True
             self.startPos = self.mapToScene(self.boundingRect().center())
