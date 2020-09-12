@@ -241,21 +241,29 @@ class Parameter(QtCore.QObject):
     def getConnect(self):
         return self._overrideConnect if self.isOverride() else self._inheritConnect
 
-    def hasMetaData(self):
+    def hasMetadata(self):
         return self._metadata != {}
 
-    def getMetaDataKyes(self):
+    def getMetadataKyes(self):
         return self._metadata.keys()
 
-    def getMetaDataValue(self, key, default=None):
-        return self._metadata.get(key, default)
+    def getMetadataValue(self, key, default=None):
+        strValue = self._metadata.get(key, default)
+        try:
+            value = eval(strValue)
+        except:
+            value = strValue
+        return value
 
-    def getMetaDataAsString(self):
+    def getMetadatas(self):
+        return self._metadata
+
+    def getMetadatasAsString(self):
         return json.dumps(self._metadata, indent=4)
 
     # --------------------set value--------------------
-    def setMetaData(self, key, value):
-        self._metadata[key] = value
+    def setMetadata(self, key, value):
+        self._metadata[key] = str(value)
 
     def _beforeSetValue(self):
         for w in self._paramWidgets:

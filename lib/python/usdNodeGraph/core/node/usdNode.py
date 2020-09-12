@@ -40,16 +40,27 @@ class UsdNode(Node):
 
         super(UsdNode, self).__init__(*args, **kwargs)
 
-    def setMetaData(self, key, value):
-        self._metadata[key] = value
+    def hasMetadata(self):
+        return self._metadata != {}
 
-    def getMetaDataValue(self, key):
-        return self._metadata.get(key)
+    def setMetadata(self, key, value):
+        self._metadata[key] = str(value)
 
-    def getMetaDataKeys(self):
+    def getMetadataValue(self, key, default=None):
+        strValue = self._metadata.get(key, default)
+        try:
+            value = eval(strValue)
+        except:
+            value = strValue
+        return value
+
+    def getMetadataKeys(self):
         return self._metadata.keys()
 
-    def getMetaDataAsString(self):
+    def getMetadatas(self):
+        return self._metadata
+
+    def getMetadatasAsString(self):
         return json.dumps(self._metadata, indent=4)
 
     def _syncParameters(self):
@@ -105,7 +116,7 @@ class UsdNode(Node):
         params = [
             param for param in parameters if (
                     not param.isBuiltIn()
-                    and (param.isOverride() or param.hasMetaData())
+                    and (param.isOverride() or param.hasMetadata())
                     and param.name() not in self._ignoreExecuteParamNames
             )
         ]
@@ -135,7 +146,7 @@ class _PrimNode(UsdNode):
                     if value != param.getInheritValue():
                         param.setValueQuietly(value)
                 else:
-                    self.setMetaData(key, value)
+                    self.setMetadata(key, value)
 
     def _getCurrentExecutePrimPath(self, prim):
         primPath = prim.GetPath().pathString
@@ -149,8 +160,8 @@ class _PrimNode(UsdNode):
         primPath = self._getCurrentExecutePrimPath(prim)
         newPrim = stage.OverridePrim(primPath)
 
-        for key in self.getMetaDataKeys():
-            newPrim.SetMetadata(key, self.getMetaDataValue(key))
+        for key in self.getMetadataKeys():
+            newPrim.SetMetadata(key, self.getMetadataValue(key))
 
         return stage, newPrim
 
@@ -238,7 +249,7 @@ class RootNode(UsdNode):
                 if param is not None:
                     param.setValueQuietly(value)
                 else:
-                    self.setMetaData(key, value)
+                    self.setMetadata(key, value)
 
     def _initParameters(self):
         super(RootNode, self)._initParameters()
@@ -255,14 +266,14 @@ class RootNode(UsdNode):
 
         parameters = self._parameters.values()
         params = [
-            param for param in parameters if not param.isBuiltIn() and (param.isOverride() or param.hasMetaData())
+            param for param in parameters if not param.isBuiltIn() and (param.isOverride() or param.hasMetadata())
         ]
         for param in params:
             paramName = param.name()
             rootPrim.SetMetadata(paramName, param.getValue())
 
-        for key in self.getMetaDataKeys():
-            rootPrim.SetMetadata(key, self.getMetaDataValue(key))
+        for key in self.getMetadataKeys():
+            rootPrim.SetMetadata(key, self.getMetadataValue(key))
 
         return stage, rootPrim
 
@@ -414,7 +425,7 @@ class _AttributeNode(UsdNode):
                     'timeSamples',
                     'connectionPaths',
                 ]:
-                    param.setMetaData(key, attribute.GetInfo(key))
+                    param.setMetadata(key, attribute.GetInfo(key))
 
             if attribute.HasInfo('connectionPaths'):
                 connectionPathList = attribute.connectionPathList.GetAddedOrExplicitItems()
@@ -433,8 +444,8 @@ class _AttributeNode(UsdNode):
         else:
             attribute = prim.GetAttribute(attrName)
 
-        for key in parameter.getMetaDataKyes():
-            attribute.SetMetadata(key, parameter.getMetaDataValue(key))
+        for key in parameter.getMetadataKyes():
+            attribute.SetMetadata(key, parameter.getMetadataValue(key))
 
         if parameter.hasConnect():
             attribute.SetConnections([parameter.getConnect()])

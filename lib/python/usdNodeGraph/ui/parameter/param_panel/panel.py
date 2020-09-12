@@ -2,6 +2,7 @@ from ..param_widget import *
 from usdNodeGraph.utils.res import resource
 from usdNodeGraph.ui.utils.layout import FormLayout
 from usdNodeGraph.core.state.core import GraphState
+from .metadata import MetadataPanel
 
 
 CONTEXT_MENU = None
@@ -48,6 +49,8 @@ class ParamStatusButton(QtWidgets.QLabel):
 
 
 class ParamLabelWidget(QtWidgets.QWidget):
+    paramLabelClicked = QtCore.Signal(object)
+
     def __init__(self):
         super(ParamLabelWidget, self).__init__()
 
@@ -81,7 +84,6 @@ class ParamLabelWidget(QtWidgets.QWidget):
             ['Add Keyframe', self._addKeyframeClicked],
             ['Remove Keyframe', self._removeKeyframeClicked],
             ['Remove All Keys', self._removeAllKeysClicked],
-            ['View MetaData', self._viewMetaDataClicked],
         ]
 
     def _createContextMenu(self):
@@ -117,9 +119,9 @@ class ParamLabelWidget(QtWidgets.QWidget):
         self._parameter.removeAllKeys(emitSignal=False)
         self._parameter.setValue(currentValue)
 
-    def _viewMetaDataClicked(self):
-        metaData = self._parameter.getMetaDataAsString()
-        print(metaData)
+    def mouseReleaseEvent(self, event):
+        super(ParamLabelWidget, self).mouseReleaseEvent(event)
+        self.paramLabelClicked.emit(self._parameter)
 
 
 class NodeParameterWidget(QtWidgets.QFrame):
@@ -133,6 +135,7 @@ class NodeParameterWidget(QtWidgets.QFrame):
         self._paramWidgets = {}
         self._paramLabelWidgets = {}
         self._expanded = True
+        self._isParamLabelClicked = False
 
         self._initUI()
         self._createSignal()
@@ -149,13 +152,15 @@ class NodeParameterWidget(QtWidgets.QFrame):
         self._backLabel = QtWidgets.QLabel(parent=self)
         self._backLabel.move(0, 0)
         self._backLabel.setStyleSheet('''
-        background: rgb(250, 250, 250, 10);
-        border-radius: 3px;
+        QLabel{
+            background: rgb(250, 250, 250, 10);
+            border-radius: 3px;
+        }
         ''')
         self.setStyleSheet('''
         QFrame#NodeParameterWidget{
-        border: 1px solid gray;
-        border-radius: 3px;
+            border: 1px solid gray;
+            border-radius: 3px;
         }
         ''')
 
@@ -198,9 +203,16 @@ class NodeParameterWidget(QtWidgets.QFrame):
         self.topLayout.addWidget(self.closeButton)
 
         self.parameterTabWidget = QtWidgets.QTabWidget()
+        self.metadataWidget = MetadataPanel()
+        self.metadataWidget.setVisible(False)
+
+        self.downSplit = QtWidgets.QSplitter()
+        # self.downSplit.setOrientation(QtCore.Qt.Vertical)
+        self.downSplit.addWidget(self.parameterTabWidget)
+        self.downSplit.addWidget(self.metadataWidget)
 
         self.masterLayout.addLayout(self.topLayout)
-        self.masterLayout.addWidget(self.parameterTabWidget)
+        self.masterLayout.addWidget(self.downSplit)
 
         self.setSizePolicy(QtWidgets.QSizePolicy(
             QtWidgets.QSizePolicy.Preferred,
@@ -251,6 +263,7 @@ class NodeParameterWidget(QtWidgets.QFrame):
         if parameter.isVisible():
             parameterLabel = ParamLabelWidget()
             parameterLabel.setParameter(parameter)
+            parameterLabel.paramLabelClicked.connect(self._paramLabelClicked)
             parameterWidget = ParameterWidget.createParameterWidget(parameter)
 
             self._paramWidgets.update({parameter.name(): parameterWidget})
@@ -311,7 +324,7 @@ class NodeParameterWidget(QtWidgets.QFrame):
     def setContextMenu(self):
         self._context_menus = [
             # ['Add Parameter', self._addParameterClicked],
-            ['View MetaData', self._viewMetaDataClicked],
+            ['View Metadata', self._viewMetadataClicked],
         ]
 
     def _createContextMenu(self):
@@ -335,9 +348,29 @@ class NodeParameterWidget(QtWidgets.QFrame):
     def _addParameterClicked(self):
         pass
 
-    def _viewMetaDataClicked(self):
-        metaData = self._nodeItem.nodeObject.getMetaDataAsString()
-        print(metaData)
+    def _viewMetadataClicked(self):
+        self._viewMetadata(self._nodeItem.nodeObject)
+
+    def _viewMetadata(self, obj):
+        self.metadataWidget.setVisible(True)
+        self.metadataWidget.setNodeOrParam(obj)
+
+    def viewMetadata(self, obj):
+        if obj.hasMetadata():
+            self._viewMetadata(obj)
+        else:
+            self.metadataWidget.setVisible(False)
+
+    def _paramLabelClicked(self, param):
+        self._isParamLabelClicked = True
+        self.viewMetadata(param)
+
+    def mouseReleaseEvent(self, *args, **kwargs):
+        super(NodeParameterWidget, self).mouseReleaseEvent(*args, **kwargs)
+        if self._isParamLabelClicked:
+            self._isParamLabelClicked = False
+        else:
+            self.viewMetadata(self._nodeItem.nodeObject)
 
     def deleteLater(self):
         self._nodeItem.panel = None
@@ -435,5 +468,4 @@ class ParameterPanel(QtWidgets.QWidget):
         self.widgetsAreaLayout.insertWidget(0, nodeParameterWidget)
 
         self._removeExtraWidgets()
-
 
