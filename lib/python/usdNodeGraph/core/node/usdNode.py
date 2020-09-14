@@ -170,6 +170,7 @@ class _PrimOnlyNode(_PrimNode):
     _ignorePrimInfoKeys = [
         'variantSetNames',
         'variantSelection',
+        'payload',
         'references',
         'specifier',
     ]
