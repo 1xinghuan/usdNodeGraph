@@ -48,6 +48,9 @@ export PXR_PLUGINPATH_NAME=$USD_NODEGRAPH_ROOT/plugin:$PXR_PLUGINPATH_NAME
 ```
 
 maya:
+
+![maya01](screenshot/maya01.png)
+
 ```bash
 export PYTHONPATH=$USD_NODEGRAPH_ROOT/lib/python:$PYTHONPATH
 ```
