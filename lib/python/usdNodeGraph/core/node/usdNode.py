@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
 
 import json
 from pxr import Usd, Sdf, Kind, UsdGeom, Vt
@@ -353,10 +352,11 @@ class ReferenceNode(_RefNode):
 
     def _execute(self, stage, prim):
         assetPath = self.parameter('assetPath').getValue()
+        if assetPath:
 
-        prim.GetReferences().SetReferences([
-            Sdf.Reference(assetPath, layerOffset=self._getLayerOffset())
-        ])
+            prim.GetReferences().SetReferences([
+                Sdf.Reference(assetPath, layerOffset=self._getLayerOffset())
+            ])
 
         return stage, prim
 
@@ -380,9 +380,10 @@ class PayloadNode(_RefNode):
     def _execute(self, stage, prim):
         assetPath = self.parameter('assetPath').getValue()
         primPath = self.parameter('primPath').getValue()
+        if assetPath:
 
-        payload = Sdf.Payload(assetPath, primPath, self._getLayerOffset())
-        prim.SetPayload(payload)
+            payload = Sdf.Payload(assetPath, primPath, self._getLayerOffset())
+            prim.SetPayload(payload)
 
         return stage, prim
 

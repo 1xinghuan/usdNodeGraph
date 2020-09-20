@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
-
 
 from pxr import Sdf
 from usdNodeGraph.module.sqt import *

@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
-# 8/29/2018
 
 import os
 from pxr import Usd
@@ -10,9 +8,52 @@ from usdNodeGraph.ui.parameter.param_panel import ParameterPanel
 from usdNodeGraph.core.state.core import GraphState
 from usdNodeGraph.ui.other.timeSlider import TimeSliderWidget
 from usdNodeGraph.utils.settings import User_Setting, read_setting, write_setting
+from usdNodeGraph.utils.res import resource
 
 
 USD_NODE_GRAPH_WINDOW = None
+
+
+class ApplyButton(QtWidgets.QToolButton):
+    def __init__(self):
+        super(ApplyButton, self).__init__()
+
+        self.setPopupMode(QtWidgets.QToolButton.MenuButtonPopup)
+        # self.setPopupMode(QtWidgets.QToolButton.DelayedPopup)
+        self.setArrowType(QtCore.Qt.NoArrow)
+        self.setStyleSheet("""
+        QToolButton{
+            text-align: left;
+        }
+        QToolButton::menu-indicator{
+            image: None;
+        }
+        """)
+
+        self._menu = QtWidgets.QMenu()
+        self.liveUpdateAction = QtWidgets.QAction('Live Update', self._menu)
+        self._menu.addAction(self.liveUpdateAction)
+        self.setMenu(self._menu)
+
+        self.setFixedWidth(30)
+
+        self._liveUpdateModeChanged(GraphState.isLiveUpdate())
+
+        GraphState.getState().liveUpdateModeChanged.connect(self._liveUpdateModeChanged)
+        self.liveUpdateAction.triggered.connect(self._liveUpdateActionTriggered)
+
+    def _liveUpdateModeChanged(self, value):
+        if value:
+            self.setIcon(resource.get_qicon('btn', 'live_update.png'))
+            self.setToolTip('Live Update')
+            self.liveUpdateAction.setText('Disable Live Update')
+        else:
+            self.setIcon(resource.get_qicon('btn', 'arrow_up2_white.png'))
+            self.setToolTip('Update Stage')
+            self.liveUpdateAction.setText('Enable Live Update')
+
+    def _liveUpdateActionTriggered(self):
+        GraphState.setLiveUpdate(1 - GraphState.isLiveUpdate())
 
 
 class DockWidget(QtWidgets.QDockWidget):
@@ -89,6 +130,8 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         self._createSignal()
 
     def _createSignal(self):
+        self.applyButton.clicked.connect(self._applyActionTriggered)
+        self.reloadButton.clicked.connect(self._reloadLayerActionTriggered)
         self.nodeGraphTab.tabCloseRequested.connect(self._tabCloseRequest)
         self.nodeGraphTab.currentChanged.connect(self._tabChanged)
 
@@ -170,6 +213,19 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         self._setMenus()
 
         self.nodeGraphTab = NodeGraphTab(parent=self)
+        self.buttonsWidget = QtWidgets.QWidget(parent=self)
+        buttonLayout = QtWidgets.QHBoxLayout()
+        buttonLayout.setAlignment(QtCore.Qt.AlignRight)
+        buttonLayout.setContentsMargins(0, 0, 10, 0)
+        self.buttonsWidget.setLayout(buttonLayout)
+        self.nodeGraphTab.setCornerWidget(self.buttonsWidget, QtCore.Qt.TopRightCorner)
+
+        self.applyButton = ApplyButton()
+        self.reloadButton = QtWidgets.QPushButton()
+        self.reloadButton.setIcon(resource.get_qicon('btn', 'refresh_blue.png'))
+        buttonLayout.addWidget(self.applyButton)
+        buttonLayout.addWidget(self.reloadButton)
+
         self.parameterPanel = ParameterPanel(parent=self)
         self.timeSlider = TimeSliderWidget()
         self.editTextEdit = QtWidgets.QTextEdit()
@@ -292,6 +348,9 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
 
     def _tabChanged(self, index):
         self._switchScene()
+
+    def _updateButtonClicked(self):
+        self.currentScene.applyChanges()
 
     def _itemDoubleClicked(self, item):
         self.parameterPanel.addNode(item)

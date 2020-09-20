@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
 
 from usdNodeGraph.module.sqt import QtWidgets
 from usdNodeGraph.ui.graph.nodeItem.nodeItem import NodeItem, LABEL_FONT

@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
-# 8/29/2018
 
 import os
 import re
@@ -18,7 +16,6 @@ from .other.pipe import Pipe
 from .other.port import Port
 from usdNodeGraph.utils.log import get_logger, log_cost_time
 from usdNodeGraph.core.state import GraphState
-from usdNodeGraph.utils.res import resource
 
 
 logger = get_logger('usdNodeGraph.view')
@@ -83,23 +80,6 @@ class FloatLineEdit(QtWidgets.QFrame):
         super(FloatLineEdit, self).setVisible(bool)
         if bool:
             self._edit.setFocus()
-
-
-class UpdateButton(QtWidgets.QPushButton):
-    def __init__(self):
-        super(UpdateButton, self).__init__()
-
-        self._liveUpdateModeChanged(GraphState.isLiveUpdate())
-
-        GraphState.getState().liveUpdateModeChanged.connect(self._liveUpdateModeChanged)
-
-    def _liveUpdateModeChanged(self, value):
-        if value:
-            self.setIcon(resource.get_qicon('btn', 'live_update.png'))
-            self.setToolTip('Live Update')
-        else:
-            self.setIcon(resource.get_qicon('btn', 'arrow_up2_white.png'))
-            self.setToolTip('Update Stage')
 
 
 class GraphicsView(QtWidgets.QGraphicsView):
@@ -387,7 +367,6 @@ class GraphicsSceneWidget(QtWidgets.QWidget):
         # self.showWidgetSignal.connect(self.show_entity_widget, QtCore.Qt.QueuedConnection)
         self.scene.enterFileRequired.connect(self._enterFileRequired)
         self.scene.enterLayerRequired.connect(self._enterLayerRequired)
-        self.updateButton.clicked.connect(self.applyChanges)
 
     def _initUI(self):
 
@@ -396,13 +375,7 @@ class GraphicsSceneWidget(QtWidgets.QWidget):
         self.view.setScene(self.scene)
         self.setGeometry(100, 100, 800, 600)
 
-        self.buttonLayout = QtWidgets.QHBoxLayout()
-        self.buttonLayout.setAlignment(QtCore.Qt.AlignLeft)
-        self.updateButton = UpdateButton()
-        self.buttonLayout.addWidget(self.updateButton)
-
         layout = QtWidgets.QVBoxLayout()
-        layout.addLayout(self.buttonLayout)
         layout.addWidget(self.view)
         self.setLayout(layout)
 

@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
-# 9/20/2019
 
 import os
 import collections

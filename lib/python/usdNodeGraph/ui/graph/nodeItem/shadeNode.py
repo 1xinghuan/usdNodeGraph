@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
-
 
 from .nodeItem import NodeItem
 from .usdNode import UsdNodeItem
