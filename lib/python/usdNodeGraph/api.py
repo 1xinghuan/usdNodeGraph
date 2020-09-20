@@ -37,6 +37,24 @@ def createNode(nodeType):
         return graph.createNode(nodeType)
 
 
+def allNodes(nodeType=None):
+    graph = UsdNodeGraph.getInstance()
+    if graph is not None:
+        return graph.currentScene.getNodes(nodeType)
+
+
+def selectedNodes():
+    graph = UsdNodeGraph.getInstance()
+    if graph is not None:
+        return graph.currentScene.getSelectedNodes()
+
+
+def getNode(nodeName):
+    graph = UsdNodeGraph.getInstance()
+    if graph is not None:
+        return graph.currentScene.getNode(nodeName)
+
+
 def findNodeAtPath(path):
     graph = UsdNodeGraph.getInstance()
     if graph is not None:

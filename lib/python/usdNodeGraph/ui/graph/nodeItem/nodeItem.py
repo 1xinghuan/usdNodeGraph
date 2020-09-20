@@ -397,8 +397,7 @@ class NodeItem(_BaseNodeItem):
         self.inputPorts = []
         self.outputPorts = []
 
-        self.findPipe = None
-        self.findPos = None
+        self.findPipes = []
 
         super(NodeItem, self).__init__(*args, **kwargs)
 
@@ -514,34 +513,32 @@ class NodeItem(_BaseNodeItem):
         pass
 
     def _findPipeToConnect(self):
-        findPos = self.pos() + QtCore.QPointF(self.w / 2.0, -10)
-        findItem = self.scene().itemAt(findPos, QtGui.QTransform())
+        findPipes = [item for item in self.collidingItems(QtCore.Qt.IntersectsItemShape) if isinstance(item, Pipe)]
 
-        if isinstance(findItem, Pipe):
-            self.findPipe = findItem
-            self.findPipe.setLineColor(highlight=True)
-            self.findPipe.update()
+        if len(self.findPipes) > 0:
+            for pipe in self.findPipes:
+                pipe.setLineColor(highlight=False)
+                pipe.update()
+                self.findPipes = []
 
-            self.findPos = findPos
-        else:
-            if self.findPipe is not None:
-                line = QtCore.QLineF(findPos, self.findPos)
-                if line.length() > 20:
-                    self.findPipe.setLineColor(highlight=False)
-                    self.findPipe.update()
-                    self.findPipe = None
+        if len(findPipes) > 0:
+            self.findPipes = findPipes
+            for pipe in self.findPipes:
+                pipe.setLineColor(highlight=True)
+                pipe.update()
 
     def _connectToFoundPipe(self):
-        if self.findPipe is not None:
-            source = self.findPipe.source
-            target = self.findPipe.target
+        if len(self.findPipes) > 0:
+            for pipe in self.findPipes:
+                source = pipe.source
+                target = pipe.target
 
-            self.findPipe.breakConnection()
+                pipe.breakConnection()
 
-            self.inputPort.connectTo(source)
-            self.outputPort.connectTo(target)
+                self.inputPort.connectTo(source)
+                self.outputPort.connectTo(target)
 
-            self.findPipe = None
+            self.findPipes = []
 
     def mousePressEvent(self, event):
         super(NodeItem, self).mousePressEvent(event)
