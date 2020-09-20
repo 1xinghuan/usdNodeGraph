@@ -60,3 +60,9 @@ def findNodeAtPath(path):
     if graph is not None:
         return graph.findNodeAtPath(path)
 
+
+def applyChanges():
+    graph = UsdNodeGraph.getInstance()
+    if graph is not None:
+        return graph.currentScene.applyChanges()
+

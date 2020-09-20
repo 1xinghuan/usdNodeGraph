@@ -126,6 +126,7 @@ class UsdNode(Node):
 class _PrimNode(UsdNode):
     nodeType = 'Prim'
     _ignorePrimInfoKeys = []
+    liveUpdateParameterNames = ['primName']
 
     def _initParameters(self):
         super(_PrimNode, self)._initParameters()
@@ -174,6 +175,7 @@ class _PrimOnlyNode(_PrimNode):
         'specifier',
     ]
     _ignoreExecuteParamNames = ['primName']
+    liveUpdateParameterNames = ['primName', 'typeName', 'kind']
 
     def _initParameters(self):
         super(_PrimOnlyNode, self)._initParameters()
@@ -229,6 +231,10 @@ class RootNode(UsdNode):
     nodeType = 'Root'
     fillNormalColor = (50, 60, 70)
     borderNormalColor = (250, 250, 250, 200)
+    liveUpdateParameterNames = [
+        'defaultPrim', 'upAxis',
+        'startTimeCode', 'endTimeCode'
+    ]
 
     def __init__(self, *args, **kwargs):
         super(RootNode, self).__init__(*args, **kwargs)
@@ -301,6 +307,10 @@ class _RefNode(UsdNode):
     nodeType = '_Ref'
     fillNormalColor = (50, 60, 70)
     borderNormalColor = (200, 150, 150, 200)
+    liveUpdateParameterNames = [
+        'assetPath',
+        'layerOffset', 'layerScale'
+    ]
 
     def _initParameters(self):
         super(_RefNode, self)._initParameters()
@@ -352,6 +362,10 @@ class ReferenceNode(_RefNode):
 
 class PayloadNode(_RefNode):
     nodeType = 'Payload'
+    liveUpdateParameterNames = [
+        'assetPath', 'primPath',
+        'layerOffset', 'layerScale'
+    ]
 
     def _setParametersFromRef(self, reference):
         super(PayloadNode, self)._setParametersFromRef(reference)
@@ -648,6 +662,9 @@ class _VariantNode(UsdNode):
 
 class VariantSetNode(_VariantNode):
     nodeType = 'VariantSet'
+    liveUpdateParameterNames = [
+        'variantSetName', 'variantList',
+    ]
 
     def __init__(self, variantSetName=None, options=None, *args, **kwargs):
         super(VariantSetNode, self).__init__(*args, **kwargs)
@@ -677,6 +694,9 @@ class VariantSetNode(_VariantNode):
 
 class VariantSelectNode(_VariantNode):
     nodeType = 'VariantSelect'
+    liveUpdateParameterNames = [
+        'variantSetName', 'variantSelected',
+    ]
 
     def __init__(self, variantSetName='', variantSelected='', options=None, *args, **kwargs):
         super(VariantSelectNode, self).__init__(*args, **kwargs)
@@ -716,6 +736,9 @@ class VariantSelectNode(_VariantNode):
 
 class VariantSwitchNode(_VariantNode):
     nodeType = 'VariantSwitch'
+    liveUpdateParameterNames = [
+        'variantSetName', 'variantSelected',
+    ]
 
     def __init__(self, variantSetName='', variantSelected='', *args, **kwargs):
         super(VariantSwitchNode, self).__init__(*args, **kwargs)

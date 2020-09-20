@@ -41,6 +41,8 @@ class Node(QtCore.QObject):
 
     _expressionMap = {}
 
+    liveUpdateParameterNames = []
+
     @classmethod
     def registerExpressionString(cls, string, object):
         cls._expressionMap[string] = object
@@ -154,6 +156,11 @@ class Node(QtCore.QObject):
     def _whenParamterValueChanged(self, parameter):
         if parameter.name() == 'name':
             self.item.scene()._afterNodeNameChanged(self.item)
+        if parameter.name() in self.liveUpdateParameterNames:
+            self._liveUpdateRequired()
+
+    def _liveUpdateRequired(self):
+        self.item.scene().liveUpdateRequired()
 
     def addParameter(self, parameterName, parameterType, defaultValue=None, **kwargs):
         """

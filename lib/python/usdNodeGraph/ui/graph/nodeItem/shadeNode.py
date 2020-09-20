@@ -92,6 +92,7 @@ class _UsdShadeNodeItem(UsdNodeItem):
                 return port
 
     def _portConnectionChanged(self, port):
+        super(_UsdShadeNodeItem, self)._portConnectionChanged(port)
         if isinstance(port, ShaderInputPort):
             parameter = self.parameter(port.name)
             if parameter is None:

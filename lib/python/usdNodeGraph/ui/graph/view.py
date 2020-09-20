@@ -18,6 +18,7 @@ from .other.pipe import Pipe
 from .other.port import Port
 from usdNodeGraph.utils.log import get_logger, log_cost_time
 from usdNodeGraph.core.state import GraphState
+from usdNodeGraph.utils.res import resource
 
 
 logger = get_logger('usdNodeGraph.view')
@@ -36,9 +37,9 @@ VIEW_GRID_HEIGHT = 100
 VIEW_ZOOM_STEP = 1.1
 
 
-def isEditable(assetPath):
-    if GraphState.hasFunction('isFileEditable') and assetPath is not None:
-        editAble = GraphState.executeFunction('isFileEditable', assetPath)
+def isEditable(realPath):
+    if GraphState.hasFunction('isFileEditable') and realPath is not None:
+        editAble = GraphState.executeFunction('isFileEditable', realPath)
         return editAble
     return True
 
@@ -82,6 +83,23 @@ class FloatLineEdit(QtWidgets.QFrame):
         super(FloatLineEdit, self).setVisible(bool)
         if bool:
             self._edit.setFocus()
+
+
+class UpdateButton(QtWidgets.QPushButton):
+    def __init__(self):
+        super(UpdateButton, self).__init__()
+
+        self._liveUpdateModeChanged(GraphState.isLiveUpdate())
+
+        GraphState.getState().liveUpdateModeChanged.connect(self._liveUpdateModeChanged)
+
+    def _liveUpdateModeChanged(self, value):
+        if value:
+            self.setIcon(resource.get_qicon('btn', 'live_update.png'))
+            self.setToolTip('Live Update')
+        else:
+            self.setIcon(resource.get_qicon('btn', 'arrow_up2_white.png'))
+            self.setToolTip('Update Stage')
 
 
 class GraphicsView(QtWidgets.QGraphicsView):
@@ -369,6 +387,7 @@ class GraphicsSceneWidget(QtWidgets.QWidget):
         # self.showWidgetSignal.connect(self.show_entity_widget, QtCore.Qt.QueuedConnection)
         self.scene.enterFileRequired.connect(self._enterFileRequired)
         self.scene.enterLayerRequired.connect(self._enterLayerRequired)
+        self.updateButton.clicked.connect(self.applyChanges)
 
     def _initUI(self):
 
@@ -377,7 +396,13 @@ class GraphicsSceneWidget(QtWidgets.QWidget):
         self.view.setScene(self.scene)
         self.setGeometry(100, 100, 800, 600)
 
+        self.buttonLayout = QtWidgets.QHBoxLayout()
+        self.buttonLayout.setAlignment(QtCore.Qt.AlignLeft)
+        self.updateButton = UpdateButton()
+        self.buttonLayout.addWidget(self.updateButton)
+
         layout = QtWidgets.QVBoxLayout()
+        layout.addLayout(self.buttonLayout)
         layout.addWidget(self.view)
         self.setLayout(layout)
 
@@ -730,7 +755,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             layer = stage.GetRootLayer()
         self.layer = layer
         self.assetPath = assetPath
-        self.editable = isEditable(self.assetPath)
+        self.editable = isEditable(self.layer.realPath)
 
         if reset:
             self.resetScene()
@@ -745,6 +770,10 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
 
     @log_cost_time
     def resetScene(self):
+        with GraphState.stopLiveUpdate():
+            self._resetScene()
+
+    def _resetScene(self):
         self.clear()
         self._primNodes = {}
         self._allNodes = {}
@@ -801,6 +830,11 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             node.setSelected(True)
 
     def deleteSelection(self):
+        with GraphState.stopLiveUpdate():
+            self._deleteSelection()
+        self.liveUpdateRequired()
+
+    def _deleteSelection(self):
         selectedPipes = []
         selectedNodes = []
         for item in self.selectedItems():
@@ -816,9 +850,13 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             self.deleteNode(node)
 
     def deleteNode(self, node):
+        pipes = []
         for port in node.ports:
             for pipe in port.pipes:
-                pipe.breakConnection()
+                if pipe not in pipes:
+                    pipes.append(pipe)
+        for pipe in pipes:
+            pipe.breakConnection()
         self.removeItem(node)
         self._allNodes.pop(node)
         self.nodeDeleted.emit(node)
@@ -829,6 +867,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
     def disableSelection(self):
         for node in self.getSelectedNodes():
             node.parameter('disable').setValue(1 - node.parameter('disable').getValue())
+        self.liveUpdateRequired()
 
     def enterSelection(self, force=False):
         for item in self.selectedItems():
@@ -1007,6 +1046,10 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             'layerChangesApplied',
             layer=self.layer.realPath
         )
+
+    def liveUpdateRequired(self):
+        if GraphState.isLiveUpdate():
+            self.applyChanges()
 
     def setAsEditTarget(self):
         if self.stage is not None:

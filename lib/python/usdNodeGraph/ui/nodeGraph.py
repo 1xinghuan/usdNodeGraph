@@ -103,7 +103,8 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
                 ['reload_stage', 'Reload Stage', 'Alt+Shift+R', self._reloadStageActionTriggered],
                 ['reload_layer', 'Reload Layer', 'Alt+R', self._reloadLayerActionTriggered],
                 ['show_edit_text', 'Show Edit Text', None, self._showEditTextActionTriggered],
-                ['apply_changes', 'Apply', 'Ctrl+Shift+A', self._applyActionTriggered],
+                ['apply_changes', 'Apply Changes', 'Ctrl+Shift+A', self._applyActionTriggered],
+                ['live_update', 'Live Update', None, self._liveUpdateActionTriggered],
                 ['save_file', 'Save Layer', 'Ctrl+S', self._saveLayerActionTriggered],
                 ['export_file', 'Export', 'Ctrl+E', self._exportActionTriggered],
             ]],
@@ -297,14 +298,14 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         self.entityItemDoubleClicked.emit(item)
 
     def _enterFileRequired(self, usdFile, assetPath, force=False):
-        if not force and not isEditable(assetPath):
+        usdFile = str(usdFile)
+        if not force and not isEditable(usdFile):
             QtWidgets.QMessageBox.warning(None, 'Warning', 'The file:\n{}\ncan\'t be accessed'.format(assetPath))
             return
-        usdFile = str(usdFile)
         self._addUsdFile(usdFile, assetPath)
 
     def _enterLayerRequired(self, stage, layer, assetPath, force=False):
-        if not force and not isEditable(assetPath):
+        if not force and not isEditable(layer.realPath):
             QtWidgets.QMessageBox.warning(None, 'Warning', 'The layer:\n{}\ncan\'t be accessed'.format(assetPath))
             return
         self._addScene(stage, layer, assetPath)
@@ -348,6 +349,9 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
 
     def _applyActionTriggered(self):
         self.currentScene.applyChanges()
+
+    def _liveUpdateActionTriggered(self):
+        GraphState.setLiveUpdate(1 - GraphState.isLiveUpdate())
 
     def _createNodeActionTriggered(self):
         self.currentScene.view.showFloatEdit()

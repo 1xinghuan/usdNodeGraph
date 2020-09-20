@@ -11,6 +11,7 @@ from usdNodeGraph.utils.log import get_logger
 import re
 from usdNodeGraph.core.node import Node
 from usdNodeGraph.ui.graph.other.tag import LockTag
+from usdNodeGraph.core.state import GraphState
 
 logger = get_logger('usdNodeGraph.nodeItem')
 
@@ -529,14 +530,18 @@ class NodeItem(_BaseNodeItem):
 
     def _connectToFoundPipe(self):
         if len(self.findPipes) > 0:
-            for pipe in self.findPipes:
-                source = pipe.source
-                target = pipe.target
+            with GraphState.stopLiveUpdate():
 
-                pipe.breakConnection()
+                for pipe in self.findPipes:
+                    source = pipe.source
+                    target = pipe.target
 
-                self.inputPort.connectTo(source)
-                self.outputPort.connectTo(target)
+                    pipe.breakConnection()
+
+                    self.inputPort.connectTo(source)
+                    self.outputPort.connectTo(target)
+
+            self.scene().liveUpdateRequired()
 
             self.findPipes = []
 

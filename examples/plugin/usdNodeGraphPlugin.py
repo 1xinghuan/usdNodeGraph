@@ -5,7 +5,7 @@ from pxr.Usdviewq.qt import QtWidgets, QtCore
 
 
 def isFileEditable(path):
-    if 'lay' in path:
+    if 'publish' in path:
         return False
     return True
 
