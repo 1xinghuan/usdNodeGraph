@@ -75,8 +75,8 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
     def name(self):
         return self.nodeObject.name()
 
-    def _getInputsDict(self):
-        return {}
+    # def _getInputsDict(self):
+    #     return {}
 
     def _getOutputsDict(self):
         return {}
@@ -134,6 +134,43 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
         }
 
         return data
+
+    def toXmlElement(self):
+        from usdNodeGraph.core.parse._xml import ET
+
+        nodeElement = ET.Element('node')
+        nodeElement.set('name', self.parameter('name').getValue())
+        nodeElement.set('class', self.Class())
+
+        for paramName, param in self.nodeObject._parameters.items():
+            if paramName != 'name':
+                override = param.isOverride()
+                custom = param.isCustom()
+
+                if not (override or custom) and paramName not in ['x', 'y']:
+                    continue
+
+                paramElement = param.toXmlElement()
+                nodeElement.append(paramElement)
+
+        inputsDict = self._getInputsDict()
+        # outputsDict = self._getOutputsDict()
+
+        for inputName, info in inputsDict.items():
+            node, outputName = info
+            inputElement = ET.Element('input')
+            inputElement.set('name', inputName)
+            inputElement.set('connectNode', node)
+            inputElement.set('connectPort', outputName)
+            nodeElement.append(inputElement)
+
+        return nodeElement
+
+    def toXml(self):
+        from usdNodeGraph.core.parse._xml import convertToString
+
+        element = self.toXmlElement()
+        return convertToString(element)
 
     @property
     def nodeType(self):

@@ -16,6 +16,7 @@ from .other.pipe import Pipe
 from .other.port import Port
 from usdNodeGraph.utils.log import get_logger, log_cost_time
 from usdNodeGraph.core.state import GraphState
+from usdNodeGraph.core.parse._xml import ET, convertToString
 
 
 logger = get_logger('usdNodeGraph.view')
@@ -791,12 +792,27 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             nodeItem.afterAddToScene()
             self._allNodes.update({nodeItem: nodeName})
 
+            centerx, centery = self.getCenterPos()
+            nodeItem.setX(centerx)
+            nodeItem.setY(centery)
+
             if suffix in self._nodesSuffix:
                 self._nodesSuffix[suffix].append(index)
             else:
                 self._nodesSuffix[suffix] = [index]
 
             return nodeItem
+
+    def getCenterPos(self):
+        centerx = self.view.mapToScene(QtCore.QPoint(
+            self.view.viewport().width() / 2,
+            self.view.viewport().height() / 2
+        )).x()
+        centery = self.view.mapToScene(QtCore.QPoint(
+            self.view.viewport().width() / 2,
+            self.view.viewport().height() / 2
+        )).y()
+        return centerx, centery
 
     def selectAll(self):
         for node in self.allNodes():
@@ -887,57 +903,60 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
     def getSelectedNodes(self):
         return [n for n in self.selectedItems() if isinstance(n, NodeItem)]
 
-    def getSelectedNodesAsString(self):
+    def getSelectedNodesAsXml(self):
         nodes = self.getSelectedNodes()
+        rootElement = ET.Element('usdnodegraph')
         nodesDict = {}
         if len(nodes) > 0:
             firstNode = nodes[0]
             minX = firstNode.parameter('x').getValue()
             minY = firstNode.parameter('y').getValue()
             for node in nodes:
-                nodeData = node.toDict()
-                nodesDict.update(nodeData)
+                nodeElement = node.toXmlElement()
+                rootElement.append(nodeElement)
+
                 minX = min(node.parameter('x').getValue(), minX)
                 minY = min(node.parameter('y').getValue(), minY)
 
-            nodesDict.update({
-                '_topLeftPos': [minX, minY]
-            })
-            nodesString = json.dumps(nodesDict, indent=4)
+            rootElement.set('x', str(minX))
+            rootElement.set('y', str(minY))
+            nodesString = convertToString(rootElement)
             return nodesString
 
-    def pasteNodesFromString(self, nodesString):
-        try:
-            nodesDict = json.loads(nodesString)
-        except:
-            return
-        _topLeftPos = nodesDict.get('_topLeftPos', [0, 0])
-        nodesDict.pop('_topLeftPos')
+    def pasteNodesFromXml(self, nodesString):
+        rootElement = ET.fromstring(nodesString)
+        _topLeftX = float(rootElement.get('x'))
+        _topLeftY = float(rootElement.get('y'))
 
         scenePos = self.view.mapToScene(self.view.clickedPos)
-        offsetX = scenePos.x() - _topLeftPos[0]
-        offsetY = scenePos.y() - _topLeftPos[1]
+        offsetX = scenePos.x() - _topLeftX
+        offsetY = scenePos.y() - _topLeftY
 
         _nameConvertDict = {}
         _newNodes = []
-
-        # new nodes
-        for oldNodeName, nodeDict in nodesDict.items():
-            nodeClass = nodeDict.get('nodeClass')
-            paramsDict = nodeDict.get('parameters', {})
+        for nodeElement in rootElement.getchildren():
+            oldNodeName = nodeElement.get('name')
+            nodeClass = nodeElement.get('class')
             node = self.createNode(nodeClass, name=oldNodeName)
             _newNodes.append(node)
             newName = node.parameter('name').getValue()
             _nameConvertDict.update({oldNodeName: newName})
 
-            for paramName, paramDict in paramsDict.items():
+            for paramElement in nodeElement.findall('param'):
+                paramName = paramElement.get('name')
                 if paramName in ['name']:
                     continue
-                builtIn = paramDict.get('builtIn', False)
-                parameterType = paramDict.get('parameterType')
-                value = paramDict.get('value')
-                timeSamples = paramDict.get('timeSamples')
-                connect = paramDict.get('connect')
+                builtIn = paramElement.get('builtIn', '0')
+                parameterType = paramElement.get('parameterType')
+                visible = paramElement.get('visible')
+                value = paramElement.get('value')
+                connect = paramElement.get('connect')
+                samples = paramElement.findall('sample')
+                try:
+                    value = eval(value)
+                except:
+                    pass
+                timeSamples = {}
 
                 if node.hasParameter(paramName):
                     parameter = node.parameter(paramName)
@@ -946,7 +965,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
 
                 if connect is not None:
                     parameter.setConnect(connect)
-                if timeSamples is None:
+                if len(samples) == 0:
                     if paramName == 'x':
                         value = offsetX + value
                         node.setX(value)
@@ -956,28 +975,35 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
                     value = parameter.convertValueFromPy(value)
                     parameter.setValueQuietly(value)
                 else:
-                    for key, value in timeSamples.items():
-                        timeSamples[float(key)] = parameter.convertValueFromPy(value)
+                    for sampleElement in samples:
+                        time = float(sampleElement.get('time'))
+                        value = sampleElement.get('value')
+                        try:
+                            value = eval(value)
+                        except:
+                            pass
+                        timeSamples[time] = parameter.convertValueFromPy(value)
                     parameter.setTimeSamplesQuietly(timeSamples)
 
         # connections
-        for oldNodeName, nodeDict in nodesDict.items():
+        for nodeElement in rootElement.getchildren():
+            oldNodeName = nodeElement.get('name')
+
             newNode = self.getNode(_nameConvertDict.get(oldNodeName))
             if newNode is None:
                 continue
 
-            inputsDict = nodeDict.get('inputs', {})
-            # outputsDict = nodeDict.get('outputs', {})
+            for inputElement in nodeElement.findall('input'):
+                inputName = inputElement.get('name')
+                sourceNodeName = inputElement.get('connectNode')
+                sourceNodeOutputName = inputElement.get('connectPort')
 
-            for inputName, [sourceNodeName, sourceNodeOutputName] in inputsDict.items():
                 sourceNode = self.getNode(_nameConvertDict.get(sourceNodeName))
                 if sourceNode is None:
                     sourceNode = self.getNode(sourceNodeName)
                     if sourceNode is None:
                         continue
                 newNode.connectSource(sourceNode, inputName=inputName, outputName=sourceNodeOutputName)
-
-            # self._connectShadeNodeInputs(newNode)
 
         for node in _newNodes:
             node.setSelected(True)

@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 
 import json
+import traceback
 from pxr import Usd, Sdf, Kind, UsdGeom, Vt
 from .node import Node
 from usdNodeGraph.ui.graph.other.tag import PixmapTag
-from usdNodeGraph.core.parameter import (
-    Vec3fParameter, TokenArrayParameter)
+from usdNodeGraph.core.parameter import Vec3fParameter, TokenArrayParameter
 from usdNodeGraph.utils.const import consts
 from usdNodeGraph.core.state.core import GraphState
-
+from usdNodeGraph.ui.utils.log import LogWindow
 
 ATTR_CHECK_OP = consts(
     EXACT='exact',
@@ -72,7 +72,11 @@ class UsdNode(Node):
     def execute(self, stage, prim):
         if not self.parameter('disable').getValue():
             self._beforeExecute(stage, prim)
-            stage, prim = self._execute(stage, prim)
+            try:
+                stage, prim = self._execute(stage, prim)
+            except Exception as e:
+                traceback.print_exc()
+                LogWindow.error('Node Execute Error: {}\n{}'.format(self.name(), e))
             self._afterExecute(stage, prim)
             return stage, prim
         else:
@@ -84,7 +88,7 @@ class UsdNode(Node):
     def _afterExecute(self, stage, prim):
         if prim is not None:
             self.addPrimPath(prim.GetPath().pathString)
-    
+
     def _execute(self, stage, prim):
         return stage, prim
 
@@ -172,6 +176,7 @@ class _PrimOnlyNode(_PrimNode):
         'variantSelection',
         'payload',
         'references',
+        'apiSchemas',  # not support
         'specifier',
     ]
     _ignoreExecuteParamNames = ['primName']
@@ -181,6 +186,8 @@ class _PrimOnlyNode(_PrimNode):
         super(_PrimOnlyNode, self)._initParameters()
         self.addParameter('typeName', 'string', defaultValue='')
         self.addParameter('kind', 'string', defaultValue='')
+        self.addParameter('instanceable', 'bool', defaultValue=False)
+        # self.addParameter('active', 'bool', defaultValue=True)
 
     def _execute(self, stage, prim):
         stage, newPrim = super(_PrimOnlyNode, self)._execute(stage, prim)
@@ -308,13 +315,14 @@ class _RefNode(UsdNode):
     fillNormalColor = (50, 60, 70)
     borderNormalColor = (200, 150, 150, 200)
     liveUpdateParameterNames = [
-        'assetPath',
+        'assetPath', 'primPath'
         'layerOffset', 'layerScale'
     ]
 
     def _initParameters(self):
         super(_RefNode, self)._initParameters()
         self.addParameter('assetPath', 'string', defaultValue='')
+        self.addParameter('primPath', 'string', defaultValue='')
         self.addParameter('layerOffset', 'float', defaultValue=0.0)
         self.addParameter('layerScale', 'float', defaultValue=1.0)
 
@@ -332,7 +340,10 @@ class _RefNode(UsdNode):
         self.item.addTag(self.nodeType, PixmapTag('{}.png'.format(self.nodeType)), position=0.25)
 
     def _setParametersFromRef(self, reference):
-        self.parameter('assetPath').setValueQuietly(reference.assetPath)
+        if reference.assetPath != '':
+            self.parameter('assetPath').setValueQuietly(reference.assetPath)
+        if reference.primPath.pathString != '':
+            self.parameter('primPath').setValueQuietly(reference.primPath.pathString)
         if reference.layerOffset.offset != 0:
             self.parameter('layerOffset').setValueQuietly(reference.layerOffset.offset)
         if reference.layerOffset.scale != 1:
@@ -352,39 +363,30 @@ class ReferenceNode(_RefNode):
 
     def _execute(self, stage, prim):
         assetPath = self.parameter('assetPath').getValue()
-        if assetPath:
+        primPath = self.parameter('primPath').getValue()
 
-            prim.GetReferences().SetReferences([
-                Sdf.Reference(assetPath, layerOffset=self._getLayerOffset())
-            ])
+        if primPath != '':
+            reference = Sdf.Reference(assetPath, primPath, layerOffset=self._getLayerOffset())
+        else:
+            reference = Sdf.Reference(assetPath, layerOffset=self._getLayerOffset())
 
+        prim.GetReferences().SetReferences([reference])
         return stage, prim
 
 
 class PayloadNode(_RefNode):
     nodeType = 'Payload'
-    liveUpdateParameterNames = [
-        'assetPath', 'primPath',
-        'layerOffset', 'layerScale'
-    ]
-
-    def _setParametersFromRef(self, reference):
-        super(PayloadNode, self)._setParametersFromRef(reference)
-        if reference.primPath.pathString != '':
-            self.parameter('primPath').setValueQuietly(reference.primPath.pathString)
-
-    def _initParameters(self):
-        super(PayloadNode, self)._initParameters()
-        self.addParameter('primPath', 'string', defaultValue='')
-
+    
     def _execute(self, stage, prim):
         assetPath = self.parameter('assetPath').getValue()
         primPath = self.parameter('primPath').getValue()
-        if assetPath:
 
-            payload = Sdf.Payload(assetPath, primPath, self._getLayerOffset())
-            prim.SetPayload(payload)
+        if primPath != '':
+            payload = Sdf.Payload(assetPath, primPath, layerOffset=self._getLayerOffset())
+        else:
+            payload = Sdf.Payload(assetPath, layerOffset=self._getLayerOffset())
 
+        prim.SetPayload(payload)
         return stage, prim
 
 
@@ -563,7 +565,7 @@ class TransformNode(AttributeSetNode):
             'xformOpOrder', 'token[]',
             defaultValue=TokenArrayParameter.convertValueFromPy([
                 'xformOp:translate', 'xformOp:rotateXYZ', 'xformOp:scale'
-            ]),label='Order'
+            ]), label='Order'
         )
 
     def _generateParamLabel(self, name):
@@ -730,8 +732,9 @@ class VariantSelectNode(_VariantNode):
         variantSetName = self.parameter('variantSetName').getValue()
         variantSelected = self.parameter('variantSelected').getValue()
 
-        variantSet = prim.GetVariantSet(variantSetName)
-        variantSet.SetVariantSelection(variantSelected)
+        if variantSelected is not None:
+            variantSet = prim.GetVariantSet(variantSetName)
+            variantSet.SetVariantSelection(variantSelected)
 
         return stage, prim
 
@@ -788,7 +791,6 @@ Node.registerNode(MaterialAssignNode)
 Node.registerNode(VariantSetNode)
 Node.registerNode(VariantSelectNode)
 Node.registerNode(VariantSwitchNode)
-
 
 Node.setParamDefault(LayerNode.nodeType, 'label', '[python os.path.basename("[value layerPath]")]')
 Node.setParamDefault(RootNode.nodeType, 'label', '/')

@@ -109,7 +109,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         return USD_NODE_GRAPH_WINDOW
 
     def __init__(
-            self,
+            self, app='main',
             parent=None
     ):
         super(UsdNodeGraph, self).__init__(parent=parent)
@@ -119,6 +119,8 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
 
         from usdNodeGraph.ui.plugin import loadPlugins
         loadPlugins()
+
+        self.app = app
 
         self.currentScene = None
         self._usdFile = None
@@ -206,6 +208,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
     def _initUI(self):
         self.setWindowTitle('Usd Node Graph')
         self.setDockNestingEnabled(True)
+        self.setTabPosition(QtCore.Qt.AllDockWidgetAreas, QtWidgets.QTabWidget.North)
 
         self._geometry = None
         self._state = None
@@ -376,6 +379,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         usdFile = QtWidgets.QFileDialog.getOpenFileName(None, 'Select File', filter='USD(*.usda *.usd *.usdc)')
         if isinstance(usdFile, tuple):
             usdFile = usdFile[0]
+        usdFile = str(usdFile)
         if os.path.exists(usdFile):
             self.setUsdFile(usdFile)
 
@@ -419,13 +423,13 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         self.currentScene.scene.selectAll()
 
     def _copyActionTriggered(self):
-        nodesString = self.currentScene.scene.getSelectedNodesAsString()
+        nodesString = self.currentScene.scene.getSelectedNodesAsXml()
         cb = QtWidgets.QApplication.clipboard()
         cb.setText(nodesString)
 
     def _pasteActionTriggered(self):
-        nodesString = QtWidgets.QApplication.clipboard().text()
-        nodes = self.currentScene.scene.pasteNodesFromString(nodesString)
+        nodesString = str(QtWidgets.QApplication.clipboard().text())
+        nodes = self.currentScene.scene.pasteNodesFromXml(nodesString)
 
     def _cutActionTriggered(self):
         self._copyActionTriggered()
@@ -478,18 +482,18 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         super(UsdNodeGraph, self).closeEvent(event)
-        write_setting(User_Setting, 'nodegraph_geo', value=self.saveGeometry())
-        write_setting(User_Setting, 'nodegraph_state', value=self.saveState())
+        write_setting(User_Setting, 'nodegraph_geo/{}'.format(self.app), value=self.saveGeometry())
+        write_setting(User_Setting, 'nodegraph_state/{}'.format(self.app), value=self.saveState())
         self.mainWindowClosed.emit()
 
     def _getUiPref(self):
         geo = read_setting(
             User_Setting,
-            'nodegraph_geo',
+            'nodegraph_geo/{}'.format(self.app),
             to_type='bytearray')
         state = read_setting(
             User_Setting,
-            'nodegraph_state',
+            'nodegraph_state/{}'.format(self.app),
             to_type='bytearray')
 
         self.restoreGeometry(geo)

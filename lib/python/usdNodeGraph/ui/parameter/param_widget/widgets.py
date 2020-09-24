@@ -88,21 +88,32 @@ class Vec4fParameterWidget(Vec4fWidget, ParameterWidget):
         ParameterWidget.__init__(self)
 
 
-class MatrixParameterWidget(MatrixWidget, ParameterWidget):
-    _lineEdit = FloatLineEdit
-    def __init__(self):
-        super(MatrixParameterWidget, self).__init__()
-        ParameterWidget.__init__(self)
-
-
-class Matrix2dParameterWidget(MatrixParameterWidget):
+class Matrix2dWidget(MatrixWidget):
     _valueSize = 2
 
 
-class Matrix3dParameterWidget(MatrixParameterWidget):
+class Matrix2dParameterWidget(Matrix2dWidget, ParameterWidget):
+    def __init__(self):
+        super(Matrix2dParameterWidget, self).__init__()
+        ParameterWidget.__init__(self)
+
+
+class Matrix3dWidget(MatrixWidget):
     _valueSize = 3
 
 
-class Matrix4dParameterWidget(MatrixParameterWidget):
+class Matrix3dParameterWidget(Matrix3dWidget, ParameterWidget):
+    def __init__(self):
+        super(Matrix3dParameterWidget, self).__init__()
+        ParameterWidget.__init__(self)
+
+
+class Matrix4dWidget(MatrixWidget):
     _valueSize = 4
+
+
+class Matrix4dParameterWidget(Matrix4dWidget, ParameterWidget):
+    def __init__(self):
+        super(Matrix4dParameterWidget, self).__init__()
+        ParameterWidget.__init__(self)
 

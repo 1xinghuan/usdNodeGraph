@@ -535,6 +535,8 @@ class VecWidget(QtWidgets.QWidget):
 
 
 class MatrixWidget(VecWidget):
+    _lineEdit = FloatLineEdit
+
     def initUI(self):
         self.masterLayout = QtWidgets.QVBoxLayout()
         self.masterLayout.setContentsMargins(0, 0, 0, 0)
