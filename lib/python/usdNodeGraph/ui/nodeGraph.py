@@ -261,7 +261,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
             self.addDockWidget(QtCore.Qt.RightDockWidgetArea, dock)
             self._docks.append(dock)
 
-        self._getUiPref()
+        # self._getUiPref()
 
     def _dockMaxRequired(self):
         dockWidget = self.sender()
@@ -482,9 +482,16 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         super(UsdNodeGraph, self).closeEvent(event)
+        self.mainWindowClosed.emit()
+
+    def hideEvent(self, event):
         write_setting(User_Setting, 'nodegraph_geo/{}'.format(self.app), value=self.saveGeometry())
         write_setting(User_Setting, 'nodegraph_state/{}'.format(self.app), value=self.saveState())
-        self.mainWindowClosed.emit()
+        super(UsdNodeGraph, self).hideEvent(event)
+
+    def showEvent(self, event):
+        super(UsdNodeGraph, self).showEvent(event)
+        self._getUiPref()
 
     def _getUiPref(self):
         geo = read_setting(
