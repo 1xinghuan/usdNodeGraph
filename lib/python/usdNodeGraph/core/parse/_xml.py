@@ -3,7 +3,7 @@ import xml.etree.ElementTree as ET
 import xml.dom.minidom as minidom
 
 
-def fixed_writexml(self, writer, indent="", addindent="", newl=""):
+def fixedWritexml(self, writer, indent="", addindent="", newl=""):
     """
     :param indent:
     :param addindent:
@@ -37,7 +37,7 @@ def fixed_writexml(self, writer, indent="", addindent="", newl=""):
         writer.write("/>%s" % (newl, ))
 
 
-minidom.Element.writexml = fixed_writexml
+minidom.Element.writexml = fixedWritexml
 
 
 def convertToString(element):

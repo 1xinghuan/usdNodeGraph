@@ -144,14 +144,19 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         actions = [
             ['File', [
                 ['open_file', 'Open', 'Ctrl+O', self._openActionTriggered],
-                ['reopen_file', 'ReOpen', None, self._reopenActionTriggered],
-                ['reload_stage', 'Reload Stage', 'Alt+Shift+R', self._reloadStageActionTriggered],
+                ['reopen_file', 'Reopen File', None, self._reopenActionTriggered],
+                ['reload_stage', 'Reload Stage', None, self._reloadStageActionTriggered],
                 ['reload_layer', 'Reload Layer', 'Alt+R', self._reloadLayerActionTriggered],
-                ['show_edit_text', 'Show Edit Text', None, self._showEditTextActionTriggered],
+                ['separater'],
                 ['apply_changes', 'Apply Changes', 'Ctrl+Shift+A', self._applyActionTriggered],
                 ['live_update', 'Live Update', None, self._liveUpdateActionTriggered],
-                ['save_file', 'Save Layer', 'Ctrl+S', self._saveLayerActionTriggered],
-                ['export_file', 'Export', 'Ctrl+E', self._exportActionTriggered],
+                ['show_edit_text', 'Show Edit Text', None, self._showEditTextActionTriggered],
+                ['separater'],
+                ['save_layer', 'Save Layer', 'Ctrl+S', self._saveLayerActionTriggered],
+                ['export_layer', 'Export Layer', 'Ctrl+E', self._exportLayerActionTriggered],
+                ['separater'],
+                ['import_nodes', 'Import Nodes', None, self._importNodesActionTriggered],
+                ['export_nodes', 'Export Nodes', None, self._exportNodesActionTriggered],
             ]],
             ['Edit', [
                 ['create_node', 'Create Node', 'Tab', self._createNodeActionTriggered],
@@ -159,8 +164,9 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
                 ['copy_node', 'Copy', 'Ctrl+C', self._copyActionTriggered],
                 ['cut_node', 'Cut', 'Ctrl+X', self._cutActionTriggered],
                 ['paste_node', 'Paste', 'Ctrl+V', self._pasteActionTriggered],
-                ['disable_selection', 'Disable Selection', 'D', self._disableSelectionActionTriggered],
                 ['delete_selection', 'Delete Selection', 'Del', self._deleteSelectionActionTriggered],
+                ['separater'],
+                ['disable_selection', 'Disable Selection', 'D', self._disableSelectionActionTriggered],
                 ['enter_node', 'Enter', 'Ctrl+Return', self._enterActionTriggered],
                 ['force_enter_node', 'Force Enter', 'Ctrl+Shift+Return', self._forceEnterActionTriggered],
             ]],
@@ -175,6 +181,10 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
     def _addSubMenus(self, menu, menus):
         for menuL in menus:
             name = menuL[0]
+
+            if name == 'separater':
+                menu.addSeparator()
+                continue
 
             if isinstance(menuL[1], list):
                 findMenus = menu.findChildren(QtWidgets.QMenu, name)
@@ -404,11 +414,32 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         self.textEditDock.resize(500, 500)
         self.editTextEdit.setText(self.currentScene.exportToString())
 
-    def _exportActionTriggered(self):
+    def _exportLayerActionTriggered(self):
         self.currentScene.exportToFile()
 
     def _saveLayerActionTriggered(self):
         self.currentScene.saveFile()
+
+    def _importNodesActionTriggered(self):
+        xmlFile = QtWidgets.QFileDialog.getOpenFileName(None, 'Import File', filter='USD Node Graph(*.ung *.xml)')
+        if isinstance(xmlFile, tuple):
+            xmlFile = xmlFile[0]
+        xmlFile = str(xmlFile)
+        if os.path.exists(xmlFile):
+            with open(xmlFile, 'r') as f:
+                nodesString = f.read()
+            nodes = self.currentScene.scene.pasteNodesFromXml(nodesString)
+
+    def _exportNodesActionTriggered(self):
+        xmlFile = QtWidgets.QFileDialog.getSaveFileName(None, 'Export', filter='USD Node Graph(*.ung *.xml)')
+        if isinstance(xmlFile, tuple):
+            xmlFile = xmlFile[0]
+        xmlFile = str(xmlFile)
+        if not xmlFile.endswith('.ung'):
+            xmlFile += '.ung'
+        nodesString = self.currentScene.scene.getSelectedNodesAsXml()
+        with open(xmlFile, 'w') as f:
+            f.write(nodesString)
 
     def _applyActionTriggered(self):
         self.currentScene.applyChanges()
@@ -484,14 +515,14 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         super(UsdNodeGraph, self).closeEvent(event)
         self.mainWindowClosed.emit()
 
-    def hideEvent(self, event):
+    def showEvent(self, QShowEvent):
+        super(UsdNodeGraph, self).showEvent(QShowEvent)
+        self._getUiPref()
+
+    def hideEvent(self, QHideEvent):
         write_setting(User_Setting, 'nodegraph_geo/{}'.format(self.app), value=self.saveGeometry())
         write_setting(User_Setting, 'nodegraph_state/{}'.format(self.app), value=self.saveState())
-        super(UsdNodeGraph, self).hideEvent(event)
-
-    def showEvent(self, event):
-        super(UsdNodeGraph, self).showEvent(event)
-        self._getUiPref()
+        super(UsdNodeGraph, self).hideEvent(QHideEvent)
 
     def _getUiPref(self):
         geo = read_setting(

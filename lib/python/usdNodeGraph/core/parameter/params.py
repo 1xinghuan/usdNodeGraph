@@ -57,31 +57,39 @@ class ChooseParameter(_StringParameter):
         return self._items
 
 
-class BoolParameter(Parameter):
+class _NonStringParameter(Parameter):
+    @classmethod
+    def _convertValueFromPy(cls, pyValue):
+        if isinstance(pyValue, str):
+            pyValue = eval(pyValue)
+        return pyValue
+
+
+class BoolParameter(_NonStringParameter):
     parameterTypeString = 'bool'
     valueTypeName = Sdf.ValueTypeNames.Bool
     valueDefault = False
 
 
-class IntParameter(Parameter):
+class IntParameter(_NonStringParameter):
     parameterTypeString = 'int'
     valueTypeName = Sdf.ValueTypeNames.Int
     valueDefault = 0
 
 
-class FloatParameter(Parameter):
+class FloatParameter(_NonStringParameter):
     parameterTypeString = 'float'
     valueTypeName = Sdf.ValueTypeNames.Float
     valueDefault = 0
 
 
-class DoubleParameter(Parameter):
+class DoubleParameter(_NonStringParameter):
     parameterTypeString = 'double'
     valueTypeName = Sdf.ValueTypeNames.Double
     valueDefault = 0
 
 
-class _VecParamter(Parameter):
+class _VecParamter(_NonStringParameter):
     _usdValueClass = None
 
     @classmethod
@@ -95,6 +103,7 @@ class _VecParamter(Parameter):
 
     @classmethod
     def _convertValueFromPy(cls, pyValue):
+        pyValue = super(_VecParamter, cls)._convertValueFromPy(pyValue)
         if pyValue is not None:
             return cls._usdValueClass(*pyValue)
 
@@ -227,6 +236,7 @@ class _MatrixParamter(_VecParamter):
 
     @classmethod
     def _convertValueFromPy(cls, pyValue):
+        pyValue = super(_MatrixParamter, cls)._convertValueFromPy(pyValue)
         if pyValue is not None:
             return cls._usdValueClass(pyValue)
 
@@ -250,7 +260,7 @@ class Matrix4dParameter(_MatrixParamter):
 
 
 # --------------------------------------- array ----------------------------------
-class _ArrayParameter(Parameter):
+class _ArrayParameter(_NonStringParameter):
     _usdValueClass = None
 
     @classmethod
@@ -273,6 +283,7 @@ class _ArrayParameter(Parameter):
 
     @classmethod
     def _convertValueFromPy(cls, pyValue):
+        pyValue = super(_ArrayParameter, cls)._convertValueFromPy(pyValue)
         childParamClass = cls.getChildParamClass()
         return cls._usdValueClass([childParamClass.convertValueFromPy(i) for i in pyValue])
 

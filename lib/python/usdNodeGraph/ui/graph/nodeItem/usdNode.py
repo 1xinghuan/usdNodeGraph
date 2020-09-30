@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from usdNodeGraph.module.sqt import QtWidgets
-from usdNodeGraph.ui.graph.nodeItem.nodeItem import NodeItem, LABEL_FONT
+from usdNodeGraph.ui.graph.nodeItem.nodeItem import NodeItem
 
 
 class UsdNodeItem(NodeItem):

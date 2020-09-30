@@ -126,10 +126,68 @@ class UsdNode(Node):
         return params
 
 
+class MetadataNode(UsdNode):
+    _metadataNodeMap = {}
+    nodeType = '_Metadata'
+    metadataKeys = []
+    fillNormalColor = (50, 60, 50)
+    borderNormalColor = (200, 150, 150, 200)
+
+    @classmethod
+    def getLiveUpdateParameterNames(cls):
+        return cls.metadataKeys
+
+    @classmethod
+    def registerNode(cls, nodeObjectClass):
+        super(MetadataNode, cls).registerNode(nodeObjectClass)
+        for key in nodeObjectClass.metadataKeys:
+            cls._metadataNodeMap.update({key: nodeObjectClass})
+
+    @classmethod
+    def getIgnorePrimInfoKeys(cls):
+        return cls._metadataNodeMap.keys()
+
+    @classmethod
+    def getNodes(cls):
+        return cls._metadataNodeMap.values()
+
+    @classmethod
+    def getMetadataNodeClass(cls, key):
+        return cls._metadataNodeMap.get(key)
+
+    def initMetadataParameters(self):
+        pass
+
+    def _initParameters(self):
+        super(MetadataNode, self)._initParameters()
+        self.initMetadataParameters()
+
+    def _execute(self, stage, prim):
+        params = self.getExecuteParams()
+        for param in params:
+            paramName = param.name()
+            prim.SetMetadata(paramName, param.getValue())
+
+        return stage, prim
+
+
 class _PrimNode(UsdNode):
     nodeType = 'Prim'
-    _ignorePrimInfoKeys = []
     liveUpdateParameterNames = ['primName']
+
+    @classmethod
+    def getIgnorePrimInfoKeys(cls):
+        keys = [
+            'variantSetNames',
+            'variantSelection',
+            'payload',
+            'references',
+            'apiSchemas',  # not support
+            'specifier',
+        ]
+        registerMetadatas = MetadataNode.getIgnorePrimInfoKeys()
+        keys.extend(registerMetadatas)
+        return keys
 
     def _initParameters(self):
         super(_PrimNode, self)._initParameters()
@@ -141,7 +199,7 @@ class _PrimNode(UsdNode):
             self.parameter('primName').setValueQuietly(self._primSpec.name)
 
             for key in self._primSpec.ListInfoKeys():
-                if key in self._ignorePrimInfoKeys:
+                if key in self.getIgnorePrimInfoKeys():
                     continue
                 # param = self.addParameter(key, )  # metadata value type?
                 param = self.parameter(key)
@@ -171,14 +229,6 @@ class _PrimNode(UsdNode):
 
 
 class _PrimOnlyNode(_PrimNode):
-    _ignorePrimInfoKeys = [
-        'variantSetNames',
-        'variantSelection',
-        'payload',
-        'references',
-        'apiSchemas',  # not support
-        'specifier',
-    ]
     _ignoreExecuteParamNames = ['primName']
     liveUpdateParameterNames = ['primName', 'typeName', 'kind']
 
@@ -492,14 +542,15 @@ class _AttributeNode(UsdNode):
 
 
 class _PrimAttributeNode(_PrimNode, _AttributeNode):
-    _ignorePrimInfoKeys = [
-        'typeName',
-        'variantSetNames',
-        'variantSelection',
-        'references',
-    ]
     _ignoreExecuteParamNames = ['primName']
     typeName = None
+
+    @classmethod
+    def getIgnorePrimInfoKeys(cls):
+        keys = []
+        keys.extend(super(_PrimAttributeNode, cls).getIgnorePrimInfoKeys())
+        keys.append('typeName')
+        return keys
 
     def _syncParameters(self):
         super(_PrimAttributeNode, self)._syncParameters()
@@ -511,6 +562,7 @@ class _PrimAttributeNode(_PrimNode, _AttributeNode):
         stage, newPrim = super(_PrimAttributeNode, self)._execute(stage, prim)
         stage, newPrim = _AttributeNode._execute(self, stage, newPrim)
         newPrim.SetMetadata('typeName', self.typeName)
+        newPrim.SetMetadata('specifier', Sdf.SpecifierDef)
 
         return stage, newPrim
 

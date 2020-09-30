@@ -8,7 +8,7 @@ from pxr import Usd, Sdf, Ar
 from usdNodeGraph.module.sqt import *
 from usdNodeGraph.utils.const import VIEWPORT_FULL_UPDATE
 from usdNodeGraph.core.node import (
-    Node, TransformNode, AttributeSetNode,
+    Node, TransformNode, AttributeSetNode, MetadataNode,
     RelationshipSetNode, MaterialAssignNode
 )
 from .nodeItem import NodeItem
@@ -113,15 +113,21 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.currentZoom = self.transform().m11()
         self._resizeScene()
 
+    def getCenterPos(self):
+        center = self.mapToScene(QtCore.QPoint(
+            self.viewport().width() / 2,
+            self.viewport().height() / 2
+        ))
+        return center
+
     def _resizeScene(self, setLabel=True):
-        center_x = self.mapToScene(QtCore.QPoint(self.viewport().width() / 2, self.viewport().height() / 2)).x()
-        center_y = self.mapToScene(QtCore.QPoint(self.viewport().width() / 2, self.viewport().height() / 2)).y()
+        center = self.getCenterPos()
         w = self.viewport().width() / self.currentZoom * 2 + 25000
         h = self.viewport().height() / self.currentZoom * 2 + 25000
 
         self.scene().setSceneRect(QtCore.QRectF(
-            center_x - w / 2,
-            center_y - h / 2,
+            center.x() - w / 2,
+            center.y() - h / 2,
             w,
             h
         ))
@@ -150,13 +156,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def focusNextPrevChild(self, bool):
         return False
-
-    # def keyPressEvent(self, event):
-    #     super(GraphicsView, self).keyPressEvent(event)
-    #     if event.key() == QtCore.Qt.Key_Tab:
-    #         self.showFloatEdit()
-    #     # elif event.key() == QtCore.Qt.Key_Delete:
-    #     #     self.scene().deleteSelection()
 
     def keyReleaseEvent(self, event):
         super(GraphicsView, self).keyReleaseEvent(event)
@@ -209,7 +208,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
             self.setDragMode(QtWidgets.QGraphicsView.NoDrag)
             self.panning = True
             self.prevPos = event.pos()
-            self.prevCenter = self.mapToScene(QtCore.QPoint(self.viewport().width() / 2, self.viewport().height() / 2))
+            self.prevCenter = self.getCenterPos()
             self.setCursor(QtCore.Qt.SizeAllCursor)
         elif event.button() == QtCore.Qt.LeftButton:
             self.setDragMode(QtWidgets.QGraphicsView.RubberBandDrag)
@@ -496,6 +495,19 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             self._addChildNode(primNode, upNode)
             self._addNodeToPrimPath(primNode, primPath)
             upNode = primNode
+
+        # metadata
+        _tmpMetadataNodes = {}
+        _keys = [key for key in primSpec.ListInfoKeys() if key in MetadataNode.getIgnorePrimInfoKeys()]
+        for key in _keys:
+            nodeClass = MetadataNode.getMetadataNodeClass(key)
+            metadataNode = _tmpMetadataNodes.get(nodeClass.nodeType)
+            if metadataNode is None:
+                metadataNode = self.createNode(nodeClass.nodeType)
+                self._addChildNode(metadataNode, upNode)
+                _tmpMetadataNodes.update({nodeClass.nodeType: metadataNode})
+            metadataNode.parameter(key).setValueQuietly(primSpec.GetInfo(key))
+            upNode = metadataNode
 
         # reference
         referenceList = primSpec.referenceList.GetAddedOrExplicitItems()
@@ -792,9 +804,9 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             nodeItem.afterAddToScene()
             self._allNodes.update({nodeItem: nodeName})
 
-            centerx, centery = self.getCenterPos()
-            nodeItem.setX(centerx)
-            nodeItem.setY(centery)
+            center = self.view.getCenterPos()
+            nodeItem.setX(center.x())
+            nodeItem.setY(center.y())
 
             if suffix in self._nodesSuffix:
                 self._nodesSuffix[suffix].append(index)
@@ -803,16 +815,8 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
 
             return nodeItem
 
-    def getCenterPos(self):
-        centerx = self.view.mapToScene(QtCore.QPoint(
-            self.view.viewport().width() / 2,
-            self.view.viewport().height() / 2
-        )).x()
-        centery = self.view.mapToScene(QtCore.QPoint(
-            self.view.viewport().width() / 2,
-            self.view.viewport().height() / 2
-        )).y()
-        return centerx, centery
+    def connectAsChild(self, node, parentNode):
+        self._addChildNode(node, parentNode)
 
     def selectAll(self):
         for node in self.allNodes():
@@ -923,6 +927,103 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             nodesString = convertToString(rootElement)
             return nodesString
 
+    def createParamFromXml(self, paramElement, node, offsetX=0, offsetY=0):
+        paramName = paramElement.get('name')
+        if paramName in ['name']:
+            return
+
+        custom = paramElement.get('custom', '0')
+        visible = paramElement.get('visible', '1')
+        parameterType = paramElement.get('parameterType')
+        value = paramElement.get('value')
+        connect = paramElement.get('connect')
+        samples = paramElement.findall('s')
+        metadatas = paramElement.findall('m')
+
+        timeSamples = {}
+
+        if node.hasParameter(paramName):
+            parameter = node.parameter(paramName)
+        else:
+            parameter = node.addParameter(paramName, parameterType)
+
+        if connect is not None:
+            parameter.setConnect(connect)
+        if len(samples) == 0:
+            value = parameter.convertValueFromPy(value)
+            if paramName == 'x':
+                value = offsetX + value
+                node.setX(value)
+            elif paramName == 'y':
+                value = offsetY + value
+                node.setY(value)
+            parameter.setValueQuietly(value)
+        else:
+            for sampleElement in samples:
+                time = float(sampleElement.get('time'))
+                value = sampleElement.get('value')
+                timeSamples[time] = parameter.convertValueFromPy(value)
+            parameter.setTimeSamplesQuietly(timeSamples)
+
+        for metadataElement in metadatas:
+            self.createMetadataFromXml(metadataElement, parameter)
+
+    def createMetadataFromXml(self, metadataElement, obj):
+        key = metadataElement.get('key')
+        value = metadataElement.get('value')
+        obj.setMetadata(key, value)
+
+    def createNodeFromXml(self, nodeElement, _newNodes, _nameConvertDict, offsetX=0, offsetY=0):
+        oldNodeName = nodeElement.get('name')
+        nodeClass = nodeElement.get('class')
+        node = self.createNode(nodeClass, name=oldNodeName)
+        newName = node.parameter('name').getValue()
+
+        _newNodes.append(node)
+        _nameConvertDict.update({oldNodeName: newName})
+
+        for paramElement in nodeElement.findall('p'):
+            self.createParamFromXml(paramElement, node, offsetX, offsetY)
+
+        for metadataElement in nodeElement.findall('m'):
+            self.createMetadataFromXml(metadataElement, node)
+
+    def createConnectFromXml(self, nodeElement, _nameConvertDict):
+        oldNodeName = nodeElement.get('name')
+
+        newNode = self.getNode(_nameConvertDict.get(oldNodeName))
+        if newNode is None:
+            return
+
+        for inputElement in nodeElement.findall('i'):
+            inputName = inputElement.get('name')
+            sourceNodeName = inputElement.get('connectNode')
+            sourceNodeOutputName = inputElement.get('connectPort')
+
+            sourceNode = self.getNode(_nameConvertDict.get(sourceNodeName))
+            if sourceNode is None:
+                sourceNode = self.getNode(sourceNodeName)
+                if sourceNode is None:
+                    continue
+            newNode.connectSource(sourceNode, inputName=inputName, outputName=sourceNodeOutputName)
+
+    def createNodesFromXml(self, rootElement, offsetX=0, offsetY=0):
+        _nameConvertDict = {}
+        _newNodes = []
+        for nodeElement in rootElement.getchildren():
+            self.createNodeFromXml(
+                nodeElement, _newNodes, _nameConvertDict,
+                offsetX, offsetY
+            )
+
+        # connections
+        for nodeElement in rootElement.getchildren():
+            self.createConnectFromXml(nodeElement, _nameConvertDict)
+
+        for node in _newNodes:
+            node.setSelected(True)
+        return _newNodes
+
     def pasteNodesFromXml(self, nodesString):
         rootElement = ET.fromstring(nodesString)
         _topLeftX = float(rootElement.get('x'))
@@ -932,82 +1033,9 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         offsetX = scenePos.x() - _topLeftX
         offsetY = scenePos.y() - _topLeftY
 
-        _nameConvertDict = {}
-        _newNodes = []
-        for nodeElement in rootElement.getchildren():
-            oldNodeName = nodeElement.get('name')
-            nodeClass = nodeElement.get('class')
-            node = self.createNode(nodeClass, name=oldNodeName)
-            _newNodes.append(node)
-            newName = node.parameter('name').getValue()
-            _nameConvertDict.update({oldNodeName: newName})
+        nodes = self.createNodesFromXml(rootElement, offsetX, offsetY)
 
-            for paramElement in nodeElement.findall('param'):
-                paramName = paramElement.get('name')
-                if paramName in ['name']:
-                    continue
-                builtIn = paramElement.get('builtIn', '0')
-                parameterType = paramElement.get('parameterType')
-                visible = paramElement.get('visible')
-                value = paramElement.get('value')
-                connect = paramElement.get('connect')
-                samples = paramElement.findall('sample')
-                try:
-                    value = eval(value)
-                except:
-                    pass
-                timeSamples = {}
-
-                if node.hasParameter(paramName):
-                    parameter = node.parameter(paramName)
-                else:
-                    parameter = node.addParameter(paramName, parameterType)
-
-                if connect is not None:
-                    parameter.setConnect(connect)
-                if len(samples) == 0:
-                    if paramName == 'x':
-                        value = offsetX + value
-                        node.setX(value)
-                    elif paramName == 'y':
-                        value = offsetY + value
-                        node.setY(value)
-                    value = parameter.convertValueFromPy(value)
-                    parameter.setValueQuietly(value)
-                else:
-                    for sampleElement in samples:
-                        time = float(sampleElement.get('time'))
-                        value = sampleElement.get('value')
-                        try:
-                            value = eval(value)
-                        except:
-                            pass
-                        timeSamples[time] = parameter.convertValueFromPy(value)
-                    parameter.setTimeSamplesQuietly(timeSamples)
-
-        # connections
-        for nodeElement in rootElement.getchildren():
-            oldNodeName = nodeElement.get('name')
-
-            newNode = self.getNode(_nameConvertDict.get(oldNodeName))
-            if newNode is None:
-                continue
-
-            for inputElement in nodeElement.findall('input'):
-                inputName = inputElement.get('name')
-                sourceNodeName = inputElement.get('connectNode')
-                sourceNodeOutputName = inputElement.get('connectPort')
-
-                sourceNode = self.getNode(_nameConvertDict.get(sourceNodeName))
-                if sourceNode is None:
-                    sourceNode = self.getNode(sourceNodeName)
-                    if sourceNode is None:
-                        continue
-                newNode.connectSource(sourceNode, inputName=inputName, outputName=sourceNodeOutputName)
-
-        for node in _newNodes:
-            node.setSelected(True)
-        return _newNodes
+        return nodes
 
     def exportToString(self):
         stage = self._executeAllToStage()

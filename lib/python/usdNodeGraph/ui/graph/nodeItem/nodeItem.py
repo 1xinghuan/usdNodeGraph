@@ -3,7 +3,7 @@
 import traceback
 from usdNodeGraph.module.sqt import *
 from usdNodeGraph.ui.graph.other.port import InputPort, OutputPort
-from usdNodeGraph.ui.graph.other.pipe import Pipe
+from usdNodeGraph.ui.graph.other.pipe import Pipe, ConnectionPipe
 from ..const import *
 from usdNodeGraph.utils.log import get_logger
 import re
@@ -69,76 +69,33 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
     def addParameter(self, *args, **kwargs):
         return self.nodeObject.addParameter(*args, **kwargs)
 
+    def setMetadata(self, *args, **kwargs):
+        self.nodeObject.setMetadata(*args, **kwargs)
+
     def Class(self):
         return self.nodeObject.Class()
 
     def name(self):
         return self.nodeObject.name()
 
-    # def _getInputsDict(self):
-    #     return {}
+    def _getInputsDict(self):
+        inputs = {}
+        for inputPort in self.getInputPorts():
+            if len(inputPort.getConnections()) > 0:
+                outputPort = inputPort.getConnections()[0]
+                node = outputPort.node()
+                inputs.update({
+                    inputPort.name: [node.name(), outputPort.name]
+                })
+        return inputs
 
     def _getOutputsDict(self):
         return {}
 
-    def toDict(self):
-        nodeName = self.parameter('name').getValue()
-        paramsDict = {}
-        for paramName, param in self.nodeObject._parameters.items():
-            if paramName != 'name':
-                override = param.isOverride()
-                custom = param.isCustom()
-
-                if not (override or custom) and paramName not in ['x', 'y']:
-                    continue
-
-                builtIn = param.isBuiltIn()
-                visible = param.isVisible()
-
-                timeSamplesDict = None
-                value = None
-                connect = None
-
-                if param.hasConnect():
-                    connect = param.getConnect()
-                if param.hasKey():
-                    timeSamples = param.getTimeSamples()
-                    timeSamplesDict = {}
-                    for t, v in timeSamples.items():
-                        timeSamplesDict.update({t: param.convertValueToPy(v)})
-                else:
-                    value = param.convertValueToPy(param.getValue())
-
-                paramDict = {'parameterType': param.parameterTypeString}
-                if builtIn:
-                    paramDict.update({'builtIn': builtIn})
-                if not visible:
-                    paramDict.update({'visible': False})
-                if connect is not None:
-                    paramDict.update({'connect': connect})
-                if timeSamplesDict is not None:
-                    paramDict.update({'timeSamples': timeSamplesDict})
-                paramDict.update({'value': value})
-                paramsDict.update({paramName: paramDict})
-
-        inputsDict = self._getInputsDict()
-        # outputsDict = self._getOutputsDict()
-
-        data = {
-            nodeName: {
-                'parameters': paramsDict,
-                'inputs': inputsDict,
-                # 'outputs': outputsDict,
-                'nodeClass': self.Class()
-            }
-        }
-
-        return data
-
     def toXmlElement(self):
         from usdNodeGraph.core.parse._xml import ET
 
-        nodeElement = ET.Element('node')
+        nodeElement = ET.Element('n')
         nodeElement.set('name', self.parameter('name').getValue())
         nodeElement.set('class', self.Class())
 
@@ -158,11 +115,17 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
 
         for inputName, info in inputsDict.items():
             node, outputName = info
-            inputElement = ET.Element('input')
+            inputElement = ET.Element('i')
             inputElement.set('name', inputName)
             inputElement.set('connectNode', node)
             inputElement.set('connectPort', outputName)
             nodeElement.append(inputElement)
+
+        for key, value in self.nodeObject.getMetadatas().items():
+            metadataElement = ET.Element('m')
+            metadataElement.set('key', key)
+            metadataElement.set('value', value)
+            nodeElement.append(metadataElement)
 
         return nodeElement
 
@@ -400,17 +363,6 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
     def getToolTip(self):
         return self.parameter('name').getValue()
 
-    def _getInputsDict(self):
-        inputs = {}
-        for inputPort in self.getInputPorts():
-            if len(inputPort.getConnections()) > 0:
-                outputPort = inputPort.getConnections()[0]
-                node = outputPort.node()
-                inputs.update({
-                    inputPort.name: [node.name(), outputPort.name]
-                })
-        return inputs
-
 
 class NodeItem(_BaseNodeItem):
     _nodeItemsMap = {}
@@ -549,7 +501,10 @@ class NodeItem(_BaseNodeItem):
         pass
 
     def _findPipeToConnect(self):
-        findPipes = [item for item in self.collidingItems(QtCore.Qt.IntersectsItemShape) if isinstance(item, Pipe)]
+        findPipes = [
+            item for item in self.collidingItems(QtCore.Qt.IntersectsItemShape)
+            if isinstance(item, Pipe) and not isinstance(item, ConnectionPipe)
+        ]
 
         if len(self.findPipes) > 0:
             for pipe in self.findPipes:

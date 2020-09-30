@@ -261,6 +261,10 @@ class Parameter(QtCore.QObject):
 
     # --------------------set value--------------------
     def setMetadata(self, key, value):
+        if key == 'custom' and value in [False, 'False']:
+            return
+        elif key == 'variability' and value in [Sdf.VariabilityVarying, 'Sdf.VariabilityVarying']:
+            return
         self._metadata[key] = str(value)
 
     def _beforeSetValue(self):
@@ -383,7 +387,7 @@ class Parameter(QtCore.QObject):
     def toXmlElement(self):
         from usdNodeGraph.core.parse._xml import ET
 
-        builtIn = self.isBuiltIn()
+        custom = self.isCustom()
         visible = self.isVisible()
 
         timeSamplesDict = None
@@ -400,11 +404,10 @@ class Parameter(QtCore.QObject):
         else:
             value = self.convertValueToPy(self.getValue())
 
-        paramElement = ET.Element('param')
+        paramElement = ET.Element('p')
         paramElement.set('name', self.name())
-        if builtIn:
-            paramElement.set('builtIn', '1')
-        else:
+
+        if custom:
             paramElement.set('parameterType', self.parameterTypeString)
             if not visible:
                 paramElement.set('visible', '0')
@@ -414,10 +417,16 @@ class Parameter(QtCore.QObject):
             paramElement.set('connect', connect)
         if timeSamplesDict is not None:
             for t, v in timeSamplesDict.items():
-                sample = ET.Element('sample')
+                sample = ET.Element('s')
                 sample.set('time', str(t))
                 sample.set('value', str(v))
                 paramElement.append(sample)
+
+        for key, value in self.getMetadatas().items():
+            metadataElement = ET.Element('m')
+            metadataElement.set('key', key)
+            metadataElement.set('value', value)
+            paramElement.append(metadataElement)
 
         return paramElement
 
