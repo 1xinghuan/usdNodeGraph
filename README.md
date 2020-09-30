@@ -81,7 +81,7 @@ stage = mayaUsd.ufe.getStage(proxyShape)
 import usdNodeGraph.api as usdNodeGraphApi
 
 usdNodeGraphApi.UsdNodeGraph.registerActionShortCut('open_file', None)
-usdNodeGraphApi.UsdNodeGraph.registerActionShortCut('save_file', None)
+usdNodeGraphApi.UsdNodeGraph.registerActionShortCut('save_layer', None)
 usdNodeGraphApi.GraphState.addCallback('layerChangesApplied', whenChangesApplied)
 usdNodeGraphApi.GraphState.addCallback('parameterValueChanged', whenParameterChanged)
 usdNodeGraphApi.GraphState.addCallback('stageTimeChanged', whenStateFrameChanged)
@@ -108,9 +108,10 @@ usdNodeGraphApi.GraphState.addCallback(callbackType, func)
 
 ## TODO
 + Support add custom parameter to node;
++ Support undo and redo;
 + ~~Support add keyframe on parameter;~~
-+ Update stage when parameter get changed(Currently, the stage will only get updated when parameter changed in AttributeSet node);
-+ Update stage when node connected or deleted;
++ ~~Update stage when parameter get changed;~~
++ ~~Update stage when node connected or deleted;~~
 + ~~Connect to other DCC's time state;~~ See #5
 
 
