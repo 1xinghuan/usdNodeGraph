@@ -3,11 +3,15 @@ from usdNodeGraph.module.sqt import QtCore
 
 class GraphState(QtCore.QObject):
     currentTimeChanged = QtCore.Signal(float)
+    liveUpdateModeChanged = QtCore.Signal(bool)
 
     _callbacks = {}
+    _functions = {}
 
     _state = None
     _times = {}
+
+    _liveUpdate = False
 
     @classmethod
     def getState(cls):
@@ -74,4 +78,40 @@ class GraphState(QtCore.QObject):
         kwargs.update({'type': callbackType})
         for func in funcs:
             func(**kwargs)
+
+    @classmethod
+    def setFunction(cls, funcName, func):
+        cls._functions[funcName] = func
+
+    @classmethod
+    def hasFunction(cls, funcName):
+        return funcName in cls._functions
+
+    @classmethod
+    def executeFunction(cls, funcName, *args, **kwargs):
+        func = cls._functions.get(funcName)
+        if func is not None:
+            return func(*args, **kwargs)
+
+    @classmethod
+    def isLiveUpdate(cls):
+        return cls._liveUpdate
+
+    @classmethod
+    def setLiveUpdate(cls, value):
+        cls._liveUpdate = value
+        cls.getState().liveUpdateModeChanged.emit(value)
+
+    class LiveUpdateStop(object):
+        def __init__(self):
+            self.currentValue = GraphState.isLiveUpdate()
+            GraphState.setLiveUpdate(False)
+        def __enter__(self):
+            return
+        def __exit__(self, type, value, trace):
+            GraphState.setLiveUpdate(self.currentValue)
+
+    @classmethod
+    def stopLiveUpdate(cls):
+        return cls.LiveUpdateStop()
 

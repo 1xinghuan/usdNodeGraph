@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
-# 8/29/2018
 
 from usdNodeGraph.module.sqt import *
 from usdNodeGraph.ui.graph.const import *
@@ -12,6 +10,16 @@ from usdNodeGraph.ui.utils.log import LogWindow
 from usdNodeGraph.core.state.core import GraphState
 
 logger = get_logger('usdNodeGraph.node')
+
+
+class NodeTypes(object):
+    def __init__(self, nodeClass):
+        self.nodeClass = nodeClass
+        self.parentNodeClass = [n for n in nodeClass.__mro__ if hasattr(n, 'nodeType')]
+        self.parentNodeTypes = [n.nodeType for n in self.parentNodeClass]
+
+    def isSubType(self, nodeType):
+        return nodeType in self.parentNodeTypes
 
 
 class Node(QtCore.QObject):
@@ -30,6 +38,12 @@ class Node(QtCore.QObject):
     borderHighlightColor = (180, 180, 250)
 
     _expressionMap = {}
+
+    liveUpdateParameterNames = []
+
+    @classmethod
+    def getLiveUpdateParameterNames(cls):
+        return cls.liveUpdateParameterNames
 
     @classmethod
     def registerExpressionString(cls, string, object):
@@ -63,6 +77,14 @@ class Node(QtCore.QObject):
     def getNodeClass(cls, nodeType):
         return cls._nodeTypes.get(nodeType, cls)
 
+    @classmethod
+    def Class(cls):
+        return cls.nodeType
+
+    @classmethod
+    def NodeTypes(cls):
+        return NodeTypes(cls)
+
     def __init__(self, item=None):
         super(Node, self).__init__()
 
@@ -74,6 +96,7 @@ class Node(QtCore.QObject):
         self._initParameters()
         self._initDefaults()
         self._syncParameters()
+        self._setTags()
 
     def _initParameters(self):
         self._parameters = {
@@ -82,6 +105,7 @@ class Node(QtCore.QObject):
             'label': TextParameter(name='label', defaultValue='', parent=self, builtIn=True),
             'x': FloatParameter(name='x', defaultValue=None, parent=self, builtIn=True, visible=False),
             'y': FloatParameter(name='y', defaultValue=None, parent=self, builtIn=True, visible=False),
+            'locked': BoolParameter(name='locked', defaultValue=False, parent=self, builtIn=True, visible=False),
             'disable': BoolParameter(name='disable', defaultValue=0, parent=self, builtIn=True),
         }
         self._parametersName = self._parameters.keys()
@@ -96,6 +120,9 @@ class Node(QtCore.QObject):
     def _syncParameters(self):
         pass
 
+    def _setTags(self):
+        pass
+
     def parameter(self, parameterName):
         return self._parameters.get(parameterName)
 
@@ -104,9 +131,6 @@ class Node(QtCore.QObject):
 
     def parameters(self):
         return [self._parameters.get(n) for n in self._parametersName]
-
-    def Class(self):
-        return self.nodeType
 
     def name(self):
         return self.parameter('name').getValue()
@@ -134,6 +158,11 @@ class Node(QtCore.QObject):
     def _whenParamterValueChanged(self, parameter):
         if parameter.name() == 'name':
             self.item.scene()._afterNodeNameChanged(self.item)
+        if parameter.name() in self.getLiveUpdateParameterNames():
+            self._liveUpdateRequired()
+
+    def _liveUpdateRequired(self):
+        self.item.scene().liveUpdateRequired()
 
     def addParameter(self, parameterName, parameterType, defaultValue=None, **kwargs):
         """
@@ -173,6 +202,9 @@ class Node(QtCore.QObject):
             self._parameters.pop(parameterName)
             self._parametersName.remove(parameterName)
             self.parameterRemoved.emit(parameterName)
+
+    def isNodeLocked(self):
+        return self.parameter('locked').getValue()
 
 
 import os

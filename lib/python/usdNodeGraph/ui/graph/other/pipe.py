@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
-# 8/29/2018
-
 
 from usdNodeGraph.module.sqt import *
+from usdNodeGraph.core.state import GraphState
 import math
 
 
@@ -158,18 +156,44 @@ class Pipe(QtWidgets.QGraphicsPathItem):
         self.setLineColor(False)
         self.update()
 
+    def _floatSelf(self, event):
+        currentPos = event.pos()
+        self.startPos = currentPos
+        aroundPort, port = self._getDistance(currentPos)
+        if aroundPort:
+            port.removePipe(self)
+            if port == self.source:
+                self.source = None
+            if port == self.target:
+                self.target = None
+            self.isFloat = True
+
+    def _unFloatSelf(self, event):
+        from usdNodeGraph.ui.graph.other.port import Port, InputPort, OutputPort
+
+        scenePos = event.pos()
+        findPort = self.scene().itemAt(scenePos, QtGui.QTransform())
+
+        source = self.source
+        target = self.target
+
+        self.breakConnection()
+
+        if findPort is not None and isinstance(findPort, Port):
+            if (isinstance(findPort, InputPort) and source is not None):
+                source.connectTo(findPort)
+            elif (isinstance(findPort, OutputPort) and target is not None):
+                target.connectTo(findPort)
+
+        self.isFloat = False
+        if self.foundPort is not None:
+            self.foundPort.setHighlight(False)
+            self.foundPort = None
+
     def mousePressEvent(self, event):
         if event.button() == QtCore.Qt.LeftButton:
-            currentPos = event.pos()
-            self.startPos = currentPos
-            aroundPort, port = self._getDistance(currentPos)
-            if aroundPort:
-                port.removePipe(self)
-                if port == self.source:
-                    self.source = None
-                if port == self.target:
-                    self.target = None
-                self.isFloat = True
+            with GraphState.stopLiveUpdate():
+                self._floatSelf(event)
         else:
             super(Pipe, self).mousePressEvent(event)
 
@@ -196,26 +220,10 @@ class Pipe(QtWidgets.QGraphicsPathItem):
     def mouseReleaseEvent(self, event):
         super(Pipe, self).mouseReleaseEvent(event)
         if self.isFloat:
-            from usdNodeGraph.ui.graph.other.port import Port, InputPort, OutputPort
-
-            scenePos = event.pos()
-            findPort = self.scene().itemAt(scenePos, QtGui.QTransform())
-
-            source = self.source
-            target = self.target
-
-            self.breakConnection()
-
-            if findPort is not None and isinstance(findPort, Port):
-                if (isinstance(findPort, InputPort) and source is not None):
-                    source.connectTo(findPort)
-                elif (isinstance(findPort, OutputPort) and target is not None):
-                    target.connectTo(findPort)
-
-            self.isFloat = False
-            if self.foundPort is not None:
-                self.foundPort.setHighlight(False)
-                self.foundPort = None
+            scene = self.scene()
+            with GraphState.stopLiveUpdate():
+                self._unFloatSelf(event)
+            scene.liveUpdateRequired()
 
 
 class ConnectionPipe(Pipe):

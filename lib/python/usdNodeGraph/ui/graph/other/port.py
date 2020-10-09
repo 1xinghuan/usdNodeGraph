@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
-# 8/29/2018
 
 
 from usdNodeGraph.module.sqt import *
 from usdNodeGraph.ui.graph.other.pipe import Pipe, ConnectionPipe
+from usdNodeGraph.core.state import GraphState
 
 PORT_SIZE = 10
 PORT_LABEL_COLOR = QtGui.QColor(200, 200, 200)
@@ -199,21 +198,26 @@ class Port(QtWidgets.QGraphicsEllipseItem):
                     self.foundPort.setHighlight(False)
                     self.foundPort = None
 
+    def _connectToFoundPort(self, event):
+        pos = event.pos()
+        pos = pos - QtCore.QPointF(self.w / 2.0, self.h / 2.0)
+        scenePos = self.startPos + pos
+        findPort = self.scene().itemAt(scenePos, QtGui.QTransform())
+        if findPort is not None and isinstance(findPort, Port) and not isinstance(findPort, self.__class__):
+            if self.name != findPort.name:
+                self.connectTo(findPort)
+        self.scene().removeItem(self.floatPipe)
+
+        self.findingPort = False
+        if self.foundPort is not None:
+            self.foundPort.setHighlight(False)
+            self.foundPort = None
+
     def mouseReleaseEvent(self, event):
         if event.button() == QtCore.Qt.LeftButton and self.findingPort:
-            pos = event.pos()
-            pos = pos - QtCore.QPointF(self.w / 2.0, self.h / 2.0)
-            scenePos = self.startPos + pos
-            findPort = self.scene().itemAt(scenePos, QtGui.QTransform())
-            if findPort is not None and isinstance(findPort, Port) and not isinstance(findPort, self.__class__):
-                if self.name != findPort.name:
-                    self.connectTo(findPort)
-            self.scene().removeItem(self.floatPipe)
-
-            self.findingPort = False
-            if self.foundPort is not None:
-                self.foundPort.setHighlight(False)
-                self.foundPort = None
+            with GraphState.stopLiveUpdate():
+                self._connectToFoundPort(event)
+            self.scene().liveUpdateRequired()
 
 
 class InputPort(Port):

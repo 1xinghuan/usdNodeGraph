@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
-
 
 import copy
 import json
@@ -101,7 +99,7 @@ class Parameter(QtCore.QObject):
             if isinstance(beforeValue, (int, float,
                                         Gf.Vec2d, Gf.Vec2f, Gf.Vec2h, Gf.Vec2i,
                                         Gf.Vec3d, Gf.Vec3f, Gf.Vec3h, Gf.Vec3i,
-                                        Gf.Vec4d, Gf.Vec4f, Gf.Vec4h, Gf.Vec4i, )):
+                                        Gf.Vec4d, Gf.Vec4f, Gf.Vec4h, Gf.Vec4i,)):
                 value = beforeValue + (afterValue - beforeValue) * ((time - beforeKey) / (afterKey - beforeKey))
             else:
                 value = beforeValue
@@ -195,7 +193,10 @@ class Parameter(QtCore.QObject):
 
     def isVisible(self):
         return self._visible
-    
+
+    def setVisible(self, visible):
+        self._visible = visible
+
     def _getValue(self, _value, _timeSamples, time):
         if _timeSamples is None:
             return _value
@@ -205,7 +206,7 @@ class Parameter(QtCore.QObject):
             else:
                 value = self.getIntervalValue(_timeSamples, time)
                 return value
-    
+
     def getInheritValue(self, time=None):
         return self._getValue(self._inheritValue, self._inheritTimeSamples, time)
 
@@ -219,10 +220,10 @@ class Parameter(QtCore.QObject):
             return self.getOverrideValue(time)
         else:
             return self.getInheritValue(time)
-    
+
     def getInheritTimeSamples(self):
         return self._inheritTimeSamples
-    
+
     def getOverrideTimeSamples(self):
         return self._overrideTimeSamples
 
@@ -238,21 +239,33 @@ class Parameter(QtCore.QObject):
     def getConnect(self):
         return self._overrideConnect if self.isOverride() else self._inheritConnect
 
-    def hasMetaData(self):
+    def hasMetadata(self):
         return self._metadata != {}
 
-    def getMetaDataKyes(self):
+    def getMetadataKyes(self):
         return self._metadata.keys()
 
-    def getMetaDataValue(self, key, default=None):
-        return self._metadata.get(key, default)
+    def getMetadataValue(self, key, default=None):
+        strValue = self._metadata.get(key, default)
+        try:
+            value = eval(strValue)
+        except:
+            value = strValue
+        return value
 
-    def getMetaDataAsString(self):
+    def getMetadatas(self):
+        return self._metadata
+
+    def getMetadatasAsString(self):
         return json.dumps(self._metadata, indent=4)
 
     # --------------------set value--------------------
-    def setMetaData(self, key, value):
-        self._metadata[key] = value
+    def setMetadata(self, key, value):
+        if key == 'custom' and value in [False, 'False']:
+            return
+        elif key == 'variability' and value in [Sdf.VariabilityVarying, 'Sdf.VariabilityVarying']:
+            return
+        self._metadata[key] = str(value)
 
     def _beforeSetValue(self):
         for w in self._paramWidgets:
@@ -371,4 +384,55 @@ class Parameter(QtCore.QObject):
     def isOverride(self):
         return self._valueOverride
 
+    def toXmlElement(self):
+        from usdNodeGraph.core.parse._xml import ET
+
+        custom = self.isCustom()
+        visible = self.isVisible()
+
+        timeSamplesDict = None
+        value = None
+        connect = None
+
+        if self.hasConnect():
+            connect = self.getConnect()
+        if self.hasKey():
+            timeSamples = self.getTimeSamples()
+            timeSamplesDict = {}
+            for t, v in timeSamples.items():
+                timeSamplesDict.update({t: self.convertValueToPy(v)})
+        else:
+            value = self.convertValueToPy(self.getValue())
+
+        paramElement = ET.Element('p')
+        paramElement.set('name', self.name())
+
+        if custom:
+            paramElement.set('parameterType', self.parameterTypeString)
+            if not visible:
+                paramElement.set('visible', '0')
+
+        paramElement.set('value', str(value))
+        if connect is not None:
+            paramElement.set('connect', connect)
+        if timeSamplesDict is not None:
+            for t, v in timeSamplesDict.items():
+                sample = ET.Element('s')
+                sample.set('time', str(t))
+                sample.set('value', str(v))
+                paramElement.append(sample)
+
+        for key, value in self.getMetadatas().items():
+            metadataElement = ET.Element('m')
+            metadataElement.set('key', key)
+            metadataElement.set('value', value)
+            paramElement.append(metadataElement)
+
+        return paramElement
+
+    def toXml(self):
+        from usdNodeGraph.core.parse._xml import convertToString
+
+        element = self.toXmlElement()
+        return convertToString(element)
 

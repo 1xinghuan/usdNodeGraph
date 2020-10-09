@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
-
 
 from pxr import Sdf
 from usdNodeGraph.module.sqt import *
@@ -52,7 +50,7 @@ class _UsdShadeNode(_PrimAttributeNode):
 
     def _whenParamterValueChanged(self, parameter):
         super(_UsdShadeNode, self)._whenParamterValueChanged(parameter)
-
+        self._attrParamChanged(parameter)
         self.connectShader(parameter)
 
     def connectShader(self, parameter, emitSignal=False):

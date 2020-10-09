@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
-# 11/17/2018
 from usdNodeGraph.module.sqt import QtGui
+
 
 class Const(object):
     orientation = 0

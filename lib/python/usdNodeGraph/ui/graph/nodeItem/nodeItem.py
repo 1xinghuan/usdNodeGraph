@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
-# 8/29/2018
 
 import traceback
 from usdNodeGraph.module.sqt import *
 from usdNodeGraph.ui.graph.other.port import InputPort, OutputPort
-from usdNodeGraph.ui.graph.other.pipe import Pipe
+from usdNodeGraph.ui.graph.other.pipe import Pipe, ConnectionPipe
 from ..const import *
 from usdNodeGraph.utils.log import get_logger
 import re
 from usdNodeGraph.core.node import Node
+from usdNodeGraph.ui.graph.other.tag import LockTag
+from usdNodeGraph.core.state import GraphState
 
 logger = get_logger('usdNodeGraph.nodeItem')
 
@@ -42,6 +42,7 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
 
         self.pipes = []
         self.ports = []
+        self.tags = {}
         self.panel = None
 
         self.margin = 6
@@ -68,6 +69,9 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
     def addParameter(self, *args, **kwargs):
         return self.nodeObject.addParameter(*args, **kwargs)
 
+    def setMetadata(self, *args, **kwargs):
+        self.nodeObject.setMetadata(*args, **kwargs)
+
     def Class(self):
         return self.nodeObject.Class()
 
@@ -75,14 +79,26 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
         return self.nodeObject.name()
 
     def _getInputsDict(self):
-        return {}
+        inputs = {}
+        for inputPort in self.getInputPorts():
+            if len(inputPort.getConnections()) > 0:
+                outputPort = inputPort.getConnections()[0]
+                node = outputPort.node()
+                inputs.update({
+                    inputPort.name: [node.name(), outputPort.name]
+                })
+        return inputs
 
     def _getOutputsDict(self):
         return {}
 
-    def toDict(self):
-        nodeName = self.parameter('name').getValue()
-        paramsDict = {}
+    def toXmlElement(self):
+        from usdNodeGraph.core.parse._xml import ET
+
+        nodeElement = ET.Element('n')
+        nodeElement.set('name', self.parameter('name').getValue())
+        nodeElement.set('class', self.Class())
+
         for paramName, param in self.nodeObject._parameters.items():
             if paramName != 'name':
                 override = param.isOverride()
@@ -91,48 +107,33 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
                 if not (override or custom) and paramName not in ['x', 'y']:
                     continue
 
-                builtIn = param.isBuiltIn()
-                visible = param.isVisible()
-
-                timeSamplesDict = None
-                value = None
-                connect = None
-
-                if param.hasConnect():
-                    connect = param.getConnect()
-                if param.hasKey():
-                    timeSamples = param.getTimeSamples()
-                    timeSamplesDict = {}
-                    for t, v in timeSamples.items():
-                        timeSamplesDict.update({t: param.convertValueToPy(v)})
-                else:
-                    value = param.convertValueToPy(param.getValue())
-
-                paramDict = {'parameterType': param.parameterTypeString}
-                if builtIn:
-                    paramDict.update({'builtIn': builtIn})
-                if not visible:
-                    paramDict.update({'visible': False})
-                if connect is not None:
-                    paramDict.update({'connect': connect})
-                if timeSamplesDict is not None:
-                    paramDict.update({'timeSamples': timeSamplesDict})
-                paramDict.update({'value': value})
-                paramsDict.update({paramName: paramDict})
+                paramElement = param.toXmlElement()
+                nodeElement.append(paramElement)
 
         inputsDict = self._getInputsDict()
         # outputsDict = self._getOutputsDict()
 
-        data = {
-            nodeName: {
-                'parameters': paramsDict,
-                'inputs': inputsDict,
-                # 'outputs': outputsDict,
-                'nodeClass': self.Class()
-            }
-        }
+        for inputName, info in inputsDict.items():
+            node, outputName = info
+            inputElement = ET.Element('i')
+            inputElement.set('name', inputName)
+            inputElement.set('connectNode', node)
+            inputElement.set('connectPort', outputName)
+            nodeElement.append(inputElement)
 
-        return data
+        for key, value in self.nodeObject.getMetadatas().items():
+            metadataElement = ET.Element('m')
+            metadataElement.set('key', key)
+            metadataElement.set('value', value)
+            nodeElement.append(metadataElement)
+
+        return nodeElement
+
+    def toXml(self):
+        from usdNodeGraph.core.parse._xml import convertToString
+
+        element = self.toXmlElement()
+        return convertToString(element)
 
     @property
     def nodeType(self):
@@ -163,6 +164,12 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
         ))
         self.disableItem.setVisible(disable)
 
+    def _updateLockTag(self):
+        if self.nodeObject.isNodeLocked():
+            self.addTag('lock', LockTag(), position=0.5)
+        else:
+            self.removeTag('lock')
+
     def _paramterValueChanged(self, parameter):
         if parameter.name() == 'x':
             self.setX(parameter.getValue())
@@ -170,7 +177,11 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
             self.setY(parameter.getValue())
         if parameter.name() == 'disable':
             self._updateDisableItem()
-        self._updateUI()
+        if parameter.name() == 'locked':
+            self._updateLockTag()
+        if parameter.name() == 'name':
+            self._updateNameText()
+        # self._updateUI()
 
     def setLabelVisible(self, visible):
         if not visible and self.nameItem is None:
@@ -187,8 +198,12 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
         for port in self.ports:
             port.setLabelVisible(visible)
 
+    def updateUI(self):
+        self._updateUI()
+
     def _updateUI(self):
-        pass
+        self._updateLockTag()
+        self._updateNameText()
 
     def forceUpdatePanelUI(self):
         if self.panel is not None:
@@ -249,7 +264,13 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
     def removePort(self, port):
         self.ports.remove(port)
 
-    def addTag(self, tagItem, position=0.0):
+    def addTag(self, name, tagItem, position=0.0):
+        if name not in self.tags:
+            self._addTag(name, tagItem, position=position)
+        else:
+            self.tags[name].setVisible(True)
+
+    def _addTag(self, name, tagItem, position=0.0):
         tagItem.setParentItem(self)
         margin_x = tagItem.w / 2.0 + TAG_MARGIN
         margin_y = tagItem.h / 2.0 + TAG_MARGIN
@@ -266,6 +287,12 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
             x = 0 - margin_x
             y = (position - 0.75) * (-2.0 * margin_y - self.h) / 0.25 + (self.h + margin_y)
         tagItem.setPos(x - tagItem.w / 2.0, y - tagItem.h / 2.0)
+        self.tags[name] = tagItem
+
+    def removeTag(self, name):
+        if name in self.tags:
+            tag = self.tags[name]
+            tag.setVisible(False)
 
     def setHighlight(self, value=True):
         self.fillColor = QtGui.QColor(*self.nodeObject.fillHighlightColor) if value else QtGui.QColor(*self.nodeObject.fillNormalColor)
@@ -336,17 +363,6 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
     def getToolTip(self):
         return self.parameter('name').getValue()
 
-    def _getInputsDict(self):
-        inputs = {}
-        for inputPort in self.getInputPorts():
-            if len(inputPort.getConnections()) > 0:
-                outputPort = inputPort.getConnections()[0]
-                node = outputPort.node()
-                inputs.update({
-                    inputPort.name: [node.name(), outputPort.name]
-                })
-        return inputs
-
 
 class NodeItem(_BaseNodeItem):
     _nodeItemsMap = {}
@@ -369,8 +385,7 @@ class NodeItem(_BaseNodeItem):
         self.inputPorts = []
         self.outputPorts = []
 
-        self.findPipe = None
-        self.findPos = None
+        self.findPipes = []
 
         super(NodeItem, self).__init__(*args, **kwargs)
 
@@ -428,8 +443,14 @@ class NodeItem(_BaseNodeItem):
         if visible:
             self._updateLabelText()
 
+    def _paramterValueChanged(self, parameter):
+        super(NodeItem, self)._paramterValueChanged(parameter)
+        if parameter.name() == 'label':
+            self._updateLabelText()
+
     def _updateUI(self):
         super(NodeItem, self)._updateUI()
+        self._updateLockTag()
         self._updateNameText()
         self._updateLabelText()
 
@@ -480,36 +501,42 @@ class NodeItem(_BaseNodeItem):
         pass
 
     def _findPipeToConnect(self):
-        findPos = self.pos() + QtCore.QPointF(self.w / 2.0, -10)
-        findItem = self.scene().itemAt(findPos, QtGui.QTransform())
+        findPipes = [
+            item for item in self.collidingItems(QtCore.Qt.IntersectsItemShape)
+            if isinstance(item, Pipe) and not isinstance(item, ConnectionPipe)
+        ]
 
-        if isinstance(findItem, Pipe):
-            self.findPipe = findItem
-            self.findPipe.setLineColor(highlight=True)
-            self.findPipe.update()
+        if len(self.findPipes) > 0:
+            for pipe in self.findPipes:
+                pipe.setLineColor(highlight=False)
+                pipe.update()
+                self.findPipes = []
 
-            self.findPos = findPos
-        else:
-            if self.findPipe is not None:
-                line = QtCore.QLineF(findPos, self.findPos)
-                if line.length() > 20:
-                    self.findPipe.setLineColor(highlight=False)
-                    self.findPipe.update()
-                    self.findPipe = None
+        if len(findPipes) > 0:
+            self.findPipes = findPipes
+            for pipe in self.findPipes:
+                pipe.setLineColor(highlight=True)
+                pipe.update()
 
     def _connectToFoundPipe(self):
-        if self.findPipe is not None:
-            source = self.findPipe.source
-            target = self.findPipe.target
+        if len(self.findPipes) > 0:
+            with GraphState.stopLiveUpdate():
 
-            self.findPipe.breakConnection()
+                for pipe in self.findPipes:
+                    source = pipe.source
+                    target = pipe.target
 
-            self.inputPort.connectTo(source)
-            self.outputPort.connectTo(target)
+                    pipe.breakConnection()
 
-            self.findPipe = None
+                    self.inputPort.connectTo(source)
+                    self.outputPort.connectTo(target)
+
+            self.scene().liveUpdateRequired()
+
+            self.findPipes = []
 
     def mousePressEvent(self, event):
+        super(NodeItem, self).mousePressEvent(event)
         if event.button() == QtCore.Qt.LeftButton:
             self.findingPipe = True
             self.startPos = self.mapToScene(self.boundingRect().center())

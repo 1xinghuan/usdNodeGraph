@@ -11,7 +11,7 @@ logger = get_logger('usdNodeGraph.ParameterWidget')
 
 
 class ParameterWidget(object):
-    parameterClass = None
+    # parameterClass = None
     editValueChanged = QtCore.Signal()
 
     @classmethod
@@ -148,6 +148,8 @@ class ParameterWidget(object):
 
 
 class ArrayParameterWidget(QtWidgets.QWidget, ParameterWidget):
+    editValueChanged = QtCore.Signal()
+
     def __init__(self):
         super(ArrayParameterWidget, self).__init__()
         ParameterWidget.__init__(self)
@@ -211,7 +213,11 @@ class ArrayParameterWidget(QtWidgets.QWidget, ParameterWidget):
         self.addButton.clicked.connect(self._addClicked)
 
     def _addClicked(self):
-        pass
+        index = len(self.editWidgets)
+        self.addEditWidget(
+            index,
+            pyValue=self._parameter.getChildParamClass().getValueDefault()
+        )
 
     def _expandClicked(self):
         self.expanded = 1 - self.expanded
@@ -529,6 +535,8 @@ class VecWidget(QtWidgets.QWidget):
 
 
 class MatrixWidget(VecWidget):
+    _lineEdit = FloatLineEdit
+
     def initUI(self):
         self.masterLayout = QtWidgets.QVBoxLayout()
         self.masterLayout.setContentsMargins(0, 0, 0, 0)

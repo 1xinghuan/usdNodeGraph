@@ -57,31 +57,39 @@ class ChooseParameter(_StringParameter):
         return self._items
 
 
-class BoolParameter(Parameter):
+class _NonStringParameter(Parameter):
+    @classmethod
+    def _convertValueFromPy(cls, pyValue):
+        if isinstance(pyValue, str):
+            pyValue = eval(pyValue)
+        return pyValue
+
+
+class BoolParameter(_NonStringParameter):
     parameterTypeString = 'bool'
     valueTypeName = Sdf.ValueTypeNames.Bool
     valueDefault = False
 
 
-class IntParameter(Parameter):
+class IntParameter(_NonStringParameter):
     parameterTypeString = 'int'
     valueTypeName = Sdf.ValueTypeNames.Int
     valueDefault = 0
 
 
-class FloatParameter(Parameter):
+class FloatParameter(_NonStringParameter):
     parameterTypeString = 'float'
     valueTypeName = Sdf.ValueTypeNames.Float
     valueDefault = 0
 
 
-class DoubleParameter(Parameter):
+class DoubleParameter(_NonStringParameter):
     parameterTypeString = 'double'
     valueTypeName = Sdf.ValueTypeNames.Double
     valueDefault = 0
 
 
-class _VecParamter(Parameter):
+class _VecParamter(_NonStringParameter):
     _usdValueClass = None
 
     @classmethod
@@ -95,6 +103,7 @@ class _VecParamter(Parameter):
 
     @classmethod
     def _convertValueFromPy(cls, pyValue):
+        pyValue = super(_VecParamter, cls)._convertValueFromPy(pyValue)
         if pyValue is not None:
             return cls._usdValueClass(*pyValue)
 
@@ -133,6 +142,43 @@ class Vec4dParameter(_VecParamter):
     parameterTypeString = 'double4'
     valueTypeName = Sdf.ValueTypeNames.Double4
     _usdValueClass = Gf.Vec4d
+
+
+class Vec2hParameter(_VecParamter):
+    parameterTypeString = 'half2'
+    valueTypeName = Sdf.ValueTypeNames.Half2
+    _usdValueClass = Gf.Vec2h
+
+
+class Vec3hParameter(_VecParamter):
+    parameterTypeString = 'half3'
+    valueTypeName = Sdf.ValueTypeNames.Half3
+    _usdValueClass = Gf.Vec3h
+
+
+class Vec4hParameter(_VecParamter):
+    parameterTypeString = 'half4'
+    valueTypeName = Sdf.ValueTypeNames.Half4
+    _usdValueClass = Gf.Vec4h
+
+
+class TexCoord2fParameter(_VecParamter):
+    parameterTypeString = 'texCoord2f'
+    valueTypeName = Sdf.ValueTypeNames.TexCoord2f
+    _usdValueClass = Gf.Vec2f
+
+
+class TexCoord2dParameter(_VecParamter):
+    parameterTypeString = 'texCoord2d'
+    valueTypeName = Sdf.ValueTypeNames.TexCoord2d
+    _usdValueClass = Gf.Vec2d
+
+
+class TexCoord2hParameter(_VecParamter):
+    parameterTypeString = 'texCoord2h'
+    valueTypeName = Sdf.ValueTypeNames.TexCoord2h
+    _usdValueClass = Gf.Vec2h
+
 
 
 class Color3fParameter(_VecParamter):
@@ -190,6 +236,7 @@ class _MatrixParamter(_VecParamter):
 
     @classmethod
     def _convertValueFromPy(cls, pyValue):
+        pyValue = super(_MatrixParamter, cls)._convertValueFromPy(pyValue)
         if pyValue is not None:
             return cls._usdValueClass(pyValue)
 
@@ -213,7 +260,7 @@ class Matrix4dParameter(_MatrixParamter):
 
 
 # --------------------------------------- array ----------------------------------
-class _ArrayParameter(Parameter):
+class _ArrayParameter(_NonStringParameter):
     _usdValueClass = None
 
     @classmethod
@@ -236,6 +283,7 @@ class _ArrayParameter(Parameter):
 
     @classmethod
     def _convertValueFromPy(cls, pyValue):
+        pyValue = super(_ArrayParameter, cls)._convertValueFromPy(pyValue)
         childParamClass = cls.getChildParamClass()
         return cls._usdValueClass([childParamClass.convertValueFromPy(i) for i in pyValue])
 
@@ -306,6 +354,24 @@ class Vec4dArrayParameter(_ArrayParameter):
     _usdValueClass = Vt.Vec4dArray
 
 
+class Vec2hArrayParameter(_ArrayParameter):
+    parameterTypeString = 'half2[]'
+    valueTypeName = Sdf.ValueTypeNames.Half2Array
+    _usdValueClass = Vt.Vec2hArray
+
+
+class Vec3hArrayParameter(_ArrayParameter):
+    parameterTypeString = 'half3[]'
+    valueTypeName = Sdf.ValueTypeNames.Half3Array
+    _usdValueClass = Vt.Vec3hArray
+
+
+class Vec4hArrayParameter(_ArrayParameter):
+    parameterTypeString = 'half4[]'
+    valueTypeName = Sdf.ValueTypeNames.Half4Array
+    _usdValueClass = Vt.Vec4hArray
+
+
 class Color3fArrayParameter(_ArrayParameter):
     parameterTypeString = 'color3f[]'
     valueTypeName = Sdf.ValueTypeNames.Color3fArray
@@ -340,4 +406,40 @@ class QuathArrayParameter(_ArrayParameter):
     parameterTypeString = 'quath[]'
     valueTypeName = Sdf.ValueTypeNames.QuathArray
     _usdValueClass = Vt.QuathArray
+
+
+class Matrix2dArrayParameter(_ArrayParameter):
+    parameterTypeString = 'matrix2d[]'
+    valueTypeName = Sdf.ValueTypeNames.Matrix2dArray
+    _usdValueClass = Vt.Matrix2dArray
+
+
+class Matrix3dArrayParameter(_ArrayParameter):
+    parameterTypeString = 'matrix3d[]'
+    valueTypeName = Sdf.ValueTypeNames.Matrix3dArray
+    _usdValueClass = Vt.Matrix3dArray
+
+
+class Matrix4dArrayParameter(_ArrayParameter):
+    parameterTypeString = 'matrix4d[]'
+    valueTypeName = Sdf.ValueTypeNames.Matrix4dArray
+    _usdValueClass = Vt.Matrix4dArray
+
+
+class TexCoord2fArrayParameter(_ArrayParameter):
+    parameterTypeString = 'texCoord2f[]'
+    valueTypeName = Sdf.ValueTypeNames.TexCoord2fArray
+    _usdValueClass = Vt.Vec2fArray
+
+
+class TexCoord2dArrayParameter(_ArrayParameter):
+    parameterTypeString = 'texCoord2d[]'
+    valueTypeName = Sdf.ValueTypeNames.TexCoord2dArray
+    _usdValueClass = Vt.Vec2dArray
+
+
+class TexCoord2hArrayParameter(_ArrayParameter):
+    parameterTypeString = 'texCoord2h[]'
+    valueTypeName = Sdf.ValueTypeNames.TexCoord2hArray
+    _usdValueClass = Vt.Vec2hArray
 

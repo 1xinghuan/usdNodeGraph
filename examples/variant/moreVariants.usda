@@ -7,7 +7,7 @@ def Xform "world" (
     kind = "group"
 )
 {
-    def Sphere "Sphere" (
+    def Xform "group" (
         variants = {
             string color = "red"
             string size = "small"
@@ -15,17 +15,29 @@ def Xform "world" (
         prepend variantSets = ["color", "size"]
     )
     {
+        def Sphere "Sphere"
+        {
+        }
         variantSet "color" = {
-            "red"
-            {
-                color3f[] primvars:displayColor = [(0.53320851, 0.13320851, 0.13320851)]
+            "blue" {
+                over "Sphere"
+                {
+                    color3f[] primvars:displayColor = [(0.13320851, 0.13320851, 0.5332085)]
+                }
+
+            }
+            "red" {
+                over "Sphere"
+                {
+                    color3f[] primvars:displayColor = [(0.5332085, 0.13320851, 0.13320851)]
+                }
 
                 def Xform "xform"
                 {
                     float3 xformOp:translate = (2, 0, 0)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
 
-                    def Sphere "OtherSphere"(
+                    def Xform "other" (
                         variants = {
                             string color = "red"
                             string size = "small"
@@ -33,56 +45,76 @@ def Xform "world" (
                         prepend variantSets = ["color", "size"]
                     )
                     {
+                        def Sphere "Sphere"
+                        {
+                        }
+
+                        def Xform "xform3"
+                        {
+                        }
                         variantSet "color" = {
-                            "red"
-                            {
-                                color3f[] primvars:displayColor = [(0.53320851, 0.13320851, 0.13320851)]
+                            "blue" {
+                                over "Sphere"
+                                {
+                                    color3f[] primvars:displayColor = [(0.13320851, 0.13320851, 0.5332085)]
+                                }
+
+                            }
+                            "red" {
+                                over "Sphere"
+                                {
+                                    color3f[] primvars:displayColor = [(0.5332085, 0.13320851, 0.13320851)]
+                                }
 
                                 def Xform "xform"
                                 {
                                 }
+
                                 def Xform "xform2"
                                 {
                                 }
-                            }
-                            "blue"
-                            {
-                                color3f[] primvars:displayColor = [(0.13320851, 0.13320851, 0.53320851)]
+
                             }
                         }
                         variantSet "size" = {
-                            "small"
-                            {
-                                double radius = 1
-                            }
-                            "big"
-                            {
-                                double radius = 2
-                            }
-                        }
-                        def Xform "xform3"
-                        {
+                            "big" {
+                                over "Sphere"
+                                {
+                                    double radius = 2
+                                }
 
+                            }
+                            "small" {
+                                over "Sphere"
+                                {
+                                    double radius = 1
+                                }
+
+                            }
                         }
                     }
                 }
+
                 def Xform "xform2"
                 {
                 }
-            }
-            "blue"
-            {
-                color3f[] primvars:displayColor = [(0.13320851, 0.13320851, 0.53320851)]
+
             }
         }
         variantSet "size" = {
-            "small"
-            {
-                double radius = 1
+            "big" {
+                over "Sphere"
+                {
+                    double radius = 2
+                }
+
             }
-            "big"
-            {
-                double radius = 2
+            "small" {
+                over "Sphere"
+                {
+                    double radius = 1
+                }
+
             }
         }
     }

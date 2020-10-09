@@ -21,6 +21,8 @@
 
 + Shader
 
+    ![screenshot01](screenshot/usdnodegraph07.gif)
+
 
 ## Parameter
 
@@ -60,13 +62,13 @@ This is an example workflow using usdNodeGraph. Test with maya 2020.2 and maya-u
 
 3. Go into set.usda Layer node;
 
-4. Create a PrimDefine node and connect it to 'PrimDefine(/world)'. Set parameter 'primName' to 'house1' and 'typeName' to 'Xform';
+4. Create a Xform node and connect it to 'Xform(/world)'. Set parameter 'primName' to 'house1';
 
-5. Create a 'Reference' node and connect it to 'PrimDefine1' node. Set parameter 'assetPath' to the path of [house.usda](examples/model/house.usda);
+5. Create a 'Reference' node and connect it to 'Xform1' node. Set parameter 'assetPath' to the path of [house.usda](examples/model/house.usda);
 
 6. Click **'File->Apply'** or use 'Ctrl+Shift+A' short cut, then you can see the house in maya;
 
-7. Copy the created two nodes and paste, change the 'PrimDefine2' node 'primName' parameter to 'house2'. Apply the changes and there will be two houses in scene. You can check it in maya outliner;
+7. Copy the created two nodes and paste, change the 'Xform2' node 'primName' parameter to 'house2'. Apply the changes and there will be two houses in scene. You can check it in maya outliner;
 
 8. Go into layout.usda Layer node;
 

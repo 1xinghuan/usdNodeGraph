@@ -1,18 +1,59 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
-# 8/29/2018
 
 import os
 from pxr import Usd
 from usdNodeGraph.module.sqt import *
-from usdNodeGraph.ui.graph.view import GraphicsSceneWidget
+from usdNodeGraph.ui.graph.view import GraphicsSceneWidget, isEditable
 from usdNodeGraph.ui.parameter.param_panel import ParameterPanel
 from usdNodeGraph.core.state.core import GraphState
 from usdNodeGraph.ui.other.timeSlider import TimeSliderWidget
 from usdNodeGraph.utils.settings import User_Setting, read_setting, write_setting
+from usdNodeGraph.utils.res import resource
 
 
 USD_NODE_GRAPH_WINDOW = None
+
+
+class ApplyButton(QtWidgets.QToolButton):
+    def __init__(self):
+        super(ApplyButton, self).__init__()
+
+        self.setPopupMode(QtWidgets.QToolButton.MenuButtonPopup)
+        # self.setPopupMode(QtWidgets.QToolButton.DelayedPopup)
+        self.setArrowType(QtCore.Qt.NoArrow)
+        self.setStyleSheet("""
+        QToolButton{
+            text-align: left;
+        }
+        QToolButton::menu-indicator{
+            image: None;
+        }
+        """)
+
+        self._menu = QtWidgets.QMenu()
+        self.liveUpdateAction = QtWidgets.QAction('Live Update', self._menu)
+        self._menu.addAction(self.liveUpdateAction)
+        self.setMenu(self._menu)
+
+        self.setFixedWidth(30)
+
+        self._liveUpdateModeChanged(GraphState.isLiveUpdate())
+
+        GraphState.getState().liveUpdateModeChanged.connect(self._liveUpdateModeChanged)
+        self.liveUpdateAction.triggered.connect(self._liveUpdateActionTriggered)
+
+    def _liveUpdateModeChanged(self, value):
+        if value:
+            self.setIcon(resource.get_qicon('btn', 'live_update.png'))
+            self.setToolTip('Live Update')
+            self.liveUpdateAction.setText('Disable Live Update')
+        else:
+            self.setIcon(resource.get_qicon('btn', 'arrow_up2_white.png'))
+            self.setToolTip('Update Stage')
+            self.liveUpdateAction.setText('Enable Live Update')
+
+    def _liveUpdateActionTriggered(self):
+        GraphState.setLiveUpdate(1 - GraphState.isLiveUpdate())
 
 
 class DockWidget(QtWidgets.QDockWidget):
@@ -45,6 +86,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
     mainWindowClosed = QtCore.Signal()
     _actionShortCutMap = {}
     _addedActions = []
+    _addedWidgetClasses = []
 
     @classmethod
     def registerActionShortCut(cls, actionName, shortCut):
@@ -56,14 +98,29 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
     def registerActions(cls, actionList):
         cls._addedActions = actionList
 
+    @classmethod
+    def registerDockWidget(cls, widgetClass, name, label):
+        cls._addedWidgetClasses.append([
+            widgetClass, name, label
+        ])
+
+    @classmethod
+    def getInstance(cls):
+        return USD_NODE_GRAPH_WINDOW
+
     def __init__(
-            self,
+            self, app='main',
             parent=None
     ):
         super(UsdNodeGraph, self).__init__(parent=parent)
 
         global USD_NODE_GRAPH_WINDOW
         USD_NODE_GRAPH_WINDOW = self
+
+        from usdNodeGraph.ui.plugin import loadPlugins
+        loadPlugins()
+
+        self.app = app
 
         self.currentScene = None
         self._usdFile = None
@@ -75,6 +132,8 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         self._createSignal()
 
     def _createSignal(self):
+        self.applyButton.clicked.connect(self._applyActionTriggered)
+        self.reloadButton.clicked.connect(self._reloadLayerActionTriggered)
         self.nodeGraphTab.tabCloseRequested.connect(self._tabCloseRequest)
         self.nodeGraphTab.currentChanged.connect(self._tabChanged)
 
@@ -85,13 +144,19 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         actions = [
             ['File', [
                 ['open_file', 'Open', 'Ctrl+O', self._openActionTriggered],
-                ['reopen_file', 'ReOpen', None, self._reopenActionTriggered],
-                ['reload_stage', 'Reload Stage', 'Alt+Shift+R', self._reloadStageActionTriggered],
+                ['reopen_file', 'Reopen File', None, self._reopenActionTriggered],
+                ['reload_stage', 'Reload Stage', None, self._reloadStageActionTriggered],
                 ['reload_layer', 'Reload Layer', 'Alt+R', self._reloadLayerActionTriggered],
+                ['separater'],
+                ['apply_changes', 'Apply Changes', 'Ctrl+Shift+A', self._applyActionTriggered],
+                ['live_update', 'Live Update', None, self._liveUpdateActionTriggered],
                 ['show_edit_text', 'Show Edit Text', None, self._showEditTextActionTriggered],
-                ['apply_changes', 'Apply', 'Ctrl+Shift+A', self._applyActionTriggered],
-                ['save_file', 'Save Layer', 'Ctrl+S', self._saveLayerActionTriggered],
-                ['export_file', 'Export', 'Ctrl+E', self._exportActionTriggered],
+                ['separater'],
+                ['save_layer', 'Save Layer', 'Ctrl+S', self._saveLayerActionTriggered],
+                ['export_layer', 'Export Layer', 'Ctrl+E', self._exportLayerActionTriggered],
+                ['separater'],
+                ['import_nodes', 'Import Nodes', None, self._importNodesActionTriggered],
+                ['export_nodes', 'Export Nodes', None, self._exportNodesActionTriggered],
             ]],
             ['Edit', [
                 ['create_node', 'Create Node', 'Tab', self._createNodeActionTriggered],
@@ -99,9 +164,11 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
                 ['copy_node', 'Copy', 'Ctrl+C', self._copyActionTriggered],
                 ['cut_node', 'Cut', 'Ctrl+X', self._cutActionTriggered],
                 ['paste_node', 'Paste', 'Ctrl+V', self._pasteActionTriggered],
-                ['disable_selection', 'Disable Selection', 'D', self._disableSelectionActionTriggered],
                 ['delete_selection', 'Delete Selection', 'Del', self._deleteSelectionActionTriggered],
+                ['separater'],
+                ['disable_selection', 'Disable Selection', 'D', self._disableSelectionActionTriggered],
                 ['enter_node', 'Enter', 'Ctrl+Return', self._enterActionTriggered],
+                ['force_enter_node', 'Force Enter', 'Ctrl+Shift+Return', self._forceEnterActionTriggered],
             ]],
             ['View', [
                 ['layout_nodes', 'Layout Nodes', None, self._layoutActionTriggered],
@@ -114,6 +181,10 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
     def _addSubMenus(self, menu, menus):
         for menuL in menus:
             name = menuL[0]
+
+            if name == 'separater':
+                menu.addSeparator()
+                continue
 
             if isinstance(menuL[1], list):
                 findMenus = menu.findChildren(QtWidgets.QMenu, name)
@@ -147,6 +218,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
     def _initUI(self):
         self.setWindowTitle('Usd Node Graph')
         self.setDockNestingEnabled(True)
+        self.setTabPosition(QtCore.Qt.AllDockWidgetAreas, QtWidgets.QTabWidget.North)
 
         self._geometry = None
         self._state = None
@@ -154,6 +226,19 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         self._setMenus()
 
         self.nodeGraphTab = NodeGraphTab(parent=self)
+        self.buttonsWidget = QtWidgets.QWidget(parent=self)
+        buttonLayout = QtWidgets.QHBoxLayout()
+        buttonLayout.setAlignment(QtCore.Qt.AlignRight)
+        buttonLayout.setContentsMargins(0, 0, 10, 0)
+        self.buttonsWidget.setLayout(buttonLayout)
+        self.nodeGraphTab.setCornerWidget(self.buttonsWidget, QtCore.Qt.TopRightCorner)
+
+        self.applyButton = ApplyButton()
+        self.reloadButton = QtWidgets.QPushButton()
+        self.reloadButton.setIcon(resource.get_qicon('btn', 'refresh_blue.png'))
+        buttonLayout.addWidget(self.applyButton)
+        buttonLayout.addWidget(self.reloadButton)
+
         self.parameterPanel = ParameterPanel(parent=self)
         self.timeSlider = TimeSliderWidget()
         self.editTextEdit = QtWidgets.QTextEdit()
@@ -178,7 +263,15 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         self._docks.append(self.timeSliderDock)
         self._docks.append(self.textEditDock)
 
-        self._getUiPref()
+        for widgetClass, name, label in self._addedWidgetClasses:
+            dock = DockWidget(title=label, objName=name)
+            widget = widgetClass()
+            dock.setWidget(widget)
+
+            self.addDockWidget(QtCore.Qt.RightDockWidgetArea, dock)
+            self._docks.append(dock)
+
+        # self._getUiPref()
 
     def _dockMaxRequired(self):
         dockWidget = self.sender()
@@ -203,22 +296,29 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
             stage = self.currentScene.scene.stage
             self.timeSlider.setStage(stage)
 
-    def _addUsdFile(self, usdFile):
+    def _addUsdFile(self, usdFile, assetPath=None):
+        if assetPath is None:
+            assetPath = usdFile
         stage = Usd.Stage.Open(usdFile)
         stage.Reload()
-        self._addStage(stage)
+        self._addStage(stage, assetPath=assetPath)
 
-    def _addStage(self, stage, layer=None):
+    def _addStage(self, stage, layer=None, assetPath=None):
         if layer is None:
             layer = stage.GetRootLayer()
-        self._addScene(stage, layer)
 
-    def _addNewScene(self, stage=None, layer=None):
+        self._addScene(stage, layer, assetPath)
+        GraphState.executeCallbacks(
+            'stageAdded',
+            stage=stage, layer=layer
+        )
+
+    def _addNewScene(self, stage=None, layer=None, assetPath=None):
         newScene = GraphicsSceneWidget(
             parent=self
         )
         if stage is not None:
-            newScene.setStage(stage, layer, reset=False)
+            newScene.setStage(stage, layer, assetPath, reset=False)
             GraphState.setTimeIn(stage.GetStartTimeCode(), stage)
             GraphState.setTimeOut(stage.GetEndTimeCode(), stage)
             GraphState.setCurrentTime(stage.GetStartTimeCode(), stage)
@@ -236,7 +336,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
 
         return newScene
 
-    def _addScene(self, stage, layer):
+    def _addScene(self, stage, layer, assetPath):
         newScene = None
         for scene in self.scenes:
             if scene.stage == stage and scene.layer == layer:
@@ -244,7 +344,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
                 return
 
         if newScene is None:
-            newScene = self._addNewScene(stage, layer)
+            newScene = self._addNewScene(stage, layer, assetPath)
             newScene.scene.resetScene()
 
         # newScene.setStage(stage, layer)
@@ -262,16 +362,25 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
     def _tabChanged(self, index):
         self._switchScene()
 
+    def _updateButtonClicked(self):
+        self.currentScene.applyChanges()
+
     def _itemDoubleClicked(self, item):
         self.parameterPanel.addNode(item)
         self.entityItemDoubleClicked.emit(item)
 
-    def _enterFileRequired(self, usdFile):
+    def _enterFileRequired(self, usdFile, assetPath, force=False):
         usdFile = str(usdFile)
-        self._addUsdFile(usdFile)
+        if not force and not isEditable(usdFile):
+            QtWidgets.QMessageBox.warning(None, 'Warning', 'The file:\n{}\ncan\'t be accessed'.format(assetPath))
+            return
+        self._addUsdFile(usdFile, assetPath)
 
-    def _enterLayerRequired(self, stage, layer):
-        self._addScene(stage, layer)
+    def _enterLayerRequired(self, stage, layer, assetPath, force=False):
+        if not force and not isEditable(layer.realPath):
+            QtWidgets.QMessageBox.warning(None, 'Warning', 'The layer:\n{}\ncan\'t be accessed'.format(assetPath))
+            return
+        self._addScene(stage, layer, assetPath)
 
     def _nodeDeleted(self, node):
         self.parameterPanel.removeNode(node.name())
@@ -280,6 +389,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         usdFile = QtWidgets.QFileDialog.getOpenFileName(None, 'Select File', filter='USD(*.usda *.usd *.usdc)')
         if isinstance(usdFile, tuple):
             usdFile = usdFile[0]
+        usdFile = str(usdFile)
         if os.path.exists(usdFile):
             self.setUsdFile(usdFile)
 
@@ -304,14 +414,38 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         self.textEditDock.resize(500, 500)
         self.editTextEdit.setText(self.currentScene.exportToString())
 
-    def _exportActionTriggered(self):
+    def _exportLayerActionTriggered(self):
         self.currentScene.exportToFile()
 
     def _saveLayerActionTriggered(self):
         self.currentScene.saveFile()
 
+    def _importNodesActionTriggered(self):
+        xmlFile = QtWidgets.QFileDialog.getOpenFileName(None, 'Import File', filter='USD Node Graph(*.ung *.xml)')
+        if isinstance(xmlFile, tuple):
+            xmlFile = xmlFile[0]
+        xmlFile = str(xmlFile)
+        if os.path.exists(xmlFile):
+            with open(xmlFile, 'r') as f:
+                nodesString = f.read()
+            nodes = self.currentScene.scene.pasteNodesFromXml(nodesString)
+
+    def _exportNodesActionTriggered(self):
+        xmlFile = QtWidgets.QFileDialog.getSaveFileName(None, 'Export', filter='USD Node Graph(*.ung *.xml)')
+        if isinstance(xmlFile, tuple):
+            xmlFile = xmlFile[0]
+        xmlFile = str(xmlFile)
+        if not xmlFile.endswith('.ung'):
+            xmlFile += '.ung'
+        nodesString = self.currentScene.scene.getSelectedNodesAsXml()
+        with open(xmlFile, 'w') as f:
+            f.write(nodesString)
+
     def _applyActionTriggered(self):
         self.currentScene.applyChanges()
+
+    def _liveUpdateActionTriggered(self):
+        GraphState.setLiveUpdate(1 - GraphState.isLiveUpdate())
 
     def _createNodeActionTriggered(self):
         self.currentScene.view.showFloatEdit()
@@ -320,13 +454,13 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         self.currentScene.scene.selectAll()
 
     def _copyActionTriggered(self):
-        nodesString = self.currentScene.scene.getSelectedNodesAsString()
+        nodesString = self.currentScene.scene.getSelectedNodesAsXml()
         cb = QtWidgets.QApplication.clipboard()
         cb.setText(nodesString)
 
     def _pasteActionTriggered(self):
-        nodesString = QtWidgets.QApplication.clipboard().text()
-        nodes = self.currentScene.scene.pasteNodesFromString(nodesString)
+        nodesString = str(QtWidgets.QApplication.clipboard().text())
+        nodes = self.currentScene.scene.pasteNodesFromXml(nodesString)
 
     def _cutActionTriggered(self):
         self._copyActionTriggered()
@@ -334,6 +468,9 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
 
     def _enterActionTriggered(self):
         self.currentScene.scene.enterSelection()
+
+    def _forceEnterActionTriggered(self):
+        self.currentScene.scene.forceEnterSelection()
 
     def _frameSelectionActionTriggered(self):
         self.currentScene.scene.frameSelection()
@@ -366,20 +503,35 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
     def addStage(self, stage, layer=None):
         self._addStage(stage, layer)
 
+    def findNodeAtPath(self, path):
+        nodes = self.currentScene.scene.findNodeAtPath(path)
+        return nodes
+
+    def createNode(self, nodeType):
+        node = self.currentScene.scene.createNode(nodeType)
+        return node
+
     def closeEvent(self, event):
         super(UsdNodeGraph, self).closeEvent(event)
-        write_setting(User_Setting, 'nodegraph_geo', value=self.saveGeometry())
-        write_setting(User_Setting, 'nodegraph_state', value=self.saveState())
         self.mainWindowClosed.emit()
+
+    def showEvent(self, QShowEvent):
+        super(UsdNodeGraph, self).showEvent(QShowEvent)
+        self._getUiPref()
+
+    def hideEvent(self, QHideEvent):
+        write_setting(User_Setting, 'nodegraph_geo/{}'.format(self.app), value=self.saveGeometry())
+        write_setting(User_Setting, 'nodegraph_state/{}'.format(self.app), value=self.saveState())
+        super(UsdNodeGraph, self).hideEvent(QHideEvent)
 
     def _getUiPref(self):
         geo = read_setting(
             User_Setting,
-            'nodegraph_geo',
+            'nodegraph_geo/{}'.format(self.app),
             to_type='bytearray')
         state = read_setting(
             User_Setting,
-            'nodegraph_state',
+            'nodegraph_state/{}'.format(self.app),
             to_type='bytearray')
 
         self.restoreGeometry(geo)

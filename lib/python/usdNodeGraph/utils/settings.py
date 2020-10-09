@@ -1,7 +1,4 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
-# 5/18/2020
-
 
 import os
 from os.path import join as opj

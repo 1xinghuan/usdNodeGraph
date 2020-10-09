@@ -30,7 +30,7 @@ def openNodeGraph(usdviewApi):
     mainWindow = usdviewApi.qMainWindow
 
     if not hasattr(mainWindow, 'nodeGraph'):
-        nodeGraph = UsdNodeGraph()
+        nodeGraph = UsdNodeGraph(app='usdview')
         nodeGraph.splitDockWidget(
             nodeGraph.parameterPanelDock, nodeGraph.nodeGraphDock,
             QtCore.Qt.Vertical

@@ -1,7 +1,4 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
-# 8/29/2018
-
 
 from usdNodeGraph.module.sqt import QtWidgets, QtCore
 from usdNodeGraph.utils.res import resource
@@ -33,4 +30,9 @@ class PixmapTag(QtWidgets.QGraphicsPixmapItem):
             scale=QtCore.QSize(TAG_W * self.scaleFactor, TAG_H * self.scaleFactor)
         ))
         self.setScale(1.0 / self.scaleFactor)
+
+
+class LockTag(PixmapTag):
+    def __init__(self, **kwargs):
+        super(LockTag, self).__init__(icon='Lock.png', **kwargs)
 

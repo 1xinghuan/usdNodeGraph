@@ -50,3 +50,25 @@ class TokenArrayParameterWidget(ArrayParameterWidget):
         return VecWidget
 
 
+class Matrix2dArrayParameterWidget(ArrayParameterWidget):
+    def _getChildParamterClass(self):
+        return Matrix2dParameter
+
+    def _getEditWidgetClass(self):
+        return Matrix2dWidget
+
+
+class Matrix3dArrayParameterWidget(ArrayParameterWidget):
+    def _getChildParamterClass(self):
+        return Matrix3dParameter
+
+    def _getEditWidgetClass(self):
+        return Matrix3dWidget
+
+
+class Matrix4dArrayParameterWidget(ArrayParameterWidget):
+    def _getChildParamterClass(self):
+        return Matrix4dParameter
+
+    def _getEditWidgetClass(self):
+        return Matrix4dWidget

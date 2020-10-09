@@ -63,7 +63,7 @@ class TextWidget(QtWidgets.QTextEdit):
     def __init__(self):
         super(TextWidget, self).__init__()
 
-        self.setMinimumWidth(200)
+        # self.setMinimumWidth(200)
 
         self.textChanged.connect(self._editTextChanged)
 

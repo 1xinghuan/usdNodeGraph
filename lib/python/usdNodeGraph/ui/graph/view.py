@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-# __author__ = 'XingHuan'
-# 8/29/2018
 
 import os
 import re
@@ -10,7 +8,7 @@ from pxr import Usd, Sdf, Ar
 from usdNodeGraph.module.sqt import *
 from usdNodeGraph.utils.const import VIEWPORT_FULL_UPDATE
 from usdNodeGraph.core.node import (
-    Node, TransformNode, AttributeSetNode,
+    Node, TransformNode, AttributeSetNode, MetadataNode,
     RelationshipSetNode, MaterialAssignNode
 )
 from .nodeItem import NodeItem
@@ -18,6 +16,7 @@ from .other.pipe import Pipe
 from .other.port import Port
 from usdNodeGraph.utils.log import get_logger, log_cost_time
 from usdNodeGraph.core.state import GraphState
+from usdNodeGraph.core.parse._xml import ET, convertToString
 
 
 logger = get_logger('usdNodeGraph.view')
@@ -28,11 +27,19 @@ VARIANT_PRIM_PATH_PATTERN = re.compile('.*{(?P<variantSet>.+)=(?P<variant>.+)}$'
 
 VIEW_FILL_COLOR = QtGui.QColor(38, 38, 38)
 VIEW_LINE_COLOR = QtGui.QColor(55, 55, 55)
+DISABLE_LINE_COLOR = QtGui.QColor(95, 75, 75)
 VIEW_CENTER_LINE_COLOR = QtGui.QColor(80, 80, 60, 50)
 VIEW_GRID_WIDTH = 200
 VIEW_GRID_HEIGHT = 100
 
 VIEW_ZOOM_STEP = 1.1
+
+
+def isEditable(realPath):
+    if GraphState.hasFunction('isFileEditable') and realPath is not None:
+        editAble = GraphState.executeFunction('isFileEditable', realPath)
+        return editAble
+    return True
 
 
 class FloatLineEdit(QtWidgets.QFrame):
@@ -106,15 +113,21 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.currentZoom = self.transform().m11()
         self._resizeScene()
 
+    def getCenterPos(self):
+        center = self.mapToScene(QtCore.QPoint(
+            self.viewport().width() / 2,
+            self.viewport().height() / 2
+        ))
+        return center
+
     def _resizeScene(self, setLabel=True):
-        center_x = self.mapToScene(QtCore.QPoint(self.viewport().width() / 2, self.viewport().height() / 2)).x()
-        center_y = self.mapToScene(QtCore.QPoint(self.viewport().width() / 2, self.viewport().height() / 2)).y()
+        center = self.getCenterPos()
         w = self.viewport().width() / self.currentZoom * 2 + 25000
         h = self.viewport().height() / self.currentZoom * 2 + 25000
 
         self.scene().setSceneRect(QtCore.QRectF(
-            center_x - w / 2,
-            center_y - h / 2,
+            center.x() - w / 2,
+            center.y() - h / 2,
             w,
             h
         ))
@@ -143,13 +156,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def focusNextPrevChild(self, bool):
         return False
-
-    # def keyPressEvent(self, event):
-    #     super(GraphicsView, self).keyPressEvent(event)
-    #     if event.key() == QtCore.Qt.Key_Tab:
-    #         self.showFloatEdit()
-    #     # elif event.key() == QtCore.Qt.Key_Delete:
-    #     #     self.scene().deleteSelection()
 
     def keyReleaseEvent(self, event):
         super(GraphicsView, self).keyReleaseEvent(event)
@@ -192,7 +198,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         # self.clickedPos = event.pos()
 
         if self.panning:
-            if event.button() == QtCore.Qt.LeftButton:
+            if event.button() == QtCore.Qt.RightButton:
                 self.keyZooming = True
                 self.panning = False
                 self.setCursor(QtCore.Qt.ArrowCursor)
@@ -202,7 +208,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
             self.setDragMode(QtWidgets.QGraphicsView.NoDrag)
             self.panning = True
             self.prevPos = event.pos()
-            self.prevCenter = self.mapToScene(QtCore.QPoint(self.viewport().width() / 2, self.viewport().height() / 2))
+            self.prevCenter = self.getCenterPos()
             self.setCursor(QtCore.Qt.SizeAllCursor)
         elif event.button() == QtCore.Qt.LeftButton:
             self.setDragMode(QtWidgets.QGraphicsView.RubberBandDrag)
@@ -253,9 +259,42 @@ class GraphicsView(QtWidgets.QGraphicsView):
         zoom = VIEW_ZOOM_STEP if positive else 1.0 / VIEW_ZOOM_STEP
         self._zoom(zoom)
 
+    def drawForeground(self, painter, rect):
+        editAble = self.scene().editable
+        if not editAble:
+            self.drawDisableLines(painter, rect)
+
+    def drawDisableLines(self, painter, rect):
+        pen = QtGui.QPen(DISABLE_LINE_COLOR)
+        pen.setCosmetic(True)
+        pen.setWidth(1)
+        painter.setPen(pen)
+
+        lines = []
+        lw = 50
+
+        w = self.viewport().width()
+        h = self.viewport().height()
+
+        for i in range(int(w / lw)):
+            point1 = self.mapToScene(QtCore.QPoint(i * lw, 0))
+            point2 = self.mapToScene(QtCore.QPoint(0, i * lw))
+
+            lines.append(QtCore.QLineF(point1, point2))
+
+        for i in range(int(h / lw)):
+            point1 = self.mapToScene(QtCore.QPoint(w, i * lw))
+            point2 = self.mapToScene(QtCore.QPoint(w - (h - i * lw), h))
+
+            lines.append(QtCore.QLineF(point1, point2))
+
+        painter.drawLines(lines)
+
     def drawBackground(self, painter, rect):
+        pen = QtGui.QPen(VIEW_LINE_COLOR)
+        pen.setCosmetic(True)
+        painter.setPen(pen)
         painter.setBrush(QtGui.QBrush(VIEW_FILL_COLOR))
-        painter.setPen(QtGui.QPen(VIEW_LINE_COLOR))
 
         painter.drawRect(rect)
         lines = []
@@ -266,16 +305,17 @@ class GraphicsView(QtWidgets.QGraphicsView):
         point1 = self.mapToScene(QtCore.QPoint(0, 0))
         point2 = self.mapToScene(QtCore.QPoint(self.viewport().width(), self.viewport().height()))
 
-        # for i in range(int(point1.y() / line_h), int(self.scene().height() / line_h)):
         for i in range(int(point1.y() / line_h), int(point2.y() / line_h) + 1):
             lines.append(QtCore.QLineF(
                 QtCore.QPoint(rect.x(), i * line_h),
-                QtCore.QPoint(rect.x() + rect.width(), i * line_h)))
-        # for i in range(int(self.scene().sceneRect().x()), int(self.scene().width() / line_w)):
+                QtCore.QPoint(rect.x() + rect.width(), i * line_h)
+            ))
+
         for i in range(int(point1.x() / line_w), int(point2.x() / line_w) + 1):
             lines.append(QtCore.QLineF(
                 QtCore.QPoint(i * line_w, rect.y()),
-                QtCore.QPoint(i * line_w, rect.y() + rect.height())))
+                QtCore.QPoint(i * line_w, rect.y() + rect.height())
+            ))
         painter.drawLines(lines)
 
         painter.setPen(QtGui.QPen(VIEW_CENTER_LINE_COLOR))
@@ -312,14 +352,15 @@ class GraphicsView(QtWidgets.QGraphicsView):
 class GraphicsSceneWidget(QtWidgets.QWidget):
     itemDoubleClicked = QtCore.Signal(object)
     showWidgetSignal = QtCore.Signal(int)
-    enterFileRequired = QtCore.Signal(str)
-    enterLayerRequired = QtCore.Signal(object, object)
+    enterFileRequired = QtCore.Signal(str, str, bool)
+    enterLayerRequired = QtCore.Signal(object, object, str, bool)
 
     def __init__(self, parent=None):
         super(GraphicsSceneWidget, self).__init__(parent=parent)
 
         self.stage = None
         self.layer = None
+        self.assetPath = None
 
         self._initUI()
 
@@ -351,23 +392,24 @@ class GraphicsSceneWidget(QtWidgets.QWidget):
         absLayerPath = resolver.AnchorRelativePath(self.layer.realPath, path)
         return absLayerPath
 
-    def _enterFileRequired(self, usdFile):
+    def _enterFileRequired(self, usdFile, force=False):
         # for Reference and Payload
         absLayerPath = self._getAbsPath(usdFile)
-        self.enterFileRequired.emit(absLayerPath)
+        self.enterFileRequired.emit(absLayerPath, usdFile, force)
 
-    def _enterLayerRequired(self, layerPath):
+    def _enterLayerRequired(self, layerPath, force=False):
         # for sublayer
         absLayerPath = self._getAbsPath(layerPath)
         layer = Sdf.Layer.FindOrOpen(absLayerPath)
-        self.enterLayerRequired.emit(self.stage, layer)
+        self.enterLayerRequired.emit(self.stage, layer, layerPath, force)
 
-    def setStage(self, stage, layer=None, reset=True):
+    def setStage(self, stage, layer=None, assetPath=None, reset=True):
         self.stage = stage
         if layer is None:
             layer = stage.GetRootLayer()
         self.layer = layer
-        self.scene.setStage(self.stage, self.layer, reset=reset)
+        self.assetPath = assetPath
+        self.scene.setStage(self.stage, self.layer, assetPath, reset=reset)
 
     def exportToString(self):
         return self.scene.exportToString()
@@ -383,8 +425,8 @@ class GraphicsSceneWidget(QtWidgets.QWidget):
 
 
 class GraphicsScene(QtWidgets.QGraphicsScene):
-    enterFileRequired = QtCore.Signal(str)
-    enterLayerRequired = QtCore.Signal(str)
+    enterFileRequired = QtCore.Signal(str, bool)
+    enterLayerRequired = QtCore.Signal(str, bool)
     nodeParameterChanged = QtCore.Signal(object)
     nodeDeleted = QtCore.Signal(object)
 
@@ -395,6 +437,8 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
 
         self.stage = None
         self.layer = None
+        self.assetPath = None
+        self.editable = True
 
         self._allNodes = {}
         self._nodesSuffix = {}
@@ -439,6 +483,8 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
                         primSpec=primSpec
                     )
                     skipAttribute = True
+                elif typeName in Node.getAllNodeClassNames():
+                    primNode = self.createNode(typeName, primPath=primPath, primSpec=primSpec)
                 else:
                     primNode = self.createNode('PrimDefine', primPath=primPath, primSpec=primSpec)
             elif specifier == Sdf.SpecifierOver:
@@ -447,8 +493,21 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
                 return upNode
 
             self._addChildNode(primNode, upNode)
-            self._primNodes.update({primPath: primNode})
+            self._addNodeToPrimPath(primNode, primPath)
             upNode = primNode
+
+        # metadata
+        _tmpMetadataNodes = {}
+        _keys = [key for key in primSpec.ListInfoKeys() if key in MetadataNode.getIgnorePrimInfoKeys()]
+        for key in _keys:
+            nodeClass = MetadataNode.getMetadataNodeClass(key)
+            metadataNode = _tmpMetadataNodes.get(nodeClass.nodeType)
+            if metadataNode is None:
+                metadataNode = self.createNode(nodeClass.nodeType)
+                self._addChildNode(metadataNode, upNode)
+                _tmpMetadataNodes.update({nodeClass.nodeType: metadataNode})
+            metadataNode.parameter(key).setValueQuietly(primSpec.GetInfo(key))
+            upNode = metadataNode
 
         # reference
         referenceList = primSpec.referenceList.GetAddedOrExplicitItems()
@@ -461,7 +520,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         # payload
         payloadList = primSpec.payloadList.GetAddedOrExplicitItems()
         for payload in payloadList:
-            payloadNode = self.createNode('Payload', primPath=primPath, payload=payload)
+            payloadNode = self.createNode('Payload', primPath=primPath, reference=payload)
             self._addChildNode(payloadNode, upNode)
 
             upNode = payloadNode
@@ -578,7 +637,9 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             node.nodeObject.connectShader(param)
 
     def getPrimNode(self, primPath):
-        return self._primNodes.get(primPath)
+        nodes = self._primNodes.get(primPath)
+        if nodes is not None:
+            return nodes[0]
 
     def _connectShadeNodes(self):
         for node in self.getNodes(type=['Shader', 'Material']):
@@ -674,11 +735,13 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
 
         return stage
 
-    def setStage(self, stage, layer=None, reset=True):
+    def setStage(self, stage, layer=None, assetPath=None, reset=True):
         self.stage = stage
         if layer is None:
             layer = stage.GetRootLayer()
         self.layer = layer
+        self.assetPath = assetPath
+        self.editable = isEditable(self.layer.realPath)
 
         if reset:
             self.resetScene()
@@ -693,6 +756,10 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
 
     @log_cost_time
     def resetScene(self):
+        with GraphState.stopLiveUpdate():
+            self._resetScene()
+
+    def _resetScene(self):
         self.clear()
         self._primNodes = {}
         self._allNodes = {}
@@ -703,6 +770,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         primSpec = self.layer.GetPrimAtPath('/')
 
         self.rootNode = self.createNode('Root')
+        self._addNodeToPrimPath(self.rootNode, '/')
 
         self._addLayerNodes(self.layer)
         self._getIntoPrim(primSpec, self.rootNode)
@@ -731,11 +799,14 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
                 name=nodeName, primPath=primPath,
                 **kwargs
             )
-            # nodeItem.nodeObject.addPrimPath(primPath)
 
             self.addItem(nodeItem)
             nodeItem.afterAddToScene()
             self._allNodes.update({nodeItem: nodeName})
+
+            center = self.view.getCenterPos()
+            nodeItem.setX(center.x())
+            nodeItem.setY(center.y())
 
             if suffix in self._nodesSuffix:
                 self._nodesSuffix[suffix].append(index)
@@ -744,11 +815,19 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
 
             return nodeItem
 
+    def connectAsChild(self, node, parentNode):
+        self._addChildNode(node, parentNode)
+
     def selectAll(self):
         for node in self.allNodes():
             node.setSelected(True)
 
     def deleteSelection(self):
+        with GraphState.stopLiveUpdate():
+            self._deleteSelection()
+        self.liveUpdateRequired()
+
+    def _deleteSelection(self):
         selectedPipes = []
         selectedNodes = []
         for item in self.selectedItems():
@@ -764,9 +843,13 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             self.deleteNode(node)
 
     def deleteNode(self, node):
+        pipes = []
         for port in node.ports:
             for pipe in port.pipes:
-                pipe.breakConnection()
+                if pipe not in pipes:
+                    pipes.append(pipe)
+        for pipe in pipes:
+            pipe.breakConnection()
         self.removeItem(node)
         self._allNodes.pop(node)
         self.nodeDeleted.emit(node)
@@ -777,15 +860,19 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
     def disableSelection(self):
         for node in self.getSelectedNodes():
             node.parameter('disable').setValue(1 - node.parameter('disable').getValue())
+        self.liveUpdateRequired()
 
-    def enterSelection(self):
+    def enterSelection(self, force=False):
         for item in self.selectedItems():
             if item.nodeObject.Class() == 'Layer':
-                self.enterLayerRequired.emit(item.parameter('layerPath').getValue())
+                self.enterLayerRequired.emit(item.parameter('layerPath').getValue(), force)
                 return
             elif item.nodeObject.Class() in ['Reference', 'Payload']:
-                self.enterFileRequired.emit(item.parameter('assetPath').getValue())
+                self.enterFileRequired.emit(item.parameter('assetPath').getValue(), force)
                 return
+
+    def forceEnterSelection(self):
+        self.enterSelection(force=True)
 
     def updateSelectedNodesPipe(self):
         pipes = []
@@ -820,107 +907,144 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
     def getSelectedNodes(self):
         return [n for n in self.selectedItems() if isinstance(n, NodeItem)]
 
-    def getSelectedNodesAsString(self):
+    def getSelectedNodesAsXml(self):
         nodes = self.getSelectedNodes()
+        rootElement = ET.Element('usdnodegraph')
         nodesDict = {}
         if len(nodes) > 0:
             firstNode = nodes[0]
             minX = firstNode.parameter('x').getValue()
             minY = firstNode.parameter('y').getValue()
             for node in nodes:
-                nodeData = node.toDict()
-                nodesDict.update(nodeData)
+                nodeElement = node.toXmlElement()
+                rootElement.append(nodeElement)
+
                 minX = min(node.parameter('x').getValue(), minX)
                 minY = min(node.parameter('y').getValue(), minY)
 
-            nodesDict.update({
-                '_topLeftPos': [minX, minY]
-            })
-            nodesString = json.dumps(nodesDict, indent=4)
+            rootElement.set('x', str(minX))
+            rootElement.set('y', str(minY))
+            nodesString = convertToString(rootElement)
             return nodesString
 
-    def pasteNodesFromString(self, nodesString):
-        try:
-            nodesDict = json.loads(nodesString)
-        except:
+    def createParamFromXml(self, paramElement, node, offsetX=0, offsetY=0):
+        paramName = paramElement.get('name')
+        if paramName in ['name']:
             return
-        _topLeftPos = nodesDict.get('_topLeftPos', [0, 0])
-        nodesDict.pop('_topLeftPos')
 
-        scenePos = self.view.mapToScene(self.view.clickedPos)
-        offsetX = scenePos.x() - _topLeftPos[0]
-        offsetY = scenePos.y() - _topLeftPos[1]
+        custom = paramElement.get('custom', '0')
+        visible = paramElement.get('visible', '1')
+        parameterType = paramElement.get('parameterType')
+        value = paramElement.get('value')
+        connect = paramElement.get('connect')
+        samples = paramElement.findall('s')
+        metadatas = paramElement.findall('m')
 
+        timeSamples = {}
+
+        if node.hasParameter(paramName):
+            parameter = node.parameter(paramName)
+        else:
+            parameter = node.addParameter(paramName, parameterType)
+
+        if connect is not None:
+            parameter.setConnect(connect)
+        if len(samples) == 0:
+            value = parameter.convertValueFromPy(value)
+            if paramName == 'x':
+                value = offsetX + value
+                node.setX(value)
+            elif paramName == 'y':
+                value = offsetY + value
+                node.setY(value)
+            parameter.setValueQuietly(value)
+        else:
+            for sampleElement in samples:
+                time = float(sampleElement.get('time'))
+                value = sampleElement.get('value')
+                timeSamples[time] = parameter.convertValueFromPy(value)
+            parameter.setTimeSamplesQuietly(timeSamples)
+
+        for metadataElement in metadatas:
+            self.createMetadataFromXml(metadataElement, parameter)
+
+    def createMetadataFromXml(self, metadataElement, obj):
+        key = metadataElement.get('key')
+        value = metadataElement.get('value')
+        obj.setMetadata(key, value)
+
+    def createNodeFromXml(self, nodeElement, _newNodes, _nameConvertDict, offsetX=0, offsetY=0):
+        oldNodeName = nodeElement.get('name')
+        nodeClass = nodeElement.get('class')
+        node = self.createNode(nodeClass, name=oldNodeName)
+        newName = node.parameter('name').getValue()
+
+        _newNodes.append(node)
+        _nameConvertDict.update({oldNodeName: newName})
+
+        for paramElement in nodeElement.findall('p'):
+            self.createParamFromXml(paramElement, node, offsetX, offsetY)
+
+        for metadataElement in nodeElement.findall('m'):
+            self.createMetadataFromXml(metadataElement, node)
+
+    def createConnectFromXml(self, nodeElement, _nameConvertDict):
+        oldNodeName = nodeElement.get('name')
+
+        newNode = self.getNode(_nameConvertDict.get(oldNodeName))
+        if newNode is None:
+            return
+
+        for inputElement in nodeElement.findall('i'):
+            inputName = inputElement.get('name')
+            sourceNodeName = inputElement.get('connectNode')
+            sourceNodeOutputName = inputElement.get('connectPort')
+
+            sourceNode = self.getNode(_nameConvertDict.get(sourceNodeName))
+            if sourceNode is None:
+                sourceNode = self.getNode(sourceNodeName)
+                if sourceNode is None:
+                    continue
+            newNode.connectSource(sourceNode, inputName=inputName, outputName=sourceNodeOutputName)
+
+    def createNodesFromXml(self, rootElement, offsetX=0, offsetY=0):
         _nameConvertDict = {}
         _newNodes = []
-
-        # new nodes
-        for oldNodeName, nodeDict in nodesDict.items():
-            nodeClass = nodeDict.get('nodeClass')
-            paramsDict = nodeDict.get('parameters', {})
-            node = self.createNode(nodeClass, name=oldNodeName)
-            _newNodes.append(node)
-            newName = node.parameter('name').getValue()
-            _nameConvertDict.update({oldNodeName: newName})
-
-            for paramName, paramDict in paramsDict.items():
-                if paramName in ['name']:
-                    continue
-                builtIn = paramDict.get('builtIn', False)
-                parameterType = paramDict.get('parameterType')
-                value = paramDict.get('value')
-                timeSamples = paramDict.get('timeSamples')
-                connect = paramDict.get('connect')
-
-                if node.hasParameter(paramName):
-                    parameter = node.parameter(paramName)
-                else:
-                    parameter = node.addParameter(paramName, parameterType)
-
-                if connect is not None:
-                    parameter.setConnect(connect)
-                if timeSamples is None:
-                    if paramName == 'x':
-                        value = offsetX + value
-                        node.setX(value)
-                    elif paramName == 'y':
-                        value = offsetY + value
-                        node.setY(value)
-                    value = parameter.convertValueFromPy(value)
-                    parameter.setValueQuietly(value)
-                else:
-                    for key, value in timeSamples.items():
-                        timeSamples[float(key)] = parameter.convertValueFromPy(value)
-                    parameter.setTimeSamplesQuietly(timeSamples)
+        for nodeElement in rootElement.getchildren():
+            self.createNodeFromXml(
+                nodeElement, _newNodes, _nameConvertDict,
+                offsetX, offsetY
+            )
 
         # connections
-        for oldNodeName, nodeDict in nodesDict.items():
-            newNode = self.getNode(_nameConvertDict.get(oldNodeName))
-            if newNode is None:
-                continue
-
-            inputsDict = nodeDict.get('inputs', {})
-            # outputsDict = nodeDict.get('outputs', {})
-
-            for inputName, [sourceNodeName, sourceNodeOutputName] in inputsDict.items():
-                sourceNode = self.getNode(_nameConvertDict.get(sourceNodeName))
-                if sourceNode is None:
-                    sourceNode = self.getNode(sourceNodeName)
-                    if sourceNode is None:
-                        continue
-                newNode.connectSource(sourceNode, inputName=inputName, outputName=sourceNodeOutputName)
-
-            # self._connectShadeNodeInputs(newNode)
+        for nodeElement in rootElement.getchildren():
+            self.createConnectFromXml(nodeElement, _nameConvertDict)
 
         for node in _newNodes:
             node.setSelected(True)
         return _newNodes
+
+    def pasteNodesFromXml(self, nodesString):
+        rootElement = ET.fromstring(nodesString)
+        _topLeftX = float(rootElement.get('x'))
+        _topLeftY = float(rootElement.get('y'))
+
+        scenePos = self.view.mapToScene(self.view.clickedPos)
+        offsetX = scenePos.x() - _topLeftX
+        offsetY = scenePos.y() - _topLeftY
+
+        nodes = self.createNodesFromXml(rootElement, offsetX, offsetY)
+
+        return nodes
 
     def exportToString(self):
         stage = self._executeAllToStage()
         return stage.GetRootLayer().ExportToString()
 
     def _exportToFile(self, exportFile):
+        if not self.editable:
+            QtWidgets.QMessageBox.warning(None, 'Warning', 'This layer can\'t be exported!')
+            return
         stage = self._executeAllToStage()
         print exportFile
         stage.GetRootLayer().Export(exportFile)
@@ -950,6 +1074,111 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             layer=self.layer.realPath
         )
 
+    def liveUpdateRequired(self):
+        if GraphState.isLiveUpdate():
+            self.applyChanges()
+
     def setAsEditTarget(self):
         if self.stage is not None:
             self.stage.SetEditTarget(self.layer)
+
+    def _addNodeToPrimPath(self, nodeItem, path):
+        if path not in self._primNodes:
+            self._primNodes[path] = []
+        self._primNodes[path].append(nodeItem)
+
+    def _combinePaths(self, parentPath, path):
+        if parentPath[-1] == '}' and path[0] == '{':
+            last_variant_set_name = parentPath.split('{')[-1].split('=')[0]
+            current_variant_set_name = path.split('{')[-1].split('=')[0]
+            if last_variant_set_name == current_variant_set_name:
+                return '{'.join(parentPath.split('{')[:-1]) + '{' + path[1:]
+            else:
+                return parentPath + path
+        elif parentPath[-1] in ['/', '}'] or path[0] == '{':
+            return parentPath + path
+        else:
+            return parentPath + '/' + path
+
+    def reSyncPath(self, node, parentPaths=None):
+        if node.Class() == 'Root':
+            syncPaths = ['/']
+        else:
+            node.clearPrimPath()
+
+            if node.NodeTypes().isSubType('Prim'):
+                for parentPath in parentPaths:
+                    node.addPrimPath(self._combinePaths(parentPath, node.parameter('primName').getValue()))
+            elif node.Class() in ['VariantSelect', 'VariantSwitch']:
+                for parentPath in parentPaths:
+                    variantSetName = node.parameter('variantSetName').getValue()
+                    variantSelected = node.parameter('variantSelected').getValue()
+                    current = '{%s=%s}' % (variantSetName, variantSelected)
+                    if parentPath.endswith(current):
+                        node.addPrimPath(parentPath)
+                    else:
+                        node.addPrimPath(self._combinePaths(parentPath, current))
+            else:
+                for parentPath in parentPaths:
+                    node.addPrimPath(parentPath)
+
+            syncPaths = node.getPrimPath()
+            for syncPath in syncPaths:
+                self._addNodeToPrimPath(node.item, syncPath)
+
+        for n in [i.nodeObject for i in node.item.getDestinations()]:
+            self.reSyncPath(n, syncPaths)
+
+    def reSyncPaths(self):
+        self._primNodes = {}
+        self.reSyncPath(self.rootNode.nodeObject)
+
+    def findNodeAtPath(self, path):
+        self.reSyncPaths()
+
+        find = False
+        findPath = path
+        findNodes = []
+        while not find:
+            for key, nodes in self._primNodes.items():
+                node = nodes[0]
+                sdfPath = Sdf.Path(key)
+                composedPath = sdfPath.StripAllVariantSelections()
+                # print key, composedPath
+                if composedPath == findPath:
+                    findNodes.append(node)
+                    find = True
+            if not find:
+                findPath = '/'.join(findPath.split('/')[:-1])
+                if findPath == '':
+                    findPath = '/'
+
+        self.clearSelection()
+
+        primPath = findPath
+        addPath = path.replace(findPath, '')
+        addPrimNames = addPath.split('/')
+        for findNode in findNodes:
+            currentNode = findNode
+            for addPrimName in addPrimNames:
+                if addPrimName == '':
+                    continue
+
+                primPath += '/' + addPrimName
+
+                node = self.createNode('PrimOverride')
+                node.parameter('primName').setValue(addPrimName)
+                self._addChildNode(node, currentNode)
+                self._addNodeToPrimPath(node, primPath)
+                currentNode = node
+
+            currentNode.setSelected(True)
+
+        self.layoutNodes()
+        self._layoutNode(findNode)
+
+        self.frameSelection()
+
+        selected = self.selectedItems()
+        return selected
+
