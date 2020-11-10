@@ -1,0 +1,52 @@
+#usda 1.0
+(
+)
+
+def "ref1"(
+    references = @ref.usda@
+)
+{
+
+}
+
+def "ref2"(
+    add references = [
+        @add1.usda@,
+        @add2.usda@
+    ]
+)
+{
+
+}
+
+def "ref3"(
+    prepend payload = @prepend1.usda@
+    append payload = @append1.usda@
+)
+{
+
+}
+
+
+def "ref4" (
+    variants = {
+        string color = "red"
+    }
+    prepend variantSets = "color"
+)
+{
+    variantSet "color" = {
+        "red"(
+            references = @red.usda@
+        )
+        {
+        }
+        "blue"(
+            references = @blue.usda@
+        )
+        {
+        }
+    }
+}
+
+

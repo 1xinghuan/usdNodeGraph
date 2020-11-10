@@ -1,8 +1,8 @@
-from .basic import ParameterWidget, VecWidget
+from .basic import ParameterWidget, VecWidget, VecParameterWidget
 from usdNodeGraph.module.sqt import *
 
 
-class StringParameterWidget(VecWidget, ParameterWidget):
+class StringParameterWidget(VecWidget, VecParameterWidget):
     def __init__(self):
         super(StringParameterWidget, self).__init__()
         ParameterWidget.__init__(self)
@@ -13,6 +13,9 @@ class ChooseWidget(QtWidgets.QWidget):
 
     def __init__(self):
         super(ChooseWidget, self).__init__()
+
+        self._options = []
+        self._map = {}
 
         self.masterLayout = QtWidgets.QHBoxLayout()
         self.masterLayout.setContentsMargins(0, 0, 0, 0)
@@ -30,17 +33,33 @@ class ChooseWidget(QtWidgets.QWidget):
     def _setMasterWidgetEnable(self, enable):
         self._comboBox.setVisible(enable)
 
+    def addOption(self, option):
+        if isinstance(option, basestring):
+            label = option
+            value = option
+        else:
+            label, value = option
+        self._options.append(label)
+        self._map.update({value: label})
+        return label
+
     def setPyValue(self, value):
-        index = self._comboBox.findText(value)
-        if index != -1:
+        valueString = str(value)
+        if valueString in self._map:
+            label = self._map.get(valueString)
+            index = self._comboBox.findText(label)
             self._comboBox.setCurrentIndex(index)
         else:
             # not exist
-            self._comboBox.addItem(value)
+            self.addOption(valueString)
+            self._comboBox.addItem(valueString)
             self._comboBox.setCurrentIndex(self._comboBox.count() - 1)
 
     def getPyValue(self):
-        return str(self._comboBox.currentText())
+        label = str(self._comboBox.currentText())
+        for k, v in self._map.items():
+            if k == label:
+                return v
 
 
 class ChooseParameterWidget(ChooseWidget, ParameterWidget):
@@ -51,9 +70,10 @@ class ChooseParameterWidget(ChooseWidget, ParameterWidget):
     def setParameter(self, parameter):
         super(ChooseParameterWidget, self).setParameter(parameter)
         self._beforeUpdateUI()
-        for value in self.getParameter().getItems():
-            if self._comboBox.findText(value) == -1:
-                self._comboBox.addItem(value)
+        for option in self.getParameter().getHintValue('options', defaultValue=[]):
+            label = self.addOption(option)
+            if self._comboBox.findText(label) == -1:
+                self._comboBox.addItem(label)
         self._afterUpdateUI()
 
 

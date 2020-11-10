@@ -52,10 +52,14 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
 
         self.nodeObject = nodeObjectClass(item=self, **kwargs)
 
-        self.fillColor = QtGui.QColor(*self.nodeObject.fillNormalColor)
-        self.borderColor = QtGui.QColor(*self.nodeObject.borderNormalColor)
+        self.fillColor = QtGui.QColor(*self.getParamColor('fillColor'))
+        self.borderColor = QtGui.QColor(*self.getParamColor('borderColor'))
 
         self.nodeObject.parameterValueChanged.connect(self._paramterValueChanged)
+
+    def getParamColor(self, param):
+        color = self.parameter(param).getValue()
+        return self.nodeObject.convertColorTo255(color)
 
     def parameter(self, parameterName):
         return self.nodeObject.parameter(parameterName)
@@ -78,26 +82,30 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
     def name(self):
         return self.nodeObject.name()
 
-    def _getInputsDict(self):
-        inputs = {}
+    def _getInputsList(self):
+        inputs = []
         for inputPort in self.getInputPorts():
             if len(inputPort.getConnections()) > 0:
-                outputPort = inputPort.getConnections()[0]
-                node = outputPort.node()
-                inputs.update({
-                    inputPort.name: [node.name(), outputPort.name]
-                })
+                for outputPort in inputPort.getConnections():
+                    node = outputPort.node()
+                    inputs.append([inputPort.name, node.name(), outputPort.name])
         return inputs
 
-    def _getOutputsDict(self):
-        return {}
+    def _getOutputsList(self):
+        outputs = []
+        for outputPort in self.getOutputPorts():
+            if len(outputPort.getConnections()) > 0:
+                for inputPort in outputPort.getConnections():
+                    node = inputPort.node()
+                    outputs.append([outputPort.name, node.name(), inputPort.name])
+        return outputs
 
     def toXmlElement(self):
         from usdNodeGraph.core.parse._xml import ET
 
         nodeElement = ET.Element('n')
-        nodeElement.set('name', self.parameter('name').getValue())
-        nodeElement.set('class', self.Class())
+        nodeElement.set('n', self.parameter('name').getValue())
+        nodeElement.set('c', self.Class())
 
         for paramName, param in self.nodeObject._parameters.items():
             if paramName != 'name':
@@ -110,21 +118,27 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
                 paramElement = param.toXmlElement()
                 nodeElement.append(paramElement)
 
-        inputsDict = self._getInputsDict()
-        # outputsDict = self._getOutputsDict()
+        inputs = self._getInputsList()
+        outputs = self._getOutputsList()
 
-        for inputName, info in inputsDict.items():
-            node, outputName = info
+        for outputName, nodeName, inputName in outputs:
+            outputElement = ET.Element('o')
+            outputElement.set('n', outputName)
+            outputElement.set('conN', nodeName)
+            outputElement.set('conP', inputName)
+            nodeElement.append(outputElement)
+
+        for inputName, nodeName, outputName in inputs:
             inputElement = ET.Element('i')
-            inputElement.set('name', inputName)
-            inputElement.set('connectNode', node)
-            inputElement.set('connectPort', outputName)
+            inputElement.set('n', inputName)
+            inputElement.set('conN', nodeName)
+            inputElement.set('conP', outputName)
             nodeElement.append(inputElement)
 
         for key, value in self.nodeObject.getMetadatas().items():
             metadataElement = ET.Element('m')
-            metadataElement.set('key', key)
-            metadataElement.set('value', value)
+            metadataElement.set('k', key)
+            metadataElement.set('v', value)
             nodeElement.append(metadataElement)
 
         return nodeElement
@@ -181,6 +195,8 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
             self._updateLockTag()
         if parameter.name() == 'name':
             self._updateNameText()
+        if parameter.name() in ['fillColor', 'borderColor']:
+            self.update()
         # self._updateUI()
 
     def setLabelVisible(self, visible):
@@ -295,8 +311,8 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
             tag.setVisible(False)
 
     def setHighlight(self, value=True):
-        self.fillColor = QtGui.QColor(*self.nodeObject.fillHighlightColor) if value else QtGui.QColor(*self.nodeObject.fillNormalColor)
-        self.borderColor = QtGui.QColor(*self.nodeObject.borderHighlightColor) if value else QtGui.QColor(*self.nodeObject.borderNormalColor)
+        self.fillColor = QtGui.QColor(*self.nodeObject.fillHighlightColor) if value else QtGui.QColor(*self.getParamColor('fillColor'))
+        self.borderColor = QtGui.QColor(*self.nodeObject.borderHighlightColor) if value else QtGui.QColor(*self.getParamColor('borderColor'))
         if self.nameItem is not None:
             self.nameItem.setBrush(self.labelHighlightColor if value else self.labelNormalColor)
 
@@ -305,21 +321,9 @@ class _BaseNodeItem(QtWidgets.QGraphicsItem):
             for pipe in port.pipes:
                 pipe.updatePath()
 
-    def setContextMenu(self):
-        self._context_menus = []
-
-    def _createContextMenu(self):
-        self.setContextMenu()
-        self.menu = QtWidgets.QMenu(self.scene().parent())
-        for i in self._context_menus:
-            action = QtWidgets.QAction(i[0], self.menu)
-            action.triggered.connect(i[1])
-            self.menu.addAction(action)
-
-    def contextMenuEvent(self, event):
-        super(_BaseNodeItem, self).contextMenuEvent(event)
-        # self.menu.move(QCursor().pos())
-        # self.menu.show()
+    def getContextMenus(self):
+        menus = []
+        return menus
 
     def boundingRect(self):
         rect = QtCore.QRectF(

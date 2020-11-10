@@ -14,7 +14,7 @@ class Pipe(QtWidgets.QGraphicsPathItem):
     normalColor = PIPE_NORMAL_COLOR
     lineStyle = None
 
-    def __init__(self, orientation=0, **kwargs):
+    def __init__(self, orientation=0, dataType='', **kwargs):
         super(Pipe, self).__init__(**kwargs)
 
         self.setFlag(QtWidgets.QGraphicsItem.ItemIsSelectable, False)
@@ -25,6 +25,7 @@ class Pipe(QtWidgets.QGraphicsPathItem):
         self.thickness = 1.5
         self.pointAtLength = 7
         self.orientation = orientation
+        self.dataType = dataType
 
         self.source = None
         self.target = None
