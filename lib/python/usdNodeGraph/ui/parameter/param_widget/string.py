@@ -70,10 +70,14 @@ class ChooseParameterWidget(ChooseWidget, ParameterWidget):
     def setParameter(self, parameter):
         super(ChooseParameterWidget, self).setParameter(parameter)
         self._beforeUpdateUI()
-        for option in self.getParameter().getHintValue('options', defaultValue=[]):
+        options = self.getParameter().getHintValue('options', defaultValue=[])
+        for option in options:
             label = self.addOption(option)
             if self._comboBox.findText(label) == -1:
                 self._comboBox.addItem(label)
+        completer = QtWidgets.QCompleter(options)
+        completer.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
+        self._comboBox.setCompleter(completer)
         self._afterUpdateUI()
 
 

@@ -26,6 +26,7 @@ class Node(QtCore.QObject):
     parameterValueChanged = QtCore.Signal(object)
     parameterAdded = QtCore.Signal(object)
     parameterRemoved = QtCore.Signal(object)
+    parameterPagesCleared = QtCore.Signal()
 
     _nodeTypes = {}
 
@@ -222,6 +223,9 @@ class Node(QtCore.QObject):
             self._parameters.pop(parameterName)
             self._parametersName.remove(parameterName)
             self.parameterRemoved.emit(parameterName)
+
+    def clearPages(self):
+        self.parameterPagesCleared.emit()
 
     def isNodeLocked(self):
         return self.parameter('locked').getValue()

@@ -127,7 +127,10 @@ class ShaderNode(_UsdShadeNode):
 
     def _clearParameters(self):
         self._oldShaderParameters = {}
-        removeNames = [name for name in self._parameters.keys() if name.startswith(INPUT_ATTRIBUTE_PREFIX) or name.startswith(OUTPUT_ATTRIBUTE_PREFIX)]
+        removeNames = [
+            name for name in self._parameters.keys()
+            if name.startswith(INPUT_ATTRIBUTE_PREFIX) or name.startswith(OUTPUT_ATTRIBUTE_PREFIX)
+        ]
 
         for name in removeNames:
             param = self.parameter(name)
@@ -136,6 +139,8 @@ class ShaderNode(_UsdShadeNode):
             port = self.item.getPort(name)
             if port is not None:
                 port.destroy()
+
+        self.clearPages()
 
     def _addParameterFromProperty(self, paramName, property):
         hints = {}
@@ -148,19 +153,20 @@ class ShaderNode(_UsdShadeNode):
         else:
             connectable = property.IsConnectable()
             # sometimes this return False but the attribute has connect so always return True here
-            # connectable = True
+            connectable = True
             paramType = str(property.GetTypeAsSdfType()[0])
             defaultValue = property.GetDefaultValue()
             label = property.GetLabel()
 
             hints.update(property.GetMetadata())
             hints.update({'options': property.GetOptions()})
-            if hints.get('widget') in ['default', 'dynamicArray']:
+            if hints.get('widget') in ['default', 'dynamicArray', 'null']:
                 hints['widget'] = ''
             elif hints.get('widget') == 'checkBox':
                 hints['widget'] = 'boolean'
             elif hints.get('widget') == 'mapper':
                 hints['widget'] = 'choose'
+            hints.update({'samples': '[1, 0.1, 0.01, 0.001, 0.0001]'})
 
         param = self.addParameter(
             paramName, paramType,
@@ -174,16 +180,11 @@ class ShaderNode(_UsdShadeNode):
             oldParam = self._oldShaderParameters.get(paramName)
             if oldParam is not None:
                 param._metadata = oldParam._metadata
-                if oldParam.hasConnect():
-                    param.setConnectQuietly(oldParam.getConnect())
-                elif (
-                        (param.parameterTypeString == oldParam.parameterTypeString)
-                        or (param.getValueDefault() == oldParam.getValueDefault())
-                ):
-                    if oldParam.hasKey():
+                if oldParam.isOverride():
+                    if oldParam.hasConnect():
+                        param.setConnectQuietly(oldParam.getConnect())
+                    elif oldParam.hasKey():
                         param.setTimeSamples(oldParam.getTimeSamples())
-                    else:
-                        param.setValueQuietly(oldParam.getValue())
 
             return param
 
@@ -207,7 +208,7 @@ class ShaderNode(_UsdShadeNode):
 
     def resetParameters(self):
         shaderName = self.parameter('info:id').getValue()
-        if shaderName == '':
+        if shaderName in ['', None, 'None']:
             return
         shaderNode = SdrRegistry.getShaderNodeByName(shaderName)
         if shaderNode is not None:

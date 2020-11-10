@@ -475,6 +475,8 @@ class GraphicsView(QtWidgets.QGraphicsView, DropWidget, WithMenuObject):
 
     def contextMenuEvent(self, event):
         super(GraphicsView, self).contextMenuEvent(event)
+        if self.keyZooming:
+            return
         self._createContextMenu()
         self.menu.move(QtGui.QCursor().pos())
         self.menu.show()

@@ -165,7 +165,7 @@ class PageWidget(QtWidgets.QWidget):
         self.downLauout.setContentsMargins(20, 0, 0, 0)
         self.downWidget = QtWidgets.QWidget()
         self.downWidget.setLayout(self.downLauout)
-        self.formLayout = QtWidgets.QFormLayout()
+        self.formLayout = FormLayout()
         self.formLayout.setLabelAlignment(QtCore.Qt.AlignRight)
         self.pagesLayout = QtWidgets.QVBoxLayout()
         self.masterLayout.addLayout(self.upLayout)
@@ -340,6 +340,7 @@ class NodeParameterWidget(QtWidgets.QFrame):
         self._nodeItem.panel = self
         self._nodeItem.nodeObject.parameterAdded.connect(self._nodeParameterAdded)
         self._nodeItem.nodeObject.parameterRemoved.connect(self._nodeParameterRemoved)
+        self._nodeItem.nodeObject.parameterPagesCleared.connect(self._nodeParameterPagesCleared)
 
         self.nodeNameEdit.setParameter(node.parameter('name'))
         self.fillColorEdit.setParameter(node.parameter('fillColor'))
@@ -450,6 +451,13 @@ class NodeParameterWidget(QtWidgets.QFrame):
             self._paramWidgets.pop(parameterName)
             layout = parameterWidget.parentLayout
             layout.removeRowWidget(parameterWidget)
+
+    def _nodeParameterPagesCleared(self):
+        tab = self._tabs[self._nodeItem.nodeType]
+        layout = tab.layout()
+        pagesLayout = layout.pagesLayout
+        clearLayout(pagesLayout)
+        self._pageWidgets = {}
 
     def setContextMenu(self):
         self._context_menus = [

@@ -384,6 +384,10 @@ class BasicLineEdit(QtWidgets.QLineEdit, BasicWidget):
         self._editWidget = None
         self._editMode = False
         self._editStartPos = None
+        self._editSamples = None
+
+    def setEditSamples(self, samples):
+        self._editSamples = samples
 
     def setValue(self, value):
         self.removeAllKeys()
@@ -471,7 +475,9 @@ class IntLineEdit(BasicLineEdit):
     def _enableEditMode(self):
         if self._editWidget is None:
             from usdNodeGraph.ui.nodeGraph import USD_NODE_GRAPH_WINDOW
-            self._editWidget = IntEditWidget(parent=USD_NODE_GRAPH_WINDOW)
+            self._editWidget = IntEditWidget(
+                samples=self._editSamples, parent=USD_NODE_GRAPH_WINDOW
+            )
             self._editWidget.show()
         super(IntLineEdit, self)._enableEditMode()
 
@@ -486,7 +492,9 @@ class FloatLineEdit(BasicLineEdit):
     def _enableEditMode(self):
         if self._editWidget is None:
             from usdNodeGraph.ui.nodeGraph import USD_NODE_GRAPH_WINDOW
-            self._editWidget = FloatEditWidget(parent=USD_NODE_GRAPH_WINDOW)
+            self._editWidget = FloatEditWidget(
+                samples=self._editSamples, parent=USD_NODE_GRAPH_WINDOW
+            )
             self._editWidget.show()
         super(FloatLineEdit, self)._enableEditMode()
 
@@ -644,4 +652,10 @@ class VecParameterWidget(ParameterWidget):
     def _setMasterWidgetEnable(self, enable):
         super(VecParameterWidget, self)._setMasterWidgetEnable(enable)
         self.setEditorsVisible(enable)
+
+    def setParameter(self, parameter, update=False):
+        super(VecParameterWidget, self).setParameter(parameter, update)
+        samples = parameter.getHintValue('samples', None)
+        for lineEdit in self.lineEdits:
+            lineEdit.setEditSamples(samples)
 
