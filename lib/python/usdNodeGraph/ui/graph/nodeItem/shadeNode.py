@@ -67,14 +67,14 @@ class _UsdShadeNodeItem(UsdNodeItem):
                 bbox.height() - (index + 1) * PORT_SPACING
             )
 
-    def addShaderInputPort(self, portName, label=None):
-        port = ShaderInputPort(name=portName, label=label)
+    def addShaderInputPort(self, portName, label=None, dataType=None):
+        port = ShaderInputPort(name=portName, label=label, dataType=dataType)
         self.inputConnectionPorts.append(port)
 
         self.addShaderPort(port)
 
-    def addShaderOutputPort(self, portName, label=None):
-        port = ShaderOutputPort(name=portName, label=label)
+    def addShaderOutputPort(self, portName, label=None, dataType=None):
+        port = ShaderOutputPort(name=portName, label=label, dataType=dataType)
         self.outputConnectionPorts.append(port)
 
         self.addShaderPort(port)
@@ -134,14 +134,14 @@ class MaterialNodeItem(_UsdShadeNodeItem):
 
     # inputs: -> as OutputPort
     # outputs: -> as InputPort
-    def addShaderInputPort(self, portName, label=None):
-        port = ShaderOutputPort(name=portName, label=label)
+    def addShaderInputPort(self, portName, label=None, dataType=None):
+        port = ShaderOutputPort(name=portName, label=label, dataType=dataType)
         self.outputConnectionPorts.append(port)
 
         self.addShaderPort(port)
 
-    def addShaderOutputPort(self, portName, label=None):
-        port = ShaderInputPort(name=portName, label=label)
+    def addShaderOutputPort(self, portName, label=None, dataType=None):
+        port = ShaderInputPort(name=portName, label=label, dataType=dataType)
         self.inputConnectionPorts.append(port)
 
         self.addShaderPort(port)

@@ -3,7 +3,7 @@
 from usdNodeGraph.module.sqt import *
 from usdNodeGraph.ui.graph.const import *
 from usdNodeGraph.core.parameter import (
-    Parameter, TextParameter, FloatParameter, BoolParameter
+    Parameter, StringParameter, TextParameter, FloatParameter, BoolParameter, Color4fParameter
 )
 from usdNodeGraph.utils.log import get_logger
 from usdNodeGraph.ui.utils.log import LogWindow
@@ -26,11 +26,13 @@ class Node(QtCore.QObject):
     parameterValueChanged = QtCore.Signal(object)
     parameterAdded = QtCore.Signal(object)
     parameterRemoved = QtCore.Signal(object)
+    parameterPagesCleared = QtCore.Signal()
 
     _nodeTypes = {}
 
     nodeType = 'Node'
     nodeItemType = 'NodeItem'
+    nodeGroup = 'Other'
 
     fillNormalColor = (50, 60, 70)
     fillHighlightColor = (230, 230, 100)
@@ -40,6 +42,14 @@ class Node(QtCore.QObject):
     _expressionMap = {}
 
     liveUpdateParameterNames = []
+
+    @classmethod
+    def convertColorToFloat(cls, color):
+        return [i / 255.0 for i in color]
+
+    @classmethod
+    def convertColorTo255(cls, color):
+        return [max(min(i * 255.0, 255.0), 0) for i in color]
 
     @classmethod
     def getLiveUpdateParameterNames(cls):
@@ -78,6 +88,15 @@ class Node(QtCore.QObject):
         return cls._nodeTypes.get(nodeType, cls)
 
     @classmethod
+    def getNodesByGroup(cls):
+        result = {}
+        for k, v in cls._nodeTypes.items():
+            if v.nodeGroup not in result:
+                result[v.nodeGroup] = []
+            result[v.nodeGroup].append(v)
+        return result
+
+    @classmethod
     def Class(cls):
         return cls.nodeType
 
@@ -101,12 +120,14 @@ class Node(QtCore.QObject):
     def _initParameters(self):
         self._parameters = {
             # 'id': StringParameter(name='id', defaultValue=str(hex(id(self))), parent=self, builtIn=True),
-            'name': Parameter(name='name', defaultValue='', parent=self, builtIn=True),
-            'label': TextParameter(name='label', defaultValue='', parent=self, builtIn=True),
-            'x': FloatParameter(name='x', defaultValue=None, parent=self, builtIn=True, visible=False),
-            'y': FloatParameter(name='y', defaultValue=None, parent=self, builtIn=True, visible=False),
-            'locked': BoolParameter(name='locked', defaultValue=False, parent=self, builtIn=True, visible=False),
-            'disable': BoolParameter(name='disable', defaultValue=0, parent=self, builtIn=True),
+            'name': StringParameter(name='name', defaultValue='', parent=self, builtIn=True, hints={'tab': 'None'}),
+            'label': TextParameter(name='label', defaultValue='', parent=self, builtIn=True, hints={'tab': 'Node'}),
+            'x': FloatParameter(name='x', defaultValue=None, parent=self, builtIn=True, visible=False, hints={'tab': 'Node'}),
+            'y': FloatParameter(name='y', defaultValue=None, parent=self, builtIn=True, visible=False, hints={'tab': 'Node'}),
+            'locked': BoolParameter(name='locked', defaultValue=False, parent=self, builtIn=True, visible=False, hints={'tab': 'Node'}),
+            'disable': BoolParameter(name='disable', defaultValue=0, parent=self, builtIn=True, hints={'tab': 'Node'}),
+            'fillColor': Color4fParameter(name='fillColor', parent=self, builtIn=True, hints={'showEditor': 'False', 'tab': 'None'}, defaultValue=self.convertColorToFloat(self.fillNormalColor)),
+            'borderColor': Color4fParameter(name='borderColor', parent=self, builtIn=True, hints={'showEditor': 'False', 'tab': 'None'}, defaultValue=self.convertColorToFloat(self.borderNormalColor)),
         }
         self._parametersName = self._parameters.keys()
         self._parametersName.sort()
@@ -202,6 +223,9 @@ class Node(QtCore.QObject):
             self._parameters.pop(parameterName)
             self._parametersName.remove(parameterName)
             self.parameterRemoved.emit(parameterName)
+
+    def clearPages(self):
+        self.parameterPagesCleared.emit()
 
     def isNodeLocked(self):
         return self.parameter('locked').getValue()

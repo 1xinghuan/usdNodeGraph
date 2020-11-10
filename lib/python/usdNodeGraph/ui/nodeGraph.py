@@ -6,9 +6,11 @@ from usdNodeGraph.module.sqt import *
 from usdNodeGraph.ui.graph.view import GraphicsSceneWidget, isEditable
 from usdNodeGraph.ui.parameter.param_panel import ParameterPanel
 from usdNodeGraph.core.state.core import GraphState
+from usdNodeGraph.core.node.node import Node
 from usdNodeGraph.ui.other.timeSlider import TimeSliderWidget
 from usdNodeGraph.utils.settings import User_Setting, read_setting, write_setting
 from usdNodeGraph.utils.res import resource
+from usdNodeGraph.ui.utils.menu import WithMenuObject
 
 
 USD_NODE_GRAPH_WINDOW = None
@@ -80,19 +82,13 @@ class NodeGraphTab(QtWidgets.QTabWidget):
         self.setMovable(True)
 
 
-class UsdNodeGraph(QtWidgets.QMainWindow):
+class UsdNodeGraph(QtWidgets.QMainWindow, WithMenuObject):
     entityItemDoubleClicked = QtCore.Signal(object)
     currentSceneChanged = QtCore.Signal(object)
     mainWindowClosed = QtCore.Signal()
-    _actionShortCutMap = {}
+
     _addedActions = []
     _addedWidgetClasses = []
-
-    @classmethod
-    def registerActionShortCut(cls, actionName, shortCut):
-        cls._actionShortCutMap.update({
-            actionName: shortCut
-        })
 
     @classmethod
     def registerActions(cls, actionList):
@@ -140,6 +136,20 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         for dock in self._docks:
             dock.maximizedRequired.connect(self._dockMaxRequired)
 
+    def _getNodeActions(self):
+        actions = []
+        groupDict = Node.getNodesByGroup()
+        groups = groupDict.keys()
+        groups.sort()
+        for group in groups:
+            nodeActions = []
+            nodes = groupDict[group]
+            for node in nodes:
+                nodeActions.append([node.nodeType, node.nodeType, None, self._nodeActionTriggered])
+            actions.append([group, nodeActions])
+
+        return [['Node', actions]]
+
     def _getMenuActions(self):
         actions = [
             ['File', [
@@ -157,6 +167,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
                 ['separater'],
                 ['import_nodes', 'Import Nodes', None, self._importNodesActionTriggered],
                 ['export_nodes', 'Export Nodes', None, self._exportNodesActionTriggered],
+                ['save_nodes', 'Save Scene Nodes', None, self._saveNodesActionTriggered],
             ]],
             ['Edit', [
                 ['create_node', 'Create Node', 'Tab', self._createNodeActionTriggered],
@@ -175,45 +186,12 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
                 ['frame_selection', 'Frame Selection', None, self._frameSelectionActionTriggered],
             ]]
         ]
+        actions.extend(self._getNodeActions())
         actions.extend(self._addedActions)
         return actions
 
-    def _addSubMenus(self, menu, menus):
-        for menuL in menus:
-            name = menuL[0]
-
-            if name == 'separater':
-                menu.addSeparator()
-                continue
-
-            if isinstance(menuL[1], list):
-                findMenus = menu.findChildren(QtWidgets.QMenu, name)
-                if len(findMenus) > 0:
-                    subMenu = findMenus[0]
-                else:
-                    subMenu = QtWidgets.QMenu(name, menu)
-                    subMenu.setObjectName(name)
-                    menu.addMenu(subMenu)
-
-                self._addSubMenus(subMenu, menuL[1])
-            else:
-                label = menuL[1]
-                short_cut = menuL[2]
-                func = menuL[3]
-                self._addAction(name, label, menu, shortCut=short_cut, triggerFunc=func)
-
     def _setMenus(self):
         self._addSubMenus(self.menuBar(), self._getMenuActions())
-
-    def _addAction(self, name, label, menu, shortCut=None, triggerFunc=None):
-        action = QtWidgets.QAction(label, menu)
-        menu.addAction(action)
-        if name in self._actionShortCutMap:
-            shortCut = self._actionShortCutMap.get(name)
-        if shortCut is not None:
-            action.setShortcut(shortCut)
-        if triggerFunc is not None:
-            action.triggered.connect(triggerFunc)
 
     def _initUI(self):
         self.setWindowTitle('Usd Node Graph')
@@ -385,6 +363,10 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
     def _nodeDeleted(self, node):
         self.parameterPanel.removeNode(node.name())
 
+    def _nodeActionTriggered(self):
+        nodeType = self.sender().objectName()
+        self.currentScene.scene.createNode(nodeType)
+
     def _openActionTriggered(self):
         usdFile = QtWidgets.QFileDialog.getOpenFileName(None, 'Select File', filter='USD(*.usda *.usd *.usdc)')
         if isinstance(usdFile, tuple):
@@ -418,7 +400,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         self.currentScene.exportToFile()
 
     def _saveLayerActionTriggered(self):
-        self.currentScene.saveFile()
+        self.currentScene.saveLayer()
 
     def _importNodesActionTriggered(self):
         xmlFile = QtWidgets.QFileDialog.getOpenFileName(None, 'Import File', filter='USD Node Graph(*.ung *.xml)')
@@ -435,11 +417,15 @@ class UsdNodeGraph(QtWidgets.QMainWindow):
         if isinstance(xmlFile, tuple):
             xmlFile = xmlFile[0]
         xmlFile = str(xmlFile)
+        if xmlFile == '':
+            return
         if not xmlFile.endswith('.ung'):
             xmlFile += '.ung'
-        nodesString = self.currentScene.scene.getSelectedNodesAsXml()
-        with open(xmlFile, 'w') as f:
-            f.write(nodesString)
+        self.currentScene.scene.exportSelectedNodesToFile(xmlFile)
+
+    def _saveNodesActionTriggered(self):
+        self.currentScene.saveNodes()
+        self.currentScene.saveLayer()
 
     def _applyActionTriggered(self):
         self.currentScene.applyChanges()

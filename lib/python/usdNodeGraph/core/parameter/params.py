@@ -3,6 +3,7 @@ from pxr import Vt, Gf, Sdf
 
 
 class _StringParameter(Parameter):
+    parameterWidgetString = 'string'
     valueDefault = ''
 
 
@@ -22,6 +23,7 @@ class FilePathParameter(_StringParameter):
 
 class TextParameter(_StringParameter):
     parameterTypeString = 'text'
+    parameterWidgetString = 'text'
 
 
 class AssetParameter(_StringParameter):
@@ -41,20 +43,15 @@ class AssetParameter(_StringParameter):
 
 class ChooseParameter(_StringParameter):
     parameterTypeString = 'choose'
+    parameterWidgetString = 'choose'
 
-    def __init__(self, *args, **kwargs):
-        super(ChooseParameter, self).__init__(*args, **kwargs)
+    def addOptions(self, items):
+        all = self.getOptions()
+        all.extend(items)
+        self.setHint('options', all)
 
-        self._items = []
-
-    def addItems(self, items):
-        self._items.extend(items)
-
-    def addItem(self, item):
-        self._items.append(item)
-
-    def getItems(self):
-        return self._items
+    def getOptions(self):
+        return self.getHintValue('options', defaultValue=[])
 
 
 class _NonStringParameter(Parameter):
@@ -67,24 +64,28 @@ class _NonStringParameter(Parameter):
 
 class BoolParameter(_NonStringParameter):
     parameterTypeString = 'bool'
+    parameterWidgetString = 'boolean'
     valueTypeName = Sdf.ValueTypeNames.Bool
     valueDefault = False
 
 
 class IntParameter(_NonStringParameter):
     parameterTypeString = 'int'
+    parameterWidgetString = 'integer'
     valueTypeName = Sdf.ValueTypeNames.Int
     valueDefault = 0
 
 
 class FloatParameter(_NonStringParameter):
     parameterTypeString = 'float'
+    parameterWidgetString = 'floating'
     valueTypeName = Sdf.ValueTypeNames.Float
     valueDefault = 0
 
 
 class DoubleParameter(_NonStringParameter):
     parameterTypeString = 'double'
+    parameterWidgetString = 'floating'
     valueTypeName = Sdf.ValueTypeNames.Double
     valueDefault = 0
 
@@ -110,92 +111,120 @@ class _VecParamter(_NonStringParameter):
 
 class Vec2fParameter(_VecParamter):
     parameterTypeString = 'float2'
+    parameterWidgetString = 'vec2f'
     valueTypeName = Sdf.ValueTypeNames.Float2
     _usdValueClass = Gf.Vec2f
 
 
 class Vec3fParameter(_VecParamter):
     parameterTypeString = 'float3'
+    parameterWidgetString = 'vec3f'
     valueTypeName = Sdf.ValueTypeNames.Float3
     _usdValueClass = Gf.Vec3f
 
 
 class Vec4fParameter(_VecParamter):
     parameterTypeString = 'float4'
+    parameterWidgetString = 'vec4f'
     valueTypeName = Sdf.ValueTypeNames.Float4
     _usdValueClass = Gf.Vec4f
 
 
 class Vec2dParameter(_VecParamter):
     parameterTypeString = 'double2'
+    parameterWidgetString = 'vec2f'
     valueTypeName = Sdf.ValueTypeNames.Double2
     _usdValueClass = Gf.Vec2d
 
 
 class Vec3dParameter(_VecParamter):
     parameterTypeString = 'double3'
+    parameterWidgetString = 'vec3f'
     valueTypeName = Sdf.ValueTypeNames.Double3
     _usdValueClass = Gf.Vec3d
 
 
 class Vec4dParameter(_VecParamter):
     parameterTypeString = 'double4'
+    parameterWidgetString = 'vec4f'
     valueTypeName = Sdf.ValueTypeNames.Double4
     _usdValueClass = Gf.Vec4d
 
 
 class Vec2hParameter(_VecParamter):
     parameterTypeString = 'half2'
+    parameterWidgetString = 'vec2f'
     valueTypeName = Sdf.ValueTypeNames.Half2
     _usdValueClass = Gf.Vec2h
 
 
 class Vec3hParameter(_VecParamter):
     parameterTypeString = 'half3'
+    parameterWidgetString = 'vec3f'
     valueTypeName = Sdf.ValueTypeNames.Half3
     _usdValueClass = Gf.Vec3h
 
 
 class Vec4hParameter(_VecParamter):
     parameterTypeString = 'half4'
+    parameterWidgetString = 'vec4f'
     valueTypeName = Sdf.ValueTypeNames.Half4
     _usdValueClass = Gf.Vec4h
 
 
 class TexCoord2fParameter(_VecParamter):
     parameterTypeString = 'texCoord2f'
+    parameterWidgetString = 'vec2f'
     valueTypeName = Sdf.ValueTypeNames.TexCoord2f
     _usdValueClass = Gf.Vec2f
 
 
 class TexCoord2dParameter(_VecParamter):
     parameterTypeString = 'texCoord2d'
+    parameterWidgetString = 'vec2f'
     valueTypeName = Sdf.ValueTypeNames.TexCoord2d
     _usdValueClass = Gf.Vec2d
 
 
 class TexCoord2hParameter(_VecParamter):
     parameterTypeString = 'texCoord2h'
+    parameterWidgetString = 'vec2f'
     valueTypeName = Sdf.ValueTypeNames.TexCoord2h
     _usdValueClass = Gf.Vec2h
 
 
-
 class Color3fParameter(_VecParamter):
     parameterTypeString = 'color3f'
+    parameterWidgetString = 'color3f'
     valueTypeName = Sdf.ValueTypeNames.Color3f
     _usdValueClass = Gf.Vec3f
 
 
+class Color4fParameter(_VecParamter):
+    parameterTypeString = 'color4f'
+    parameterWidgetString = 'color4f'
+    valueTypeName = Sdf.ValueTypeNames.Color4f
+    _usdValueClass = Gf.Vec4f
+
+
 class Point3fParameter(_VecParamter):
     parameterTypeString = 'point3f'
+    parameterWidgetString = 'vec3f'
     valueTypeName = Sdf.ValueTypeNames.Point3f
     _usdValueClass = Gf.Vec3f
 
 
 class Normal3fParameter(_VecParamter):
     parameterTypeString = 'normal3f'
+    parameterWidgetString = 'vec3f'
     valueTypeName = Sdf.ValueTypeNames.Normal3f
+    _usdValueClass = Gf.Vec3f
+
+
+class Vector3fParameter(_VecParamter):
+    parameterTypeString = 'vector3f'
+    parameterWidgetString = 'vec3f'
+    valueTypeName = Sdf.ValueTypeNames.Vector3f
     _usdValueClass = Gf.Vec3f
 
 
@@ -211,6 +240,7 @@ class QuatParameter(_VecParamter):
 
 class QuatdParameter(QuatParameter):
     parameterTypeString = 'quatd'
+    parameterWidgetString = 'vec4f'
     valueTypeName = Sdf.ValueTypeNames.Quatd
     _usdValueClass = Gf.Quatd
     valueDefault = Gf.Quatd()
@@ -218,12 +248,14 @@ class QuatdParameter(QuatParameter):
 
 class QuatfParameter(QuatParameter):
     parameterTypeString = 'quatf'
+    parameterWidgetString = 'vec4f'
     valueTypeName = Sdf.ValueTypeNames.Quatf
     _usdValueClass = Gf.Quatf
 
 
 class QuathParameter(QuatParameter):
     parameterTypeString = 'quath'
+    parameterWidgetString = 'vec4f'
     valueTypeName = Sdf.ValueTypeNames.Quath
     _usdValueClass = Gf.Quath
 
@@ -243,18 +275,21 @@ class _MatrixParamter(_VecParamter):
 
 class Matrix2dParameter(_MatrixParamter):
     parameterTypeString = 'matrix2d'
+    parameterWidgetString = 'matrix2d'
     valueTypeName = Sdf.ValueTypeNames.Matrix2d
     _usdValueClass = Gf.Matrix2d
 
 
 class Matrix3dParameter(_MatrixParamter):
     parameterTypeString = 'matrix3d'
+    parameterWidgetString = 'matrix3d'
     valueTypeName = Sdf.ValueTypeNames.Matrix3d
     _usdValueClass = Gf.Matrix3d
 
 
 class Matrix4dParameter(_MatrixParamter):
     parameterTypeString = 'matrix4d'
+    parameterWidgetString = 'matrix4d'
     valueTypeName = Sdf.ValueTypeNames.Matrix4d
     _usdValueClass = Gf.Matrix4d
 
@@ -290,156 +325,182 @@ class _ArrayParameter(_NonStringParameter):
 
 class StringArrayParameter(_ArrayParameter):
     parameterTypeString = 'string[]'
+    parameterWidgetString = 'token[]'
     valueTypeName = Sdf.ValueTypeNames.StringArray
     _usdValueClass = Vt.StringArray
 
 
 class IntArrayParameter(_ArrayParameter):
     parameterTypeString = 'int[]'
+    parameterWidgetString = 'int[]'
     valueTypeName = Sdf.ValueTypeNames.IntArray
     _usdValueClass = Vt.IntArray
 
 
 class TokenArrayParameter(_ArrayParameter):
     parameterTypeString = 'token[]'
+    parameterWidgetString = 'token[]'
     valueTypeName = Sdf.ValueTypeNames.TokenArray
     _usdValueClass = Vt.TokenArray
 
 
 class FloatArrayParameter(_ArrayParameter):
     parameterTypeString = 'float[]'
+    parameterWidgetString = 'float[]'
     valueTypeName = Sdf.ValueTypeNames.FloatArray
     _usdValueClass = Vt.FloatArray
 
 
 class DoubleArrayParameter(_ArrayParameter):
     parameterTypeString = 'double[]'
+    parameterWidgetString = 'float[]'
     valueTypeName = Sdf.ValueTypeNames.DoubleArray
     _usdValueClass = Vt.DoubleArray
 
 
 class Vec2fArrayParameter(_ArrayParameter):
     parameterTypeString = 'float2[]'
+    parameterWidgetString = 'vec2f[]'
     valueTypeName = Sdf.ValueTypeNames.Float2Array
     _usdValueClass = Vt.Vec2fArray
 
 
 class Vec3fArrayParameter(_ArrayParameter):
     parameterTypeString = 'float3[]'
+    parameterWidgetString = 'vec3f[]'
     valueTypeName = Sdf.ValueTypeNames.Float3Array
     _usdValueClass = Vt.Vec3fArray
 
 
 class Vec4fArrayParameter(_ArrayParameter):
     parameterTypeString = 'float4[]'
+    parameterWidgetString = 'vec4f[]'
     valueTypeName = Sdf.ValueTypeNames.Float4Array
     _usdValueClass = Vt.Vec4fArray
 
 
 class Vec2dArrayParameter(_ArrayParameter):
     parameterTypeString = 'double2[]'
+    parameterWidgetString = 'vec2f[]'
     valueTypeName = Sdf.ValueTypeNames.Double2Array
     _usdValueClass = Vt.Vec2dArray
 
 
 class Vec3dArrayParameter(_ArrayParameter):
     parameterTypeString = 'double3[]'
+    parameterWidgetString = 'vec3f[]'
     valueTypeName = Sdf.ValueTypeNames.Double3Array
     _usdValueClass = Vt.Vec3dArray
 
 
 class Vec4dArrayParameter(_ArrayParameter):
     parameterTypeString = 'double4[]'
+    parameterWidgetString = 'vec4f[]'
     valueTypeName = Sdf.ValueTypeNames.Double4Array
     _usdValueClass = Vt.Vec4dArray
 
 
 class Vec2hArrayParameter(_ArrayParameter):
     parameterTypeString = 'half2[]'
+    parameterWidgetString = 'vec2f[]'
     valueTypeName = Sdf.ValueTypeNames.Half2Array
     _usdValueClass = Vt.Vec2hArray
 
 
 class Vec3hArrayParameter(_ArrayParameter):
     parameterTypeString = 'half3[]'
+    parameterWidgetString = 'vec3f[]'
     valueTypeName = Sdf.ValueTypeNames.Half3Array
     _usdValueClass = Vt.Vec3hArray
 
 
 class Vec4hArrayParameter(_ArrayParameter):
     parameterTypeString = 'half4[]'
+    parameterWidgetString = 'vec4f[]'
     valueTypeName = Sdf.ValueTypeNames.Half4Array
     _usdValueClass = Vt.Vec4hArray
 
 
 class Color3fArrayParameter(_ArrayParameter):
     parameterTypeString = 'color3f[]'
+    parameterWidgetString = 'vec3f[]'
     valueTypeName = Sdf.ValueTypeNames.Color3fArray
     _usdValueClass = Vt.Vec3fArray
 
 
 class Point3fArrayParameter(_ArrayParameter):
     parameterTypeString = 'point3f[]'
+    parameterWidgetString = 'vec3f[]'
     valueTypeName = Sdf.ValueTypeNames.Point3fArray
     _usdValueClass = Vt.Vec3fArray
 
 
 class Normal3fArrayParameter(_ArrayParameter):
     parameterTypeString = 'normal3f[]'
+    parameterWidgetString = 'vec3f[]'
     valueTypeName = Sdf.ValueTypeNames.Normal3fArray
     _usdValueClass = Vt.Vec3fArray
 
 
 class QuatdArrayParameter(_ArrayParameter):
     parameterTypeString = 'quatd[]'
+    parameterWidgetString = 'vec4f[]'
     valueTypeName = Sdf.ValueTypeNames.QuatdArray
     _usdValueClass = Vt.QuatdArray
 
 
 class QuatfArrayParameter(_ArrayParameter):
     parameterTypeString = 'quatf[]'
+    parameterWidgetString = 'vec4f[]'
     valueTypeName = Sdf.ValueTypeNames.QuatfArray
     _usdValueClass = Vt.QuatfArray
 
 
 class QuathArrayParameter(_ArrayParameter):
     parameterTypeString = 'quath[]'
+    parameterWidgetString = 'vec4f[]'
     valueTypeName = Sdf.ValueTypeNames.QuathArray
     _usdValueClass = Vt.QuathArray
 
 
 class Matrix2dArrayParameter(_ArrayParameter):
     parameterTypeString = 'matrix2d[]'
+    parameterWidgetString = 'matrix2d[]'
     valueTypeName = Sdf.ValueTypeNames.Matrix2dArray
     _usdValueClass = Vt.Matrix2dArray
 
 
 class Matrix3dArrayParameter(_ArrayParameter):
     parameterTypeString = 'matrix3d[]'
+    parameterWidgetString = 'matrix3d[]'
     valueTypeName = Sdf.ValueTypeNames.Matrix3dArray
     _usdValueClass = Vt.Matrix3dArray
 
 
 class Matrix4dArrayParameter(_ArrayParameter):
     parameterTypeString = 'matrix4d[]'
+    parameterWidgetString = 'matrix4d[]'
     valueTypeName = Sdf.ValueTypeNames.Matrix4dArray
     _usdValueClass = Vt.Matrix4dArray
 
 
 class TexCoord2fArrayParameter(_ArrayParameter):
     parameterTypeString = 'texCoord2f[]'
+    parameterWidgetString = 'vec2f[]'
     valueTypeName = Sdf.ValueTypeNames.TexCoord2fArray
     _usdValueClass = Vt.Vec2fArray
 
 
 class TexCoord2dArrayParameter(_ArrayParameter):
     parameterTypeString = 'texCoord2d[]'
+    parameterWidgetString = 'vec2f[]'
     valueTypeName = Sdf.ValueTypeNames.TexCoord2dArray
     _usdValueClass = Vt.Vec2dArray
 
 
 class TexCoord2hArrayParameter(_ArrayParameter):
     parameterTypeString = 'texCoord2h[]'
+    parameterWidgetString = 'vec2f[]'
     valueTypeName = Sdf.ValueTypeNames.TexCoord2hArray
     _usdValueClass = Vt.Vec2hArray
 

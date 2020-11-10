@@ -41,10 +41,10 @@ class IntWidget(VecWidget):
     _lineEdit = IntLineEdit
 
 
-class IntParameterWidget(IntWidget, ParameterWidget):
+class IntParameterWidget(IntWidget, VecParameterWidget):
     def __init__(self):
         super(IntParameterWidget, self).__init__()
-        ParameterWidget.__init__(self)
+        VecParameterWidget.__init__(self)
 
 
 class FloatWidget(VecWidget):
@@ -52,68 +52,68 @@ class FloatWidget(VecWidget):
     _lineEdit = FloatLineEdit
 
 
-class FloatParameterWidget(FloatWidget, ParameterWidget):
+class FloatParameterWidget(FloatWidget, VecParameterWidget):
     def __init__(self):
         super(FloatParameterWidget, self).__init__()
-        ParameterWidget.__init__(self)
+        VecParameterWidget.__init__(self)
 
 
 class Vec2fWidget(FloatWidget):
     _valueSize = 2
 
 
-class Vec2fParameterWidget(Vec2fWidget, ParameterWidget):
+class Vec2fParameterWidget(Vec2fWidget, VecParameterWidget):
     def __init__(self):
         super(Vec2fParameterWidget, self).__init__()
-        ParameterWidget.__init__(self)
+        VecParameterWidget.__init__(self)
 
 
 class Vec3fWidget(FloatWidget):
     _valueSize = 3
 
 
-class Vec3fParameterWidget(Vec3fWidget, ParameterWidget):
+class Vec3fParameterWidget(Vec3fWidget, VecParameterWidget):
     def __init__(self):
         super(Vec3fParameterWidget, self).__init__()
-        ParameterWidget.__init__(self)
+        VecParameterWidget.__init__(self)
 
 
 class Vec4fWidget(FloatWidget):
     _valueSize = 4
 
 
-class Vec4fParameterWidget(Vec4fWidget, ParameterWidget):
+class Vec4fParameterWidget(Vec4fWidget, VecParameterWidget):
     def __init__(self):
         super(Vec4fParameterWidget, self).__init__()
-        ParameterWidget.__init__(self)
+        VecParameterWidget.__init__(self)
 
 
 class Matrix2dWidget(MatrixWidget):
     _valueSize = 2
 
 
-class Matrix2dParameterWidget(Matrix2dWidget, ParameterWidget):
+class Matrix2dParameterWidget(Matrix2dWidget, VecParameterWidget):
     def __init__(self):
         super(Matrix2dParameterWidget, self).__init__()
-        ParameterWidget.__init__(self)
+        VecParameterWidget.__init__(self)
 
 
 class Matrix3dWidget(MatrixWidget):
     _valueSize = 3
 
 
-class Matrix3dParameterWidget(Matrix3dWidget, ParameterWidget):
+class Matrix3dParameterWidget(Matrix3dWidget, VecParameterWidget):
     def __init__(self):
         super(Matrix3dParameterWidget, self).__init__()
-        ParameterWidget.__init__(self)
+        VecParameterWidget.__init__(self)
 
 
 class Matrix4dWidget(MatrixWidget):
     _valueSize = 4
 
 
-class Matrix4dParameterWidget(Matrix4dWidget, ParameterWidget):
+class Matrix4dParameterWidget(Matrix4dWidget, VecParameterWidget):
     def __init__(self):
         super(Matrix4dParameterWidget, self).__init__()
-        ParameterWidget.__init__(self)
+        VecParameterWidget.__init__(self)
 

@@ -34,11 +34,12 @@ class Port(QtWidgets.QGraphicsEllipseItem):
 
     maxConnections = None
 
-    def __init__(self, name='input', label=None, **kwargs):
+    def __init__(self, name='input', label=None, dataType='None', **kwargs):
         super(Port, self).__init__(**kwargs)
 
         self.portObj = PortObject(self)
         self.name = name
+        self.dataType = dataType
         self.label = label if label is not None else name
         self.pipes = []
 
@@ -55,6 +56,8 @@ class Port(QtWidgets.QGraphicsEllipseItem):
         self.setCursor(QtCore.Qt.PointingHandCursor)
         self.setAcceptDrops(True)
         self.setZValue(10)
+
+        self.setToolTip('{}\n{}'.format(self.name, str(self.dataType)))
 
         self.setRect(self.boundingRect())
         self._updateUI()
@@ -166,9 +169,9 @@ class Port(QtWidgets.QGraphicsEllipseItem):
 
     def createPipe(self):
         if isinstance(self, (ShaderInputPort, ShaderOutputPort)):
-            pipe = ConnectionPipe(orientation=self.orientation)
+            pipe = ConnectionPipe(orientation=self.orientation, dataType=self.dataType)
         else:
-            pipe = Pipe(orientation=self.orientation)
+            pipe = Pipe(orientation=self.orientation, dataType=self.dataType)
         return pipe
 
     def mousePressEvent(self, event):
@@ -190,7 +193,12 @@ class Port(QtWidgets.QGraphicsEllipseItem):
                 self.floatPipe.updatePath(self.startPos, scenePos)
 
             findPort = self.scene().itemAt(scenePos, QtGui.QTransform())
-            if findPort is not None and isinstance(findPort, Port) and not isinstance(findPort, self.__class__):
+            if (
+                    findPort is not None
+                    and isinstance(findPort, Port)
+                    and findPort.dataType == self.floatPipe.dataType
+                    and not isinstance(findPort, self.__class__)
+            ):
                 self.foundPort = findPort
                 self.foundPort.setHighlight(True)
             else:
@@ -203,7 +211,12 @@ class Port(QtWidgets.QGraphicsEllipseItem):
         pos = pos - QtCore.QPointF(self.w / 2.0, self.h / 2.0)
         scenePos = self.startPos + pos
         findPort = self.scene().itemAt(scenePos, QtGui.QTransform())
-        if findPort is not None and isinstance(findPort, Port) and not isinstance(findPort, self.__class__):
+        if (
+                findPort is not None
+                and isinstance(findPort, Port)
+                and findPort.dataType == self.floatPipe.dataType
+                and not isinstance(findPort, self.__class__)
+        ):
             if self.name != findPort.name:
                 self.connectTo(findPort)
         self.scene().removeItem(self.floatPipe)
@@ -224,8 +237,9 @@ class InputPort(Port):
     fillColor = QtGui.QColor(40, 60, 100)
 
     def __init__(self, *args, **kwargs):
+        if 'dataType' not in kwargs:
+            kwargs['dataType'] = '<stage>'
         super(InputPort, self).__init__(*args, **kwargs)
-        self.setToolTip(self.name)
 
     def _setNameTransform(self):
         self.nameTransform.translate(
@@ -241,8 +255,9 @@ class OutputPort(Port):
     fillColor = QtGui.QColor(50, 100, 80)
 
     def __init__(self, *args, **kwargs):
+        if 'dataType' not in kwargs:
+            kwargs['dataType'] = '<stage>'
         super(OutputPort, self).__init__(*args, **kwargs)
-        self.setToolTip(self.name)
 
     def _setNameTransform(self):
         self.nameTransform.translate(
@@ -259,13 +274,19 @@ class ShaderInputPort(InputPort):
     maxConnections = 1
 
     def _setNameTransform(self):
-        self.nameTransform.translate(15, -(self.nameRect.height() / 2.0 - PORT_SIZE / 2.0))
+        self.nameTransform.translate(
+            15,
+            -(self.nameRect.height() / 2.0 - PORT_SIZE / 2.0)
+        )
 
 
 class ShaderOutputPort(OutputPort):
     orientation = 1
 
     def _setNameTransform(self):
-        self.nameTransform.translate(-self.nameRect.width() - 5, -(self.nameRect.height() / 2.0 - PORT_SIZE / 2.0))
+        self.nameTransform.translate(
+            -self.nameRect.width() - 5,
+            -(self.nameRect.height() / 2.0 - PORT_SIZE / 2.0)
+        )
 
 

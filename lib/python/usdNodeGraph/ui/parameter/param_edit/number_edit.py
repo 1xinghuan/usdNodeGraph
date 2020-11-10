@@ -45,11 +45,12 @@ class NumberEditLabel(QtWidgets.QLabel):
 
 class _NumberEditWidget(QtWidgets.QWidget):
     numberSamples = [100, 10, 1, 0.1, 0.01, 0.001, 0.0001]
-    def __init__(self, *args, **kwargs):
+    def __init__(self, samples=None, *args, **kwargs):
         super(_NumberEditWidget, self).__init__(*args, **kwargs)
 
         self.editLabels = []
         self.currentEditLabel = None
+        self.samples = samples if samples is not None else self.numberSamples
 
         self.initUI()
 
@@ -59,12 +60,12 @@ class _NumberEditWidget(QtWidgets.QWidget):
         self.masterLayout.setSpacing(0)
         self.setLayout(self.masterLayout)
 
-        for i in self.numberSamples:
+        for i in self.samples:
             editLabel = NumberEditLabel(i, parent=self)
             self.masterLayout.addWidget(editLabel)
             self.editLabels.append(editLabel)
 
-        self.setFixedSize(EDIT_LABEL_WIDTH, EDIT_LABEL_HEIGHT * len(self.numberSamples))
+        self.setFixedSize(EDIT_LABEL_WIDTH, EDIT_LABEL_HEIGHT * len(self.samples))
 
     def setEditingPos(self, pos):
         y = self.height() / 2 + pos.y()
@@ -76,7 +77,7 @@ class _NumberEditWidget(QtWidgets.QWidget):
         self.editLabels[editIndex].setEditing(True)
         self.currentEditLabel = self.editLabels[editIndex]
 
-        x = pos.x()
+        x = pos.x() / 2.0
         value = x * self.currentEditLabel.sample
         self.currentEditLabel.addValue(value)
 

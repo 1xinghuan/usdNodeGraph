@@ -6,6 +6,8 @@ from usdNodeGraph.ui.utils.layout import clearLayout
 from usdNodeGraph.utils.log import get_logger
 from usdNodeGraph.ui.utils.log import LogWindow
 from ..param_edit.number_edit import IntEditWidget, FloatEditWidget
+from usdNodeGraph.utils.res import resource
+from usdNodeGraph.ui.utils.layout import FormLayout
 
 logger = get_logger('usdNodeGraph.ParameterWidget')
 
@@ -16,11 +18,14 @@ class ParameterWidget(object):
 
     @classmethod
     def createParameterWidget(cls, parameter):
-        typeName = parameter.parameterTypeString
-        parameterWidgetClass = Parameter.getParameterWidget(typeName)
+        parameterWidgetClass = parameter.getParameterWidgetClass()
 
         if parameterWidgetClass is None:
-            message = 'Un-Support Attribute Type in createParameterWidget! {}'.format(typeName)
+            message = 'Un-Support Attribute Type in createParameterWidget! {}: {}: {}'.format(
+                parameter.name(),
+                parameter.parameterTypeString,
+                parameter.getHintValue('widget', '')
+            )
             LogWindow.warning(message)
             logger.warning(message)
             return
@@ -147,6 +152,36 @@ class ParameterWidget(object):
         self._reConnectSignal()
 
 
+class ArrayIndexLabel(QtWidgets.QLabel):
+    removeClicked = QtCore.Signal(int)
+
+    def __init__(self, index):
+        super(ArrayIndexLabel, self).__init__()
+
+        self.setAlignment(QtCore.Qt.AlignCenter)
+        self.setFixedWidth(20)
+        self.setIndex(index)
+        self.removePixmap = None
+
+    def setIndex(self, index):
+        self.index = index
+        self.setText(str(index))
+
+    def enterEvent(self, QEvent):
+        super(ArrayIndexLabel, self).enterEvent(QEvent)
+        if self.removePixmap is None:
+            self.removePixmap = resource.get_pixmap('btn', 'close.png', scale=self.width())
+        self.setPixmap(self.removePixmap)
+
+    def leaveEvent(self, QEvent):
+        super(ArrayIndexLabel, self).leaveEvent(QEvent)
+        self.setText(str(self.index))
+
+    def mouseReleaseEvent(self, QMouseEvent):
+        super(ArrayIndexLabel, self).mouseReleaseEvent(QMouseEvent)
+        self.removeClicked.emit(self.index)
+
+
 class ArrayParameterWidget(QtWidgets.QWidget, ParameterWidget):
     editValueChanged = QtCore.Signal()
 
@@ -177,6 +212,7 @@ class ArrayParameterWidget(QtWidgets.QWidget, ParameterWidget):
         self.masterLayout.addWidget(self.expandButton)
         self.masterLayout.addWidget(self.scrollArea)
 
+        self.indexLabels = []
         self.editWidgets = []
         self.lineEdits = []
         self.expanded = 0
@@ -200,11 +236,13 @@ class ArrayParameterWidget(QtWidgets.QWidget, ParameterWidget):
 
         self.areaWidget = QtWidgets.QWidget()
         self.areaLayout = QtWidgets.QVBoxLayout()
+        self.areaLayout.setAlignment(QtCore.Qt.AlignTop)
         self.buttonLayout = QtWidgets.QHBoxLayout()
         self.buttonLayout.addWidget(self.addButton)
         self.buttonLayout.setAlignment(QtCore.Qt.AlignRight)
 
-        self.formLayout = QtWidgets.QFormLayout()
+        self.formLayout = FormLayout()
+        self.formLayout.setLabelAlignment(QtCore.Qt.AlignCenter)
         self.areaLayout.addLayout(self.formLayout)
         self.areaLayout.addLayout(self.buttonLayout)
         self.areaWidget.setLayout(self.areaLayout)
@@ -231,16 +269,20 @@ class ArrayParameterWidget(QtWidgets.QWidget, ParameterWidget):
         editWidgetClass = self._getEditWidgetClass()
         editWidget = editWidgetClass()
         editWidget.parameterWidget = self
+        indexLabel = ArrayIndexLabel(index)
 
         if pyTimeSamples is None:
             editWidget.setPyValue(pyValue)
         else:
             editWidget.setPyTimeSamples(pyTimeSamples)
 
-        editWidget.editValueChanged.connect(self._editValueChanged)
-
+        self.indexLabels.append(indexLabel)
         self.editWidgets.append(editWidget)
-        self.formLayout.addRow(str(index), editWidget)
+
+        editWidget.editValueChanged.connect(self._editValueChanged)
+        indexLabel.removeClicked.connect(self._editRemoveClicked)
+
+        self.formLayout.addRow(indexLabel, editWidget)
 
     def _updateUI(self):
         self.setToolTip(self._parameter.name())
@@ -250,6 +292,7 @@ class ArrayParameterWidget(QtWidgets.QWidget, ParameterWidget):
 
         if self.formLayout is not None and self.scrollArea.isVisible():
             clearLayout(self.formLayout)
+            self.indexLabels = []
             self.editWidgets = []
 
             timeSamples = self._parameter.getTimeSamples()
@@ -277,6 +320,18 @@ class ArrayParameterWidget(QtWidgets.QWidget, ParameterWidget):
         self._breakSignal()
         self._parameter.setValueAt(value, self._getCurrentTime())
         self._reConnectSignal()
+
+    def _editRemoveClicked(self, index):
+        indexLabel = self.indexLabels[index]
+        editWidget = self.editWidgets[index]
+        self.indexLabels.remove(indexLabel)
+        self.editWidgets.remove(editWidget)
+
+        self.formLayout.removeRowWidget(editWidget)
+
+        for i in self.indexLabels:
+            if i.index > index:
+                i.setIndex(i.index - 1)
 
 
 class BasicWidget(object):
@@ -329,6 +384,10 @@ class BasicLineEdit(QtWidgets.QLineEdit, BasicWidget):
         self._editWidget = None
         self._editMode = False
         self._editStartPos = None
+        self._editSamples = None
+
+    def setEditSamples(self, samples):
+        self._editSamples = samples
 
     def setValue(self, value):
         self.removeAllKeys()
@@ -416,7 +475,9 @@ class IntLineEdit(BasicLineEdit):
     def _enableEditMode(self):
         if self._editWidget is None:
             from usdNodeGraph.ui.nodeGraph import USD_NODE_GRAPH_WINDOW
-            self._editWidget = IntEditWidget(parent=USD_NODE_GRAPH_WINDOW)
+            self._editWidget = IntEditWidget(
+                samples=self._editSamples, parent=USD_NODE_GRAPH_WINDOW
+            )
             self._editWidget.show()
         super(IntLineEdit, self)._enableEditMode()
 
@@ -431,7 +492,9 @@ class FloatLineEdit(BasicLineEdit):
     def _enableEditMode(self):
         if self._editWidget is None:
             from usdNodeGraph.ui.nodeGraph import USD_NODE_GRAPH_WINDOW
-            self._editWidget = FloatEditWidget(parent=USD_NODE_GRAPH_WINDOW)
+            self._editWidget = FloatEditWidget(
+                samples=self._editSamples, parent=USD_NODE_GRAPH_WINDOW
+            )
             self._editWidget.show()
         super(FloatLineEdit, self)._enableEditMode()
 
@@ -479,9 +542,9 @@ class VecWidget(QtWidgets.QWidget):
 
         self.editValueChanged.emit()
 
-    def _setMasterWidgetEnable(self, enable):
+    def setEditorsVisible(self, visible):
         for i in self.lineEdits:
-            i.setVisible(enable)
+            i.setVisible(visible)
 
     def setPyValue(self, value):
         if not isinstance(value, list):
@@ -583,4 +646,16 @@ class MatrixWidget(VecWidget):
                     index = i * self._valueSize + j
                     lineEdit = self.lineEdits[index]
                     lineEdit.setKey(v, time)
+
+
+class VecParameterWidget(ParameterWidget):
+    def _setMasterWidgetEnable(self, enable):
+        super(VecParameterWidget, self)._setMasterWidgetEnable(enable)
+        self.setEditorsVisible(enable)
+
+    def setParameter(self, parameter, update=False):
+        super(VecParameterWidget, self).setParameter(parameter, update)
+        samples = parameter.getHintValue('samples', None)
+        for lineEdit in self.lineEdits:
+            lineEdit.setEditSamples(samples)
 

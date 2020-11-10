@@ -18,6 +18,7 @@ PORT_SPACING = 20
 
 class _UsdShadeNode(_PrimAttributeNode):
     nodeType = '_UsdShade'
+    nodeGroup = 'Shade'
     fillNormalColor = (30, 40, 70)
     borderNormalColor = (170, 250, 170, 200)
     reverse = False
@@ -26,25 +27,37 @@ class _UsdShadeNode(_PrimAttributeNode):
         parameterName = args[0]
         connectable = kwargs.get('connectable', True)
 
-        label = parameterName
-        order = None
-        if parameterName.startswith(INPUT_ATTRIBUTE_PREFIX):
-            label = parameterName.replace(INPUT_ATTRIBUTE_PREFIX, '')
-            order = len(self.item.inputConnectionPorts) + 1
+        label = kwargs.get('label', '')
 
-        if parameterName.startswith(OUTPUT_ATTRIBUTE_PREFIX):
-            label = parameterName.replace(OUTPUT_ATTRIBUTE_PREFIX, '')
-            order = len(self.item.outputConnectionPorts) + 1 + 1000
+        if label == '':
+            label = parameterName
+            order = None
+            if parameterName.startswith(INPUT_ATTRIBUTE_PREFIX):
+                label = parameterName.replace(INPUT_ATTRIBUTE_PREFIX, '')
 
-        kwargs['label'] = label
-        kwargs['order'] = order
+            if parameterName.startswith(OUTPUT_ATTRIBUTE_PREFIX):
+                label = parameterName.replace(OUTPUT_ATTRIBUTE_PREFIX, '')
+
+            kwargs['label'] = label
+
         parameter = super(_UsdShadeNode, self).addParameter(*args, **kwargs)
 
+        portLabel = label
+        page = kwargs.get('hints', {}).get('page', '')
+        validConnectionTypes = kwargs.get('hints', {}).get('validConnectionTypes', '')
+        if page != '':
+            portLabel = '>'.join(page.split('.')) + '>' + portLabel
         if parameter is not None and connectable:
             if parameterName.startswith(INPUT_ATTRIBUTE_PREFIX):
-                self.item.addShaderInputPort(parameterName, label=label)
+                self.item.addShaderInputPort(
+                    parameterName, label=portLabel,
+                    dataType=validConnectionTypes
+                )
             if parameterName.startswith(OUTPUT_ATTRIBUTE_PREFIX):
-                self.item.addShaderOutputPort(parameterName, label=label)
+                self.item.addShaderOutputPort(
+                    parameterName, label=portLabel,
+                    dataType=validConnectionTypes
+                )
 
         return parameter
 
@@ -75,6 +88,10 @@ class MaterialNode(_UsdShadeNode):
     nodeItemType = 'MaterialNodeItem'
     typeName = 'Material'
 
+    def _initParameters(self):
+        super(MaterialNode, self)._initParameters()
+        param = self.addParameter('outputs:surface', 'token', builtIn=True)
+
 
 class ShaderNode(_UsdShadeNode):
     nodeType = 'Shader'
@@ -97,9 +114,8 @@ class ShaderNode(_UsdShadeNode):
 
     def _initParameters(self):
         super(ShaderNode, self)._initParameters()
-        param = self.addParameter('info:id', 'choose', defaultValue='')
+        param = self.addParameter('info:id', 'choose', builtIn=True, hints={'options': SdrRegistry.getNodeNames()})
         param.valueTypeName = TokenParameter.valueTypeName
-        param.addItems(SdrRegistry.getNodeNames())
 
     def _whenParamterValueChanged(self, parameter):
         super(ShaderNode, self)._whenParamterValueChanged(parameter)
@@ -110,54 +126,71 @@ class ShaderNode(_UsdShadeNode):
                 self.item.forceUpdatePanelUI()
 
     def _clearParameters(self):
-        removeNames = [name for name in self._parameters.keys() if name.startswith(INPUT_ATTRIBUTE_PREFIX) or name.startswith(OUTPUT_ATTRIBUTE_PREFIX)]
+        self._oldShaderParameters = {}
+        removeNames = [
+            name for name in self._parameters.keys()
+            if name.startswith(INPUT_ATTRIBUTE_PREFIX) or name.startswith(OUTPUT_ATTRIBUTE_PREFIX)
+        ]
 
         for name in removeNames:
+            param = self.parameter(name)
+            self._oldShaderParameters.update({name: param})
             self.removeParameter(name)
             port = self.item.getPort(name)
             if port is not None:
                 port.destroy()
 
+        self.clearPages()
+
     def _addParameterFromProperty(self, paramName, property):
+        hints = {}
+        connectable = True
+        defaultValue = None
+        label = paramName
+
         if property is None:  # default out output
-            connectable = True
-            paramType = 'string'
-            defaultValue = None
+            paramType = 'token'
         else:
             connectable = property.IsConnectable()
             # sometimes this return False but the attribute has connect so always return True here
             connectable = True
             paramType = str(property.GetTypeAsSdfType()[0])
             defaultValue = property.GetDefaultValue()
+            label = property.GetLabel()
+
+            hints.update(property.GetMetadata())
+            hints.update({'options': property.GetOptions()})
+            if hints.get('widget') in ['default', 'dynamicArray', 'null']:
+                hints['widget'] = ''
+            elif hints.get('widget') == 'checkBox':
+                hints['widget'] = 'boolean'
+            elif hints.get('widget') == 'mapper':
+                hints['widget'] = 'choose'
+            hints.update({'samples': '[1, 0.1, 0.01, 0.001, 0.0001]'})
 
         param = self.addParameter(
             paramName, paramType,
             defaultValue=defaultValue,
-            custom=True, connectable=connectable
+            label=label,
+            connectable=connectable,
+            hints=hints
         )
 
         if param is not None:
             oldParam = self._oldShaderParameters.get(paramName)
             if oldParam is not None:
                 param._metadata = oldParam._metadata
-                if oldParam.hasConnect():
-                    param.setConnectQuietly(oldParam.getConnect())
-                elif (
-                        (param.parameterTypeString == oldParam.parameterTypeString)
-                        or (param.getValueDefault() == oldParam.getValueDefault())
-                ):
-                    if oldParam.hasKey():
+                if oldParam.isOverride():
+                    if oldParam.hasConnect():
+                        param.setConnectQuietly(oldParam.getConnect())
+                    elif oldParam.hasKey():
                         param.setTimeSamples(oldParam.getTimeSamples())
-                    else:
-                        param.setValueQuietly(oldParam.getValue())
 
             return param
 
     def _addParametersFromShaderNode(self, shaderNode):
         inputNames = shaderNode.GetInputNames()
         outputNames = shaderNode.GetOutputNames()
-        inputNames.sort()
-        outputNames.sort()
         if len(outputNames) == 0:
             outputNames.append('out')
 
@@ -175,6 +208,8 @@ class ShaderNode(_UsdShadeNode):
 
     def resetParameters(self):
         shaderName = self.parameter('info:id').getValue()
+        if shaderName in ['', None, 'None']:
+            return
         shaderNode = SdrRegistry.getShaderNodeByName(shaderName)
         if shaderNode is not None:
             self._clearParameters()

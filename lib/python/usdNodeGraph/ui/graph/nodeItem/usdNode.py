@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from usdNodeGraph.ui.graph.nodeItem.nodeItem import NodeItem
+from usdNodeGraph.module.sqt import QtWidgets
+from .nodeItem import NodeItem
 
 
 class UsdNodeItem(NodeItem):
@@ -14,6 +15,21 @@ class UsdNodeItem(NodeItem):
 
     def execute(self, stage, prim):
         return self.nodeObject.execute(stage, prim)
+
+    def getPrimPath(self):
+        return self.nodeObject.getPrimPath()
+
+    def getContextMenus(self):
+        menus = super(UsdNodeItem, self).getContextMenus()
+        menus.extend([
+            ['copy_path', 'Copy Prim Path', None, self._copyPathActionTriggered],
+        ])
+        return menus
+
+    def _copyPathActionTriggered(self):
+        path = ' + '.join(self.nodeObject.getPrimPath())
+        cb = QtWidgets.QApplication.clipboard()
+        cb.setText(path)
 
 
 NodeItem.registerNodeItem(UsdNodeItem)

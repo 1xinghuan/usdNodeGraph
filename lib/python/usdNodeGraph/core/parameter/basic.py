@@ -8,20 +8,25 @@ from usdNodeGraph.module.sqt import QtCore
 
 class Parameter(QtCore.QObject):
     parameterTypeString = None
+    parameterWidgetString = None
     valueTypeName = None
     valueDefault = None
     valueChanged = QtCore.Signal(object)
 
     _parametersMap = {}
+    _parameterWidgetsMap = {}
 
     @classmethod
-    def registerParameter(cls, parameterClass, parameterWidget):
+    def registerParameter(cls, parameterClass):
         typeName = parameterClass.parameterTypeString
         cls._parametersMap.update({
-            typeName: {
-                'parameterClass': parameterClass,
-                'parameterWidget': parameterWidget
-            }
+            typeName: parameterClass
+        })
+
+    @classmethod
+    def registerParameterWidget(cls, typeName, parameterWidget):
+        cls._parameterWidgetsMap.update({
+            typeName: parameterWidget
         })
 
     @classmethod
@@ -30,11 +35,7 @@ class Parameter(QtCore.QObject):
 
     @classmethod
     def getParameter(cls, typeName):
-        return cls._parametersMap.get(typeName, {}).get('parameterClass')
-
-    @classmethod
-    def getParameterWidget(cls, typeName):
-        return cls._parametersMap.get(typeName, {}).get('parameterWidget')
+        return cls._parametersMap.get(typeName)
 
     @classmethod
     def getValueDefault(cls):
@@ -113,15 +114,14 @@ class Parameter(QtCore.QObject):
             builtIn=False,
             visible=True,
             label=None,
-            order=None,
             custom=False,
+            hints=None,
             **kwargs
     ):
         super(Parameter, self).__init__()
 
         self._name = name
         self._label = name if label is None else label
-        self._order = order
         self._node = parent
 
         defaultValue = defaultValue if defaultValue is not None else self.getValueDefault()
@@ -137,6 +137,11 @@ class Parameter(QtCore.QObject):
         self._inheritConnect = None
 
         self._metadata = {}
+        self._defaultMetadata = {}
+
+        self._hints = {} if hints is None else hints
+        self.initHints(self._hints)
+        self._defaultHints = self._hints.copy()
 
         self._builtIn = builtIn
         self._visible = visible
@@ -146,6 +151,11 @@ class Parameter(QtCore.QObject):
 
         self._signalConnected = False
         self._reConnectSignal()
+
+    def initHints(self, hints):
+        widget = hints.get('widget', '')
+        if widget == '':
+            hints['widget'] = self.parameterWidgetString
 
     def addParamWidget(self, w):
         if w not in self._paramWidgets:
@@ -221,6 +231,10 @@ class Parameter(QtCore.QObject):
         else:
             return self.getInheritValue(time)
 
+    def getPyValue(self):
+        v = self.getValue()
+        return self.convertValueToPy(v)
+
     def getInheritTimeSamples(self):
         return self._inheritTimeSamples
 
@@ -239,8 +253,11 @@ class Parameter(QtCore.QObject):
     def getConnect(self):
         return self._overrideConnect if self.isOverride() else self._inheritConnect
 
-    def hasMetadata(self):
+    def hasMetadatas(self):
         return self._metadata != {}
+
+    def hasMetadata(self, key):
+        return key in self._metadata
 
     def getMetadataKyes(self):
         return self._metadata.keys()
@@ -256,16 +273,44 @@ class Parameter(QtCore.QObject):
     def getMetadatas(self):
         return self._metadata
 
+    def getDefaultMetadatas(self):
+        return self._defaultMetadata
+
     def getMetadatasAsString(self):
         return json.dumps(self._metadata, indent=4)
+
+    def hasHint(self, key):
+        return key in self._hints
+
+    def getHints(self):
+        return self._hints
+
+    def getDefaultHints(self):
+        return self._defaultHints
+
+    def getHintValue(self, key, defaultValue=None):
+        strValue = self._hints.get(key, defaultValue)
+        try:
+            value = eval(strValue)
+        except:
+            value = strValue
+        return value
+
+    def getParameterWidgetClass(self):
+        typeName = self.getHintValue('widget')
+        widgetClass = self._parameterWidgetsMap.get(typeName)
+        return widgetClass
 
     # --------------------set value--------------------
     def setMetadata(self, key, value):
         if key == 'custom' and value in [False, 'False']:
             return
-        elif key == 'variability' and value in [Sdf.VariabilityVarying, 'Sdf.VariabilityVarying']:
+        if key == 'variability' and value in [Sdf.VariabilityVarying, 'Sdf.VariabilityVarying']:
             return
         self._metadata[key] = str(value)
+
+    def setHint(self, key, value):
+        self._hints[key] = str(value)
 
     def _beforeSetValue(self):
         for w in self._paramWidgets:
@@ -361,21 +406,15 @@ class Parameter(QtCore.QObject):
             return self._inheritValue, self._inheritTimeSamples, self._inheritConnect
 
     def isCustom(self):
-        return self._isCustom
+        if self._isCustom in [True, 'True', '1']:
+            return True
+        return False
 
     def setLabel(self, label):
         self._label = label
 
     def getLabel(self):
         return self._label
-
-    def setOrder(self, order):
-        self._order = order
-
-    def getOrder(self):
-        if self._order is not None:
-            return self._order
-        return self.getLabel()
 
     def setOverride(self, override):
         self._valueOverride = override
@@ -388,6 +427,7 @@ class Parameter(QtCore.QObject):
         from usdNodeGraph.core.parse._xml import ET
 
         custom = self.isCustom()
+        builtIn = self.isBuiltIn()
         visible = self.isVisible()
 
         timeSamplesDict = None
@@ -405,28 +445,39 @@ class Parameter(QtCore.QObject):
             value = self.convertValueToPy(self.getValue())
 
         paramElement = ET.Element('p')
-        paramElement.set('name', self.name())
+        paramElement.set('n', self.name())
 
-        if custom:
-            paramElement.set('parameterType', self.parameterTypeString)
+        if not builtIn:
+            paramElement.set('t', self.parameterTypeString)
             if not visible:
-                paramElement.set('visible', '0')
-
-        paramElement.set('value', str(value))
+                paramElement.set('vis', '0')
+        if custom:
+            paramElement.set('cus', str(custom))
+        paramElement.set('val', str(value))
         if connect is not None:
-            paramElement.set('connect', connect)
+            paramElement.set('con', connect)
         if timeSamplesDict is not None:
             for t, v in timeSamplesDict.items():
                 sample = ET.Element('s')
-                sample.set('time', str(t))
-                sample.set('value', str(v))
+                sample.set('t', str(t))
+                sample.set('v', str(v))
                 paramElement.append(sample)
 
         for key, value in self.getMetadatas().items():
+            if key in self.getDefaultMetadatas() and value == self.getDefaultMetadatas().get(key):
+                continue
             metadataElement = ET.Element('m')
-            metadataElement.set('key', key)
-            metadataElement.set('value', value)
+            metadataElement.set('k', key)
+            metadataElement.set('v', value)
             paramElement.append(metadataElement)
+
+        for key, value in self.getHints().items():
+            if key in self.getDefaultHints() and value == self.getDefaultHints().get(key):
+                continue
+            hintElement = ET.Element('h')
+            hintElement.set('k', str(key))
+            hintElement.set('v', str(value))
+            paramElement.append(hintElement)
 
         return paramElement
 
