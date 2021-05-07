@@ -40,7 +40,7 @@ class MetadataPanel(QtWidgets.QTableWidget):
 
         self.clearContents()
 
-        keys = self.metadatas.keys()
+        keys = list(self.metadatas.keys())
         keys.sort()
 
         self.setRowCount(len(keys))

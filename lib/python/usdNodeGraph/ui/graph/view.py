@@ -449,7 +449,7 @@ class GraphicsView(QtWidgets.QGraphicsView, DropWidget, WithMenuObject):
     def _getContextMenus(self):
         actions = []
         groupDict = Node.getNodesByGroup()
-        groups = groupDict.keys()
+        groups = list(groupDict.keys())
         groups.sort()
         for group in groups:
             nodeActions = []
@@ -738,7 +738,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             self._getIntoPrim(child, node)
 
     def _getPrimAttributes(self, primSpec, upNode):
-        attrs = primSpec.attributes.keys()
+        attrs = list(primSpec.attributes.keys())
         if len(attrs) == 0:
             return upNode
 
@@ -757,7 +757,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         return upNode
 
     def _getPrimRelationships(self, primSpec, upNode):
-        attrs = primSpec.relationships.keys()
+        attrs = list(primSpec.relationships.keys())
         if len(attrs) == 0:
             return upNode
 
@@ -819,7 +819,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
     def _getUniqueName(self, name):
         # nodes = self.allNodes()
         # names = [n.name() for n in nodes]
-        names = self._allNodes.values()
+        names = list(self._allNodes.values())
 
         match = re.match(NODE_NAME_PATTERN, name)
         if match:
@@ -848,11 +848,19 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         return name, suffix, index
 
     def _executeLayerNodes(self, stage, nodes):
-        nodes.sort(lambda n1,n2: cmp(n1.pos().y(),n2.pos().y()))
+        from functools import cmp_to_key
+        nodes.sort(key=cmp_to_key(self._node_cmp))
         for node in nodes:
             stage, _ = node.execute(stage, None)
 
         return stage
+
+    def _node_cmp(self, n1, n2):
+        if n1.pos().y() > n2.pos().y():
+            return 1
+        if n1.pos().y() < n2.pos().y():
+            return -1
+        return 0
 
     def _executeNode(self, node, stage, prim):
         stage, prim = node.execute(stage, prim)
@@ -1071,7 +1079,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             pipe.updatePath()
 
     def allNodes(self):
-        return self._allNodes.keys()
+        return list(self._allNodes.keys())
         # nodes = [item for item in self.items() if isinstance(item, NodeItem)]
         # return nodes
 
@@ -1276,7 +1284,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
             QtWidgets.QMessageBox.warning(None, 'Warning', 'This layer can\'t be exported!')
             return
         stage = self._executeAllToStage()
-        print exportFile
+        print(exportFile)
         stage.GetRootLayer().Export(exportFile)
 
     def exportToFile(self):

@@ -47,7 +47,7 @@ def loadPlugins():
     # Load each plugin in alphabetical order by name. For each plugin, load all
     # of its containers in alphabetical order by type name.
     allContainers = []
-    for plugin in sorted(plugins.keys(), key=lambda plugin: plugin.name):
+    for plugin in sorted(list(plugins.keys()), key=lambda plugin: plugin.name):
         plugin.Load()
         pluginContainerTypes = sorted(
             plugins[plugin], key=lambda containerType: containerType.typeName)

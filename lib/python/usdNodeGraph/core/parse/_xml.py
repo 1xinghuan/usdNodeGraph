@@ -14,7 +14,7 @@ def fixedWritexml(self, writer, indent="", addindent="", newl=""):
     writer.write(indent+"<" + self.tagName)
 
     attrs = self._get_attributes()
-    a_names = attrs.keys()
+    a_names = list(attrs.keys())
     a_names.sort()
 
     for a_name in a_names:

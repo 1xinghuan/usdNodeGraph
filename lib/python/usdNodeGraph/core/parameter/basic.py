@@ -31,7 +31,7 @@ class Parameter(QtCore.QObject):
 
     @classmethod
     def getParameterTypes(cls):
-        return cls._parametersMap.keys()
+        return list(cls._parametersMap.keys())
 
     @classmethod
     def getParameter(cls, typeName):
@@ -77,7 +77,7 @@ class Parameter(QtCore.QObject):
 
     @classmethod
     def getIntervalValue(cls, timeSamples, time):
-        keys = timeSamples.keys()
+        keys = list(timeSamples.keys())
         keys.sort()
         if time <= keys[0]:
             return timeSamples[keys[0]]
@@ -260,7 +260,7 @@ class Parameter(QtCore.QObject):
         return key in self._metadata
 
     def getMetadataKyes(self):
-        return self._metadata.keys()
+        return list(self._metadata.keys())
 
     def getMetadataValue(self, key, default=None):
         strValue = self._metadata.get(key, default)
@@ -332,7 +332,7 @@ class Parameter(QtCore.QObject):
         time = float(time)
         if self.hasKey() and time in self._overrideTimeSamples.keys():
             self._overrideTimeSamples.pop(time)
-            if len(self._overrideTimeSamples.keys()) == 0:
+            if len(list(self._overrideTimeSamples.keys())) == 0:
                 self._overrideTimeSamples = None
             if emitSignal:
                 self.valueChanged.emit(self)

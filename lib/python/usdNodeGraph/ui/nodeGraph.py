@@ -139,7 +139,7 @@ class UsdNodeGraph(QtWidgets.QMainWindow, WithMenuObject):
     def _getNodeActions(self):
         actions = []
         groupDict = Node.getNodesByGroup()
-        groups = groupDict.keys()
+        groups = list(groupDict.keys())
         groups.sort()
         for group in groups:
             nodeActions = []

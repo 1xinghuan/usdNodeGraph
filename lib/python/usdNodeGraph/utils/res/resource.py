@@ -4,6 +4,7 @@
 import os
 import sys
 from usdNodeGraph.module.sqt import *
+from usdNodeGraph.utils.pyversion import *
 
 
 RES_FOLDER = '/'.join(__file__.replace('\\', '/').split('/')[:-3]) + '/resource'

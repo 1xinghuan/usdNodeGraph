@@ -26,5 +26,5 @@ def to_unicode(qstring):
 
 # for pycharm auto complete
 if False:
-    from PyQt5 import QtSvg, QtCharts, QtOpenGL, QtWidgets, QtCore, QtGui
+    from PySide2 import QtSvg, QtCharts, QtOpenGL, QtWidgets, QtCore, QtGui
 
