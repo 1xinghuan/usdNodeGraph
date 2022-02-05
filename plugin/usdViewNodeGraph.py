@@ -4,17 +4,19 @@ from pxr.Usdviewq.plugin import PluginContainer
 from pxr.Usdviewq.qt import QtWidgets, QtCore
 
 
-def whenStateTimeChanged(**kwargs):
-    # todo: can't set frame from usdviewApi
-    pass
-
-
 def openNodeGraph(usdviewApi):
     from usdNodeGraph.api import GraphState, Node, UsdNodeGraph
 
     def test_func():
         print('Support Node Types:')
         print(Node.getAllNodeClassNames())
+
+    def whenStateTimeChanged(**kwargs):
+        if hasattr(usdviewApi, 'setFrame'):
+            try:
+                usdviewApi.setFrame(kwargs.get('time'))
+            except:
+                pass
 
     GraphState.addCallback('stageTimeChanged', whenStateTimeChanged)
 

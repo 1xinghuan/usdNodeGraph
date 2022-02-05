@@ -1,6 +1,6 @@
 # UsdNodeGraph
 
-![screenshot01](screenshot/screenshot00.png)
+![screenshot01](screenshot/screenshot01.png)
 
 You can use the node view to preview the usd file and simply edit the usd file, such as overriding prim, switching variants, adding references or payloads, and modifying attributes.
 
@@ -39,7 +39,7 @@ or [PySide2](http://download.qt.io/snapshots/ci/pyside/)
 
 usdview:
 
-![screenshot01](screenshot/screenshot01.png)
+![screenshot01](screenshot/screenshot02.png)
 
 ```bash
 export PYTHONPATH=$USD_NODEGRAPH_ROOT/lib/python:$PYTHONPATH
@@ -49,7 +49,7 @@ export PXR_PLUGINPATH_NAME=$USD_NODEGRAPH_ROOT/plugin:$PXR_PLUGINPATH_NAME
 
 maya:
 
-![maya01](screenshot/screenshot02.png)
+![maya01](screenshot/maya01.png)
 
 ```bash
 export PYTHONPATH=$USD_NODEGRAPH_ROOT/lib/python:$PYTHONPATH

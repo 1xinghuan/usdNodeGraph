@@ -212,7 +212,7 @@ class Parameter(QtCore.QObject):
             return _value
         else:
             if time is None:
-                return _timeSamples.values()[0]
+                return list(_timeSamples.values())[0]
             else:
                 value = self.getIntervalValue(_timeSamples, time)
                 return value

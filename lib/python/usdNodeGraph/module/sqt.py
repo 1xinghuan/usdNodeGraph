@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 
+import os
 import sys
+
 from Qt import __binding__, QtWidgets, QtCore, QtGui
+
+# QtCore.Signal = QtCore.pyqtSignal
 
 PY_MAIN_VERSION = sys.version_info[0]
 

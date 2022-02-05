@@ -1341,7 +1341,7 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
 
     def reSyncPaths(self):
         self._primNodes = {}
-        self.reSyncPath(self.rootNode.nodeObject)
+        self.reSyncPath(self.getRootNode().nodeObject)
 
     def findNodeAtPath(self, path):
         self.reSyncPaths()
@@ -1366,7 +1366,11 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         self.clearSelection()
 
         primPath = findPath
-        addPath = path.replace(findPath, '')
+        if findPath != '/':
+            addPath = path.replace(findPath, '')
+        else:
+            addPath = path
+
         addPrimNames = addPath.split('/')
         for findNode in findNodes:
             currentNode = findNode

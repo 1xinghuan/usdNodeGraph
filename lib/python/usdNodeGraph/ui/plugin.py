@@ -26,6 +26,9 @@ import sys
 from pxr import Tf, Plug
 
 
+PLUGIN_LOADED = False
+
+
 class PluginContainer(object):
     def registerPlugins(self):
         pass
@@ -35,6 +38,9 @@ PluginContainerTfType = Tf.Type.Define(PluginContainer)
 
 
 def loadPlugins():
+    global PLUGIN_LOADED
+    if PLUGIN_LOADED:
+        return
     containerTypes = Plug.Registry.GetAllDerivedTypes(PluginContainerTfType)
 
     # Find all plugins and plugin container types through libplug.
@@ -68,4 +74,6 @@ def loadPlugins():
 
     for container in allContainers:
         container.registerPlugins()
+
+    PLUGIN_LOADED = True
 
