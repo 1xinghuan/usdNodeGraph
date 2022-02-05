@@ -73,11 +73,11 @@ class Node(QtCore.QObject):
 
     @classmethod
     def getAllNodeClassNames(cls):
-        return cls._nodeTypes.keys()
+        return list(cls._nodeTypes.keys())
 
     @classmethod
     def getAllNodeClass(cls):
-        return cls._nodeTypes.values()
+        return list(cls._nodeTypes.values())
 
     @classmethod
     def setParameterDefault(cls, parameterName, value):
@@ -129,7 +129,7 @@ class Node(QtCore.QObject):
             'fillColor': Color4fParameter(name='fillColor', parent=self, builtIn=True, hints={'showEditor': 'False', 'tab': 'None'}, defaultValue=self.convertColorToFloat(self.fillNormalColor)),
             'borderColor': Color4fParameter(name='borderColor', parent=self, builtIn=True, hints={'showEditor': 'False', 'tab': 'None'}, defaultValue=self.convertColorToFloat(self.borderNormalColor)),
         }
-        self._parametersName = self._parameters.keys()
+        self._parametersName = list(self._parameters.keys())
         self._parametersName.sort()
 
     def _initDefaults(self):

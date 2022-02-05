@@ -125,5 +125,5 @@ if __name__ == '__main__':
         '/root/world/lgt_rim',
     ]
 
-    print resolveCELString(s, all)
+    print(resolveCELString(s, all))
 

@@ -564,7 +564,7 @@ class ParameterPanel(QtWidgets.QWidget):
 
     def _removeExtraWidgets(self):
         num = int(self.widgetNumEdit.text())
-        indexs = range(len(self._widgets))
+        indexs = list(range(len(self._widgets)))
         indexs.sort(reverse=True)
         for i in indexs:
             if i + 1 > num:

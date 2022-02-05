@@ -426,7 +426,7 @@ class NodeItem(_BaseNodeItem):
             pyString = ' '.join(expString.split(' ')[1:]).replace(']', '')
             try:
                 result = eval(pyString, globals(), Node._expressionMap)
-            except Exception, e:
+            except(Exception) as e:
                 result = e
             label = label.replace(expString, str(result))
 

@@ -4,6 +4,8 @@
 
 You can use the node view to preview the usd file and simply edit the usd file, such as overriding prim, switching variants, adding references or payloads, and modifying attributes.
 
+See [USD Workflow](https://www.youtube.com/watch?v=tJuxOXpYoOM)
+
 
 ## Current Support
 

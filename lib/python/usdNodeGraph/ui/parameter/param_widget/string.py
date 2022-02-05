@@ -1,5 +1,6 @@
 from .basic import ParameterWidget, VecWidget, VecParameterWidget
 from usdNodeGraph.module.sqt import *
+from usdNodeGraph.utils.pyversion import *
 
 
 class StringParameterWidget(VecWidget, VecParameterWidget):

@@ -299,7 +299,7 @@ class ArrayParameterWidget(QtWidgets.QWidget, ParameterWidget):
             if timeSamples is not None:
                 timeSamples = self._parameter.convertTimeSamplesToPy(timeSamples)
 
-                valueNum = len(timeSamples.values()[0])
+                valueNum = len(list(timeSamples.values())[0])
 
                 for index in range(valueNum):
                     indexPyTimeSamples = {}

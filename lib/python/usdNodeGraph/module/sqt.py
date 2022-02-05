@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 
+import os
 import sys
+
 from Qt import __binding__, QtWidgets, QtCore, QtGui
+
+# QtCore.Signal = QtCore.pyqtSignal
 
 PY_MAIN_VERSION = sys.version_info[0]
 
@@ -26,5 +30,5 @@ def to_unicode(qstring):
 
 # for pycharm auto complete
 if False:
-    from PyQt5 import QtSvg, QtCharts, QtOpenGL, QtWidgets, QtCore, QtGui
+    from PySide2 import QtSvg, QtCharts, QtOpenGL, QtWidgets, QtCore, QtGui
 

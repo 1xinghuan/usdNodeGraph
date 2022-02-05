@@ -9,6 +9,7 @@ from usdNodeGraph.core.parameter import Vec3fParameter, TokenArrayParameter
 from usdNodeGraph.utils.const import consts
 from usdNodeGraph.core.state.core import GraphState
 from usdNodeGraph.ui.utils.log import LogWindow
+from usdNodeGraph.utils.pyversion import *
 
 ATTR_CHECK_OP = consts(
     EXACT='exact',
@@ -84,7 +85,7 @@ class UsdNode(Node):
         return value
 
     def getMetadataKeys(self):
-        return self._metadata.keys()
+        return list(self._metadata.keys())
 
     def getMetadatas(self):
         return self._metadata
@@ -107,7 +108,7 @@ class UsdNode(Node):
             self._beforeExecute(stage, prim)
             try:
                 stage, prim = self._execute(stage, prim)
-            except Exception as e:
+            except(Exception) as e:
                 traceback.print_exc()
                 LogWindow.error('Node Execute Error: {}\n{}'.format(self.name(), e))
             self._afterExecute(stage, prim)
@@ -151,7 +152,7 @@ class UsdNode(Node):
         return self._primPaths
 
     def getExecuteParams(self):
-        parameters = self._parameters.values()
+        parameters = list(self._parameters.values())
         params = [
             param for param in parameters if (
                     (param.isOverride() or param.hasMetadatas())
@@ -215,11 +216,11 @@ class MetadataNode(UsdNode):
 
     @classmethod
     def getIgnorePrimInfoKeys(cls):
-        return cls._metadataNodeMap.keys()
+        return list(cls._metadataNodeMap.keys())
 
     @classmethod
     def getNodes(cls):
-        return cls._metadataNodeMap.values()
+        return list(cls._metadataNodeMap.values())
 
     @classmethod
     def getMetadataNodeClass(cls, key):
